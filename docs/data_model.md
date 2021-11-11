@@ -10,6 +10,10 @@ origin
 - type: string
 - example: zenodo, figshare, osf
 
+doi:
+- type: string
+- example: 10.6084/m9.figshare.104603.v3, 10.5281/zenodo.3814193
+
 title
 - type: string
 - example: 
@@ -36,7 +40,7 @@ author:
 
 keywords:
 - type: string with keywords separated by ;
-- example: 
+- example: molecular dynamics, gromacs
 
 file_number
 - type: int
