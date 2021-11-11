@@ -4,6 +4,7 @@ from pathlib import Path
 import requests
 import dotenv
 
+
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
     dotenv.load_dotenv(".env")
@@ -20,9 +21,6 @@ print(f"Status code:{r.status_code}")
 # Status code should be 200
 
 
-
-
-
 def search_zenodo(page=1, hits_per_page=10, year=2016):
     response = requests.get("https://zenodo.org/api/records",
                             params={"q": ("(title:(+molecular +dynamics) OR description:(+molecular +dynamics)')"
@@ -34,6 +32,8 @@ def search_zenodo(page=1, hits_per_page=10, year=2016):
                                     "status": "published",
                                     "access_token": ZENODO_TOKEN})
     return response.json()
+
+
 resp_json = search_zenodo(hits_per_page=100, year=2017)
 total_hits = resp_json["hits"]["total"]
 print(f'Number of hits: {total_hits}')
