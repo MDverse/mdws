@@ -1,0 +1,24 @@
+name: mdws
+# channels priority
+# see https://bioconda.github.io/
+# conda-forge has highest priority
+channels:
+    - defaults
+    - bioconda
+    - conda-forge
+dependencies:
+    - python=3.9
+    - pip
+    - jupyterlab=3
+    - pylint
+    - pycodestyle
+    - pydocstyle
+    - numpy
+    - scipy
+    - pandas
+    - matplotlib
+    - plotly
+    - requests
+    - python-dotenv
+    - pip:
+        - watermark
