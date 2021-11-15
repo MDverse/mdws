@@ -7,7 +7,7 @@ import dotenv
 
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
-    dotenv.load_dotenv(".env")
+    dotenv.load_dotenv(".env.txt")
     return os.environ.get("ZENODO_TOKEN", "default")
 
 
@@ -16,7 +16,7 @@ print(ZENODO_TOKEN)
 
 # Basic Zenodo query
 r = requests.get('https://zenodo.org/api/deposit/depositions',
-                 params={'access_token':ZENODO_TOKEN})
+                 params={'access_token': ZENODO_TOKEN})
 print(f"Status code:{r.status_code}")
 # Status code should be 200
 
@@ -45,3 +45,60 @@ response = requests.get("https://zenodo.org/api/records/53887",
                         params={"access_token": ZENODO_TOKEN})
 resp_json = response.json()
 print(resp_json)
+
+# Query:
+# resource_type.type:"dataset" AND filetype:"tpr"
+
+
+def extract_records(response_json):
+    """Extract information from the Zenodo records.
+    Arguments:
+        response_json: JSON object obtained after a request on Zenodo
+    Returns:
+        records: list of information about depositions
+        files: list of information about deposition files
+    """
+    records = []
+    files = []
+    for hit in response_json["hits"]["hits"]:
+        record = {}
+        record["id"] = hit["id"]
+        record["conceptid"] = hit["conceptrecid"]
+        record["date_created"] = hit["created"]
+        record["date_updated"] = hit["updated"]
+        record["title"] = hit["metadata"]["title"]
+        record["description"] = hit["metadata"]["description"]
+        record["access_right"] = hit["metadata"]["access_right"]
+        if record["access_right"] != "open":
+            continue
+        record["license"] = hit["metadata"]["license"]["id"]
+        records.append(record)
+        for file_in in hit["files"]:
+            file_dict = {"record_id": record["id"],
+                            "name": file_in["key"],
+                            "type": file_in["type"],
+                            "size": file_in["size"]}
+            files.append(file_dict)
+    return records, files
+
+
+zenodo_records = []
+zenodo_files = []
+max_hits_per_record = 10_000
+max_hits_per_page = 100
+for year in range(2010, 2022):
+    resp_json = search_zenodo(hits_per_page=1, year=year)
+    total_hits = resp_json["hits"]["total"]
+    page_max = total_hits//max_hits_per_page + 1
+    for page in range(1, page_max+1):
+        resp_json = search_zenodo(page=page, hits_per_page=max_hits_per_page, year=year)
+        records_tmp, files_tmp = extract_records(resp_json)
+        zenodo_records += records_tmp
+        zenodo_files += files_tmp
+        print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
+        if page * max_hits_per_page >= max_hits_per_record:
+            print("Max hits per query reached!")
+            break
+
+print(f"Number of Zenodo records found: {len(zenodo_records)}")
+print(f"Number of files found: {len(zenodo_files)}")
