@@ -46,9 +46,7 @@ response = requests.get("https://zenodo.org/api/records/53887",
                         params={"access_token": ZENODO_TOKEN})
 resp_json = response.json()
 #print(resp_json)
-#print(resp_json["metadata"]["keywords"])
-#print(' ; '.join([str(elem) for elem in resp_json["metadata"]["keywords"]]))
-#print(resp_json["metadata"]["creators"][0]["name"])
+
 
 # Query:
 # resource_type.type:"dataset" AND filetype:"tpr"
@@ -86,10 +84,24 @@ def extract_records(response_json):
         record["license"] = hit["metadata"]["license"]["id"]
         records.append(record)
         for file_in in hit["files"]:
-            file_dict = {"record_id": record["dataset_id"],
-                            "name": file_in["key"],
-                            "type": file_in["type"],
-                            "size": file_in["size"]}
+            file_dict = {"dataset_id": record["dataset_id"],
+                         "origin": record["origin"],
+                         "doi": record["doi"],
+                         "title": record["title"],
+                         "date_creation": record["date_creation"],
+                         "date_last_modified": record["date_last_modified"],
+                         "author" : record["author"],
+                         "keywords": record["keywords"],
+                         "file_number": record["file_number"],
+                         "download_number": record["download_number"],
+                         "view_number": record["view_number"],
+                         "license": record["license"],
+                         "file_name": file_in["key"],
+                         "file_extension": file_in["type"],
+                         "file_size": file_in["size"],
+                         "file_url": file_in["links"],
+                         "file_md5": file_in["checksum"],
+                         "file_type": file_in["type"]}
             files.append(file_dict)
     return records, files
 
@@ -119,3 +131,7 @@ print(f"Number of files found: {len(zenodo_files)}")
 records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
 records_df.to_csv("datasets.csv")
 print(records_df.shape)
+
+files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
+files_df.to_csv("files.csv")
+print(files_df.shape)
