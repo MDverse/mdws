@@ -25,6 +25,8 @@ print(f"Status code:{r.status_code}")
 
 
 def search_zenodo(page=1, hits_per_page=10, year=2016):
+    """Makes a request on the Zenodo website.
+    """
     response = requests.get("https://zenodo.org/api/records",
                             params={"q": ("(title:(+molecular +dynamics) OR description:(+molecular +dynamics)')"
                                           f" AND publication_date:[{year}-01-01 TO {year}-12-31]"
@@ -47,7 +49,25 @@ def search_zenodo(page=1, hits_per_page=10, year=2016):
 response = requests.get("https://zenodo.org/api/records/53887",
                         params={"access_token": ZENODO_TOKEN})
 resp_json = response.json()
+
+
 # print(resp_json)
+
+
+# Query: resource_type.type:"dataset" AND filetype:"tpr"
+# on the Zenodo website, we find 483 datasets.
+
+def search_tpr_zenodo(page=1, hits_per_page=10, year=2016):
+    """Search for datasets containing tpr files.
+    """
+    response = requests.get("https://zenodo.org/api/records",
+                            params={"q": 'resource_type.type:"dataset" AND filetype:"tpr"',
+                                    "type": "dataset",
+                                    "size": hits_per_page,
+                                    "page": page,
+                                    "status": "published",
+                                    "access_token": ZENODO_TOKEN})
+    return response.json()
 
 
 def extract_records(response_json):
@@ -109,11 +129,11 @@ zenodo_files = []
 max_hits_per_record = 10_000
 max_hits_per_page = 100
 for year in range(2010, 2022):
-    resp_json = search_zenodo(hits_per_page=1, year=year)
+    resp_json = search_tpr_zenodo(hits_per_page=1, year=year)
     total_hits = resp_json["hits"]["total"]
     page_max = total_hits // max_hits_per_page + 1
     for page in range(1, page_max + 1):
-        resp_json = search_zenodo(page=page, hits_per_page=max_hits_per_page, year=year)
+        resp_json = search_tpr_zenodo(page=page, hits_per_page=max_hits_per_page, year=year)
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
         zenodo_files += files_tmp
@@ -122,21 +142,21 @@ for year in range(2010, 2022):
             print("Max hits per query reached!")
             break
 
-print(resp_json)
-print(f"Number of Zenodo datasets found: {len(zenodo_records)}")
-print(f"Number of files found: {len(zenodo_files)}")
+print(f"Number of Zenodo datasets found: {len(zenodo_records)}")  # there are 5796 datasets
+print(f"Number of files found: {len(zenodo_files)}")  # 139 512 files
 
 records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
 records_df.to_csv("datasets.csv")
-print(records_df.shape)
+# print(records_df.shape)
 
 files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
 files_df.to_csv("files.csv")
-print(files_df.shape)
+# print(files_df.shape)
 
-# Query:
-# resource_type.type:"dataset" AND filetype:"tpr"
 
-interest_df = files_df[files_df["file_type"].isin(["tpr"])]
-print(interest_df.shape)
+interest_df = pd.DataFrame(files_df[files_df["file_type"].isin(["tpr"])])
+interest_df.to_csv("interest.csv")
+# print(interest_df.shape)
 
+interest_df.drop_duplicates(subset="title", keep='first', inplace=True)
+print(f"Number of datasets found with tpr files: {interest_df.shape[0]}")  # 473 datasets with tpr files
