@@ -3,6 +3,7 @@ from pathlib import Path
 
 import requests
 import dotenv
+import pandas as pd
 
 
 def read_zenodo_token():
@@ -34,9 +35,9 @@ def search_zenodo(page=1, hits_per_page=10, year=2016):
     return response.json()
 
 
-resp_json = search_zenodo(hits_per_page=100, year=2017)
-total_hits = resp_json["hits"]["total"]
-print(f'Number of hits: {total_hits}')
+#resp_json = search_zenodo(hits_per_page=100, year=2017)
+#total_hits = resp_json["hits"]["total"]
+#print(f'Number of hits: {total_hits}')
 
 
 # Record example
@@ -44,7 +45,10 @@ print(f'Number of hits: {total_hits}')
 response = requests.get("https://zenodo.org/api/records/53887",
                         params={"access_token": ZENODO_TOKEN})
 resp_json = response.json()
-print(resp_json)
+#print(resp_json)
+#print(resp_json["metadata"]["keywords"])
+#print(' ; '.join([str(elem) for elem in resp_json["metadata"]["keywords"]]))
+#print(resp_json["metadata"]["creators"][0]["name"])
 
 # Query:
 # resource_type.type:"dataset" AND filetype:"tpr"
@@ -55,26 +59,34 @@ def extract_records(response_json):
     Arguments:
         response_json: JSON object obtained after a request on Zenodo
     Returns:
-        records: list of information about depositions
-        files: list of information about deposition files
+        records: list of information about datasets
+        files: list of information about files
     """
     records = []
     files = []
     for hit in response_json["hits"]["hits"]:
         record = {}
-        record["id"] = hit["id"]
-        record["conceptid"] = hit["conceptrecid"]
-        record["date_created"] = hit["created"]
-        record["date_updated"] = hit["updated"]
+        record["dataset_id"] = hit["id"]
+        record["origin"] = "zenodo"
+        record["doi"] = hit["doi"]
         record["title"] = hit["metadata"]["title"]
-        record["description"] = hit["metadata"]["description"]
+        record["date_creation"] = hit["created"]
+        record["date_last_modified"] = hit["updated"]
+        record["author"] = hit["metadata"]["creators"][0]["name"]
+        if "keywords" in hit["metadata"]:
+            record["keywords"] = ' ; '.join([str(elem) for elem in hit["metadata"]["keywords"]])
+        else:
+            record["keywords"] = ""
+        record["file_number"] = len(hit["files"])
+        record["download_number"] = hit["stats"]["version_downloads"]
+        record["view_number"] = hit["stats"]["version_views"]
         record["access_right"] = hit["metadata"]["access_right"]
         if record["access_right"] != "open":
             continue
         record["license"] = hit["metadata"]["license"]["id"]
         records.append(record)
         for file_in in hit["files"]:
-            file_dict = {"record_id": record["id"],
+            file_dict = {"record_id": record["dataset_id"],
                             "name": file_in["key"],
                             "type": file_in["type"],
                             "size": file_in["size"]}
@@ -100,5 +112,10 @@ for year in range(2010, 2022):
             print("Max hits per query reached!")
             break
 
+print(resp_json)
 print(f"Number of Zenodo records found: {len(zenodo_records)}")
 print(f"Number of files found: {len(zenodo_files)}")
+
+records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
+records_df.to_csv("datasets.csv")
+print(records_df.shape)
