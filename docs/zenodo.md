@@ -11,7 +11,7 @@ The [rate limit](https://developers.zenodo.org/#rate-limiting) is
 
 Query:
 ```
-resource_type.type:"dataset" AND filetype:"tpr"s
+resource_type.type:"dataset" AND filetype:"tpr"
 ```
 
 - [Simulations of a beta-2 adrenergic receptor monomer on a flat membrane](https://zenodo.org/record/4114422)
