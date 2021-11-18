@@ -8,7 +8,7 @@ import pandas as pd
 
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
-    dotenv.load_dotenv(".env.txt")
+    dotenv.load_dotenv(".env")
     return os.environ.get("ZENODO_TOKEN", "default")
 
 
@@ -57,11 +57,11 @@ resp_json = response.json()
 # Query: resource_type.type:"dataset" AND filetype:"tpr"
 # on the Zenodo website, we find 483 datasets.
 
-def search_tpr_zenodo(page=1, hits_per_page=10, year=2016):
+def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
     """Search for datasets containing tpr files.
     """
     response = requests.get("https://zenodo.org/api/records",
-                            params={"q": 'resource_type.type:"dataset" AND filetype:"tpr"',
+                            params={"q": f'resource_type.type:"dataset" AND filetype:"{filetype}"',
                                     "type": "dataset",
                                     "size": hits_per_page,
                                     "page": page,
@@ -129,11 +129,11 @@ zenodo_files = []
 max_hits_per_record = 10_000
 max_hits_per_page = 100
 for year in range(2010, 2022):
-    resp_json = search_tpr_zenodo(hits_per_page=1, year=year)
+    resp_json = search_zenodo_by_filetype(hits_per_page=1, filetype="tpr")
     total_hits = resp_json["hits"]["total"]
     page_max = total_hits // max_hits_per_page + 1
     for page in range(1, page_max + 1):
-        resp_json = search_tpr_zenodo(page=page, hits_per_page=max_hits_per_page, year=year)
+        resp_json = search_zenodo_by_filetype(page=page, hits_per_page=max_hits_per_page, filetype="tpr")
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
         zenodo_files += files_tmp
