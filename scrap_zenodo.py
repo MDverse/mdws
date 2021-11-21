@@ -63,8 +63,7 @@ resp_json = response.json()
 # print(resp_json)
 
 
-# Query: resource_type.type:"dataset" AND filetype:"tpr"
-# on the Zenodo website, we find 483 datasets.
+# Query Zenodo
 
 def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
     """Search for datasets containing tpr files.
@@ -135,6 +134,8 @@ def extract_records(response_json):
 args = get_arg()
 max_hits_per_record = 10_000
 max_hits_per_page = 100
+all_records = []
+all_files = []
 for i in range(len(args.filetype)):
     zenodo_records = []
     zenodo_files = []
@@ -145,13 +146,22 @@ for i in range(len(args.filetype)):
         resp_json = search_zenodo_by_filetype(page=page, hits_per_page=max_hits_per_page, filetype=args.filetype[i])
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
+        all_records += records_tmp
         zenodo_files += files_tmp
+        all_files += files_tmp
         #print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
         if page * max_hits_per_page >= max_hits_per_record:
             print("Max hits per query reached!")
             break
     print(f"Number of Zenodo datasets found with files {args.filetype[i]}: {len(zenodo_records)}")
     print(f"Number of files found from all these datasets: {len(zenodo_files)}")
+
+records_df = pd.DataFrame(all_records).set_index("dataset_id")
+records_df.drop_duplicates(subset="title", keep="first", inplace=True)
+#files_df = pd.DataFrame(all_files).set_index("dataset_id")
+#files_df.drop_duplicates(subset="title", keep="first", inplace=True)
+print(f"Number of datasets found: {records_df.shape[0]}")
+#print(f"Number of files found: {files_df.shape[0]}")
 
 #records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
 #records_df.to_csv("datasets.csv")
