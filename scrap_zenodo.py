@@ -4,7 +4,16 @@ from pathlib import Path
 import requests
 import dotenv
 import pandas as pd
+import argparse
 
+def get_arg():
+    """Argument parser
+    Returns:
+        arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filetype', nargs='+', metavar='filetype', type=str, help="Filetype(s) of the ZENODO query.")
+    return parser.parse_args()
 
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
@@ -54,8 +63,7 @@ resp_json = response.json()
 # print(resp_json)
 
 
-# Query: resource_type.type:"dataset" AND filetype:"tpr"
-# on the Zenodo website, we find 483 datasets.
+# Query Zenodo
 
 def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
     """Search for datasets containing tpr files.
@@ -123,40 +131,50 @@ def extract_records(response_json):
             files.append(file_dict)
     return records, files
 
-
-zenodo_records = []
-zenodo_files = []
+args = get_arg()
 max_hits_per_record = 10_000
 max_hits_per_page = 100
-for year in range(2010, 2022):
-    resp_json = search_zenodo_by_filetype(hits_per_page=1, filetype="tpr")
+all_records = []
+all_files = []
+for i in range(len(args.filetype)):
+    zenodo_records = []
+    zenodo_files = []
+    resp_json = search_zenodo_by_filetype(hits_per_page=1, filetype=args.filetype[i])
     total_hits = resp_json["hits"]["total"]
     page_max = total_hits // max_hits_per_page + 1
     for page in range(1, page_max + 1):
-        resp_json = search_zenodo_by_filetype(page=page, hits_per_page=max_hits_per_page, filetype="tpr")
+        resp_json = search_zenodo_by_filetype(page=page, hits_per_page=max_hits_per_page, filetype=args.filetype[i])
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
+        all_records += records_tmp
         zenodo_files += files_tmp
-        print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
+        all_files += files_tmp
+        #print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
         if page * max_hits_per_page >= max_hits_per_record:
             print("Max hits per query reached!")
             break
+    print(f"Number of Zenodo datasets found with files {args.filetype[i]}: {len(zenodo_records)}")
+    print(f"Number of files found from all these datasets: {len(zenodo_files)}")
 
-print(f"Number of Zenodo datasets found: {len(zenodo_records)}")  # there are 5796 datasets
-print(f"Number of files found: {len(zenodo_files)}")  # 139 512 files
+records_df = pd.DataFrame(all_records).set_index("dataset_id")
+records_df.drop_duplicates(subset="title", keep="first", inplace=True)
+#files_df = pd.DataFrame(all_files).set_index("dataset_id")
+#files_df.drop_duplicates(subset="title", keep="first", inplace=True)
+print(f"Number of datasets found: {records_df.shape[0]}")
+#print(f"Number of files found: {files_df.shape[0]}")
 
-records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
-records_df.to_csv("datasets.csv")
+#records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
+#records_df.to_csv("datasets.csv")
 # print(records_df.shape)
 
-files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
-files_df.to_csv("files.csv")
+#files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
+#files_df.to_csv("files.csv")
 # print(files_df.shape)
 
 
-interest_df = pd.DataFrame(files_df[files_df["file_type"].isin(["tpr"])])
-interest_df.to_csv("interest.csv")
+#interest_df = pd.DataFrame(files_df[files_df["file_type"].isin(["tpr"])])
+#interest_df.to_csv("interest.csv")
 # print(interest_df.shape)
 
-interest_df.drop_duplicates(subset="title", keep='first', inplace=True)
-print(f"Number of datasets found with tpr files: {interest_df.shape[0]}")  # 473 datasets with tpr files
+#interest_df.drop_duplicates(subset="title", keep='first', inplace=True)
+#print(f"Number of datasets found with tpr files: {interest_df.shape[0]}")  # 473 datasets with tpr files
