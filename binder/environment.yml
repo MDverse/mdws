@@ -20,5 +20,6 @@ dependencies:
     - plotly
     - requests
     - python-dotenv
+    - beautifulsoup4
     - pip:
         - watermark
