@@ -1,6 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
-import csv
+import pandas as pd
 
 URL = "https://zenodo.org/record/4743386/preview/NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip"
 r = requests.get(URL)
@@ -31,9 +31,5 @@ for i in range(0, len(chaine), 2):
         quote['size'] = float(size[0])
     quotes.append(quote)
 
-filename = 'files_zip.csv'
-with open(filename, 'w', newline='') as f:
-    w = csv.DictWriter(f, ['filename', 'extension', 'size'])
-    w.writeheader()
-    for quote in quotes:
-        w.writerow(quote)
+files_df = pd.DataFrame(quotes).set_index("filename")
+files_df.to_csv("files_zip1.csv")
