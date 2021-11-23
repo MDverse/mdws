@@ -17,7 +17,7 @@ def get_arg():
 
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
-    dotenv.load_dotenv(".env.txt")
+    dotenv.load_dotenv(".env")
     return os.environ.get("ZENODO_TOKEN", "default")
 
 
