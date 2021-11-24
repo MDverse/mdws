@@ -1,0 +1,99 @@
+md_keywords:
+- molecular dynamics
+- molecular dynamic
+- molecular-dynamics
+- molecular-dynamic
+- namd
+- md trajectory
+- md trajectories
+- md simulation
+- md simulations
+- amber
+- gromacs
+- charmm
+- plumed
+
+generic_keywords:
+- molecular dynamics
+- molecular dynamic
+- molecular-dynamics
+- molecular-dynamic
+- namd
+- md trajectory
+- md trajectories
+- md simulation
+- md simulations
+- gromacs
+- plumed
+
+
+file_types:
+- type: tpr
+  engine: gromacs
+  keywords: none
+- type: gro
+  engine: gromacs
+  keywords: none
+- type: mdp
+  engine: gromacs
+  keywords: md_keywords
+- type: itp
+  engine: gromacs
+  keywords: md_keywords
+- type: ndx
+  engine: gromacs
+  keywords:
+- type: top
+  engine: gromacs
+  keywords:
+- type: xtc
+  engine: gromacs
+  keywords: none
+- type: trr
+  engine: gromacs
+  keywords: none
+- type: edr
+  engine: gromacs
+  keywords: md_keywords
+- type: cpt
+  engine: gromacs
+  keywords: md_keywords
+- type: psf
+  engine: namd
+  keywords: md_keywords
+- type: inp
+  engine: namd
+  keywords:
+- type: prm
+  engine: namd/amber
+  keywords: md_keywords
+- type: crd
+  engine: namd
+  keywords: md_keywords
+- type: dcd
+  engine: namd
+  keywords: none
+- type: coor
+  engine: namd
+  keywords: md_keywords
+- type: vel
+  engine: namd
+  keywords: md_keywords
+- type: xsc
+  engine: namd
+  keywords: md_keywords
+- type: prmtop
+  engine: amber
+  keywords: md_keywords
+- type: top
+  engine: amber
+  keywords: md_keywords
+- type: inpcrd
+  engine: amber
+  keywords: md_keywords
+- type: mdcrd
+  engine: amber
+  keywords: md_keywords
+- type: zip
+  engine: unknown
+  keywords: generic_keywords
