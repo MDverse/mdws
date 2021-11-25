@@ -7,12 +7,17 @@ import pandas as pd
 import argparse
 
 def get_arg():
-    """Argument parser
-    Returns:
-        arguments
+    """Argument parser.
+
+    This function parses the name of the input file.
+
+    Returns
+    ----------
+    str
+        Name of the input file
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('filetype', nargs='+', metavar='filetype', type=str, help="Filetype(s) of the ZENODO query.")
+    parser.add_argument('input_file', metavar='input_file', type=str, help="Input file.")
     return parser.parse_args()
 
 def read_zenodo_token():
@@ -157,11 +162,11 @@ for i in range(len(args.filetype)):
     print(f"Number of files found from all these datasets: {len(zenodo_files)}")
 
 records_df = pd.DataFrame(all_records).set_index("dataset_id")
-records_df.drop_duplicates(subset="title", keep="first", inplace=True)
-#files_df = pd.DataFrame(all_files).set_index("dataset_id")
-#files_df.drop_duplicates(subset="title", keep="first", inplace=True)
+records_df.drop_duplicates(keep="first", inplace=True)
+files_df = pd.DataFrame(all_files).set_index("dataset_id")
+files_df.drop_duplicates(subset=["doi", "file_name"], keep="first", inplace=True)
 print(f"Number of datasets found: {records_df.shape[0]}")
-#print(f"Number of files found: {files_df.shape[0]}")
+print(f"Number of files found: {files_df.shape[0]}")
 
 #records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
 #records_df.to_csv("datasets.csv")
