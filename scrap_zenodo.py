@@ -5,6 +5,8 @@ import requests
 import dotenv
 import pandas as pd
 import argparse
+import yaml
+
 
 def get_arg():
     """Argument parser.
@@ -14,11 +16,35 @@ def get_arg():
     Returns
     ----------
     str
-        Name of the input file
+        Name of the input file.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('input_file', metavar='input_file', type=str, help="Input file.")
     return parser.parse_args()
+
+
+def read_input_file():
+    """Argument parser.
+
+        This function parses the name of the input file.
+
+        Returns
+        ----------
+        md_keywords : list
+            Keywords related to molecular dynamics.
+        generic_keywords : list
+            Generic keywords for zip archives
+        file_types : dict
+            Dictionary with type, engine and keywords to use
+        """
+    arg = get_arg()
+    with open(arg.input_file, "r") as f:
+        data_loaded = yaml.safe_load(f)
+    md_keywords = data_loaded["md_keywords"]
+    generic_keywords = data_loaded["generic_keywords"]
+    file_types = data_loaded["file_types"]
+    return md_keywords, generic_keywords, file_types
+
 
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
@@ -136,6 +162,7 @@ def extract_records(response_json):
             files.append(file_dict)
     return records, files
 
+
 args = get_arg()
 max_hits_per_record = 10_000
 max_hits_per_page = 100
@@ -154,7 +181,7 @@ for i in range(len(args.filetype)):
         all_records += records_tmp
         zenodo_files += files_tmp
         all_files += files_tmp
-        #print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
+        # print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
         if page * max_hits_per_page >= max_hits_per_record:
             print("Max hits per query reached!")
             break
@@ -168,18 +195,18 @@ files_df.drop_duplicates(subset=["doi", "file_name"], keep="first", inplace=True
 print(f"Number of datasets found: {records_df.shape[0]}")
 print(f"Number of files found: {files_df.shape[0]}")
 
-#records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
-#records_df.to_csv("datasets.csv")
+# records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
+# records_df.to_csv("datasets.csv")
 # print(records_df.shape)
 
-#files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
-#files_df.to_csv("files.csv")
+# files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
+# files_df.to_csv("files.csv")
 # print(files_df.shape)
 
 
-#interest_df = pd.DataFrame(files_df[files_df["file_type"].isin(["tpr"])])
-#interest_df.to_csv("interest.csv")
+# interest_df = pd.DataFrame(files_df[files_df["file_type"].isin(["tpr"])])
+# interest_df.to_csv("interest.csv")
 # print(interest_df.shape)
 
-#interest_df.drop_duplicates(subset="title", keep='first', inplace=True)
-#print(f"Number of datasets found with tpr files: {interest_df.shape[0]}")  # 473 datasets with tpr files
+# interest_df.drop_duplicates(subset="title", keep='first', inplace=True)
+# print(f"Number of datasets found with tpr files: {interest_df.shape[0]}")  # 473 datasets with tpr files
