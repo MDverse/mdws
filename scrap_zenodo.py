@@ -181,8 +181,10 @@ def extract_records(response_json):
 args = get_arg()
 max_hits_per_record = 10_000
 max_hits_per_page = 100
-all_records = []
-all_files = []
+#all_records = []
+#all_files = []
+datasets_df = pd.DataFrame()
+files_df = pd.DataFrame()
 for i in range(len(file_types)):
     zenodo_records = []
     zenodo_files = []
@@ -199,9 +201,15 @@ for i in range(len(file_types)):
         resp_json = search_zenodo_with_query(query, page=page, hits_per_page=max_hits_per_page)
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
-        all_records += records_tmp
+        #all_records += records_tmp
         zenodo_files += files_tmp
-        all_files += files_tmp
+        #all_files += files_tmp
+        datasets_df_inter = pd.DataFrame(records_tmp).set_index("dataset_id")
+        datasets_df = pd.concat([datasets_df, datasets_df_inter], ignore_index=True)
+        datasets_df.drop_duplicates(keep="first", inplace=True)
+        files_df_inter = pd.DataFrame(files_tmp).set_index("dataset_id")
+        files_df = pd.concat([files_df, files_df_inter], ignore_index=True)
+        files_df.drop_duplicates(subset=["doi", "file_name"], keep="first", inplace=True)
         # print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
         if page * max_hits_per_page >= max_hits_per_record:
             print("Max hits per query reached!")
@@ -209,11 +217,7 @@ for i in range(len(file_types)):
     print(f"Number of Zenodo datasets found with files {file_types[i]['type']}: {len(zenodo_records)}")
     print(f"Number of files found from all these datasets: {len(zenodo_files)}")
 
-records_df = pd.DataFrame(all_records).set_index("dataset_id")
-records_df.drop_duplicates(keep="first", inplace=True)
-files_df = pd.DataFrame(all_files).set_index("dataset_id")
-files_df.drop_duplicates(subset=["doi", "file_name"], keep="first", inplace=True)
-print(f"Number of datasets found: {records_df.shape[0]}")
+print(f"Number of datasets found: {datasets_df.shape[0]}")
 print(f"Number of files found: {files_df.shape[0]}")
 
 # records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
