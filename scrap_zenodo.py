@@ -45,16 +45,10 @@ def read_input_file():
     file_types = data_loaded["file_types"]
     return md_keywords, generic_keywords, file_types
 
+md_keywords, generic_keywords, file_types = read_input_file()
 
-STRING_MD_KEYWORDS = "AND (" + md_keywords[0]
-for i in range(1, len(md_keywords)):
-    STRING_MD_KEYWORDS += " OR " + md_keywords[i]
-STRING_MD_KEYWORDS += ")"
-
-STRING_GENERIC_KEYWORDS = "AND (" + generic_keywords[0]
-for i in range(1, len(generic_keywords)):
-    STRING_GENERIC_KEYWORDS += " OR " + generic_keywords[i]
-STRING_GENERIC_KEYWORDS += ")"
+MD_KEYWORDS = " AND (" + " OR ".join(md_keywords) + ")"
+GENERIC_KEYWORDS = " AND (" + " OR ".join(generic_keywords) + ")"
 
 
 def read_zenodo_token():
@@ -75,9 +69,8 @@ print(f"Status code:{r.status_code}")
 # Status code should be 200
 
 
-def search_zenodo(page=1, hits_per_page=10, year=2016):
-    """Makes a request on the Zenodo website.
-    """
+"""def search_zenodo(page=1, hits_per_page=10, year=2016):
+    #Makes a request on the Zenodo website.
     response = requests.get("https://zenodo.org/api/records",
                             params={"q": ("(title:(+molecular +dynamics) OR description:(+molecular +dynamics)')"
                                           f" AND publication_date:[{year}-01-01 TO {year}-12-31]"
@@ -87,7 +80,7 @@ def search_zenodo(page=1, hits_per_page=10, year=2016):
                                     "page": page,
                                     "status": "published",
                                     "access_token": ZENODO_TOKEN})
-    return response.json()
+    return response.json()"""
 
 
 # resp_json = search_zenodo(hits_per_page=100, year=2017)
@@ -106,8 +99,6 @@ resp_json = response.json()
 
 # Query Zenodo
 
-"q": f'resource_type.type:"dataset" AND filetype:"{filetype}"'
-
 
 def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
     """Search for datasets containing tpr files.
@@ -115,6 +106,17 @@ def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
     response = requests.get("https://zenodo.org/api/records",
                             params={"q": f'resource_type.type:"dataset" AND filetype:"{filetype}"',
                                     "type": "dataset",
+                                    "size": hits_per_page,
+                                    "page": page,
+                                    "status": "published",
+                                    "access_token": ZENODO_TOKEN})
+    return response.json()
+
+def search_zenodo_with_query(query, page=1, hits_per_page=10):
+    """Search for datasets.
+    """
+    response = requests.get("https://zenodo.org/api/records",
+                            params={"q": query,
                                     "size": hits_per_page,
                                     "page": page,
                                     "status": "published",
@@ -181,14 +183,20 @@ max_hits_per_record = 10_000
 max_hits_per_page = 100
 all_records = []
 all_files = []
-for i in range(len(args.filetype)):
+for i in range(len(file_types)):
     zenodo_records = []
     zenodo_files = []
-    resp_json = search_zenodo_by_filetype(hits_per_page=1, filetype=args.filetype[i])
+    query = f'resource_type.type:"dataset" AND filetype:"{file_types[i]["type"]}"'
+    if file_types[i]["keywords"] == "md_keywords":
+        query += MD_KEYWORDS
+    elif file_types[i]["keywords"] == "generic_keywords":
+        query += GENERIC_KEYWORDS
+    print(query)
+    resp_json = search_zenodo_with_query(query, hits_per_page=1)
     total_hits = resp_json["hits"]["total"]
     page_max = total_hits // max_hits_per_page + 1
     for page in range(1, page_max + 1):
-        resp_json = search_zenodo_by_filetype(page=page, hits_per_page=max_hits_per_page, filetype=args.filetype[i])
+        resp_json = search_zenodo_with_query(query, page=page, hits_per_page=max_hits_per_page)
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
         all_records += records_tmp
@@ -198,7 +206,7 @@ for i in range(len(args.filetype)):
         if page * max_hits_per_page >= max_hits_per_record:
             print("Max hits per query reached!")
             break
-    print(f"Number of Zenodo datasets found with files {args.filetype[i]}: {len(zenodo_records)}")
+    print(f"Number of Zenodo datasets found with files {file_types[i]['type']}: {len(zenodo_records)}")
     print(f"Number of files found from all these datasets: {len(zenodo_files)}")
 
 records_df = pd.DataFrame(all_records).set_index("dataset_id")
