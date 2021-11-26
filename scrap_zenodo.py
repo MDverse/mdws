@@ -46,6 +46,17 @@ def read_input_file():
     return md_keywords, generic_keywords, file_types
 
 
+STRING_MD_KEYWORDS = "AND (" + md_keywords[0]
+for i in range(1, len(md_keywords)):
+    STRING_MD_KEYWORDS += " OR " + md_keywords[i]
+STRING_MD_KEYWORDS += ")"
+
+STRING_GENERIC_KEYWORDS = "AND (" + generic_keywords[0]
+for i in range(1, len(generic_keywords)):
+    STRING_GENERIC_KEYWORDS += " OR " + generic_keywords[i]
+STRING_GENERIC_KEYWORDS += ")"
+
+
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
     dotenv.load_dotenv(".env")
@@ -90,11 +101,13 @@ response = requests.get("https://zenodo.org/api/records/53887",
                         params={"access_token": ZENODO_TOKEN})
 resp_json = response.json()
 
-
 # print(resp_json)
 
 
 # Query Zenodo
+
+"q": f'resource_type.type:"dataset" AND filetype:"{filetype}"'
+
 
 def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
     """Search for datasets containing tpr files.
