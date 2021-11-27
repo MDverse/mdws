@@ -100,7 +100,7 @@ response = requests.get(
 resp_json = response.json()
 
 
-# print(resp_json)
+print(resp_json)
 
 
 # Query Zenodo
@@ -123,7 +123,21 @@ def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
 
 
 def search_zenodo_with_query(query, page=1, hits_per_page=10):
-    """Search for datasets."""
+    """Search for datasets.
+
+    Arguments
+    ----------
+    query: str
+        Query.
+    page: int
+        Number of page.
+    hits_per_page: int
+        Number of hits per pages.
+    Returns
+    ----------
+    response.json(): dict
+        JSON object obtained after a request on Zenodo.
+    """
     response = requests.get(
         "https://zenodo.org/api/records",
         params={
@@ -138,6 +152,17 @@ def search_zenodo_with_query(query, page=1, hits_per_page=10):
 
 
 def scrap_zip_content(files_df):
+    """Scrap information from files contained in zip archives.
+
+    Arguments
+    ----------
+    files_df: dataframe
+        Dataframe with information about files.
+    Returns
+    ----------
+    zip_df: dataframe
+        Dataframe with information about files in zip archive.
+    """
     zip = []
     for i in range(files_df.shape[0]):
         if (files_df["file_type"].iloc[i]) == "zip":
@@ -187,11 +212,17 @@ def scrap_zip_content(files_df):
 
 def extract_records(response_json):
     """Extract information from the Zenodo records.
-    Arguments:
-        response_json: JSON object obtained after a request on Zenodo
-    Returns:
-        records: list of information about datasets
-        files: list of information about files
+
+    Arguments
+    ----------
+    response_json: dict
+        JSON object obtained after a request on Zenodo.
+    Returns
+    ----------
+    records: list
+        Information about datasets.
+    files: list
+        Information about files.
     """
     records = []
     files = []
@@ -267,7 +298,6 @@ for i in range(len(file_types)):
         resp_json = search_zenodo_with_query(
             query, page=page, hits_per_page=max_hits_per_page
         )
-        # print(resp_json)
         records_tmp, files_tmp = extract_records(resp_json)
         zenodo_records += records_tmp
         # all_records += records_tmp
