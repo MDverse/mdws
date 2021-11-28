@@ -42,10 +42,10 @@ file_types:
   keywords: md_keywords
 - type: ndx
   engine: gromacs
-  keywords:
+  keywords: none
 - type: top
   engine: gromacs
-  keywords:
+  keywords: md_keywords
 - type: xtc
   engine: gromacs
   keywords: none
@@ -54,25 +54,25 @@ file_types:
   keywords: none
 - type: edr
   engine: gromacs
-  keywords: md_keywords
+  keywords: none
 - type: cpt
   engine: gromacs
-  keywords: md_keywords
+  keywords: none
 - type: psf
   engine: namd
   keywords: md_keywords
 - type: inp
   engine: namd
-  keywords:
+  keywords: md_keywords
 - type: prm
   engine: namd/amber
   keywords: md_keywords
 - type: crd
   engine: namd
-  keywords: md_keywords
+  keywords: none
 - type: dcd
   engine: namd
-  keywords: none
+  keywords: md_keywords
 - type: coor
   engine: namd
   keywords: md_keywords
@@ -84,7 +84,7 @@ file_types:
   keywords: md_keywords
 - type: prmtop
   engine: amber
-  keywords: md_keywords
+  keywords: none
 - type: top
   engine: amber
   keywords: md_keywords
@@ -92,6 +92,15 @@ file_types:
   engine: amber
   keywords: md_keywords
 - type: mdcrd
+  engine: amber
+  keywords: md_keywords
+- type: nc
+  engine: amber
+  keywords: md_keywords
+- type: ncdf
+  engine: amber
+  keywords: md_keywords
+- type: trj
   engine: amber
   keywords: md_keywords
 - type: zip
