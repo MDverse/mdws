@@ -100,7 +100,7 @@ response = requests.get(
 resp_json = response.json()
 
 
-print(resp_json)
+# print(resp_json)
 
 
 # Query Zenodo
@@ -226,57 +226,58 @@ def extract_records(response_json):
     """
     records = []
     files = []
-    for hit in response_json["hits"]["hits"]:
-        record = {}
-        record["dataset_id"] = hit["id"]
-        record["origin"] = "zenodo"
-        record["doi"] = hit["doi"]
-        record["title"] = hit["metadata"]["title"]
-        record["date_creation"] = hit["created"]
-        record["date_last_modified"] = hit["updated"]
-        record["author"] = hit["metadata"]["creators"][0]["name"]
-        if "keywords" in hit["metadata"]:
-            record["keywords"] = " ; ".join(
-                [str(elem) for elem in hit["metadata"]["keywords"]]
-            )
-        else:
-            record["keywords"] = ""
-        record["file_number"] = len(hit["files"])
-        record["download_number"] = hit["stats"]["version_downloads"]
-        record["view_number"] = hit["stats"]["version_views"]
-        record["access_right"] = hit["metadata"]["access_right"]
-        if record["access_right"] != "open":
-            continue
-        record["license"] = hit["metadata"]["license"]["id"]
-        records.append(record)
-        for file_in in hit["files"]:
-            file_dict = {
-                "dataset_id": record["dataset_id"],
-                "origin": record["origin"],
-                "doi": record["doi"],
-                "title": record["title"],
-                "date_creation": record["date_creation"],
-                "date_last_modified": record["date_last_modified"],
-                "author": record["author"],
-                "keywords": record["keywords"],
-                "file_number": record["file_number"],
-                "download_number": record["download_number"],
-                "view_number": record["view_number"],
-                "license": record["license"],
-                "from_zip_file": "",
-                "file_name": file_in["key"],
-                "file_extension": file_in["type"],
-                "file_size": file_in["size"],
-                "file_url": file_in["links"],
-                "file_md5": file_in["checksum"],
-                "file_type": file_in["type"],
-            }
-            files.append(file_dict)
+    if response_json["hits"]["hits"]:
+        for hit in response_json["hits"]["hits"]:
+            record = {}
+            record["dataset_id"] = hit["id"]
+            record["origin"] = "zenodo"
+            record["doi"] = hit["doi"]
+            record["title"] = hit["metadata"]["title"]
+            record["date_creation"] = hit["created"]
+            record["date_last_modified"] = hit["updated"]
+            record["author"] = hit["metadata"]["creators"][0]["name"]
+            if "keywords" in hit["metadata"]:
+                record["keywords"] = " ; ".join(
+                    [str(elem) for elem in hit["metadata"]["keywords"]]
+                )
+            else:
+                record["keywords"] = ""
+            record["file_number"] = len(hit["files"])
+            record["download_number"] = hit["stats"]["version_downloads"]
+            record["view_number"] = hit["stats"]["version_views"]
+            record["access_right"] = hit["metadata"]["access_right"]
+            if record["access_right"] != "open":
+                continue
+            record["license"] = hit["metadata"]["license"]["id"]
+            records.append(record)
+            for file_in in hit["files"]:
+                file_dict = {
+                    "dataset_id": record["dataset_id"],
+                    "origin": record["origin"],
+                    "doi": record["doi"],
+                    "title": record["title"],
+                    "date_creation": record["date_creation"],
+                    "date_last_modified": record["date_last_modified"],
+                    "author": record["author"],
+                    "keywords": record["keywords"],
+                    "file_number": record["file_number"],
+                    "download_number": record["download_number"],
+                    "view_number": record["view_number"],
+                    "license": record["license"],
+                    "from_zip_file": "",
+                    "file_name": file_in["key"],
+                    "file_extension": file_in["type"],
+                    "file_size": file_in["size"],
+                    "file_url": file_in["links"],
+                    "file_md5": file_in["checksum"],
+                    "file_type": file_in["type"],
+                }
+                files.append(file_dict)
     return records, files
 
 
 args = get_arg()
-max_hits_per_record = 20_000
+max_hits_per_record = 10_000
 max_hits_per_page = 100
 # all_records = []
 # all_files = []
