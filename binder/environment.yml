@@ -10,9 +10,6 @@ dependencies:
     - python=3.9
     - pip
     - jupyterlab=3
-    - pylint
-    - pycodestyle
-    - pydocstyle
     - numpy
     - scipy
     - pandas
@@ -21,5 +18,10 @@ dependencies:
     - requests
     - python-dotenv
     - beautifulsoup4
+    # linters and more
+    - pylint
+    - pycodestyle
+    - pydocstyle
+    - black
     - pip:
         - watermark
