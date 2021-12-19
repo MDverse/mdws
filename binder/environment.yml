@@ -17,6 +17,7 @@ dependencies:
     - plotly
     - requests
     - python-dotenv
+    - pyyaml
     - beautifulsoup4
     # linters and more
     - pylint
