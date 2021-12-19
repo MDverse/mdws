@@ -1,24 +1,26 @@
-import os
-from pathlib import Path
+"""Scrap molecular dynamics datasets and files from Zenodo."""
 
-import requests
+import argparse
+from pathlib import Path
+import os
+
+
+from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
-import argparse
-import yaml
 import requests
-from bs4 import BeautifulSoup
+import yaml
 
 
-def get_arg():
+def get_cli_arguments():
     """Argument parser.
 
-    This function parses the name of the input file.
+    This function parses the name of the yaml input file.
 
     Returns
     ----------
     str
-        Name of the input file.
+        Name of the yaml input file.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -33,27 +35,22 @@ def read_input_file():
     This function parses the name of the input file.
 
     Returns
-    ----------
+    -------
+    file_types : dict
+        Dictionary with type, engine and keywords to use
     md_keywords : list
         Keywords related to molecular dynamics.
     generic_keywords : list
         Generic keywords for zip archives
-    file_types : dict
-        Dictionary with type, engine and keywords to use
     """
-    arg = get_arg()
-    with open(arg.input_file, "r") as f:
-        data_loaded = yaml.safe_load(f)
+    arg = get_cli_arguments()
+    with open(arg.input_file, "r") as param_file:
+        print(f"Reading parameters from: {arg.input_file}")
+        data_loaded = yaml.safe_load(param_file)
     md_keywords = data_loaded["md_keywords"]
     generic_keywords = data_loaded["generic_keywords"]
     file_types = data_loaded["file_types"]
-    return md_keywords, generic_keywords, file_types
-
-
-md_keywords, generic_keywords, file_types = read_input_file()
-
-MD_KEYWORDS = " AND (" + " OR ".join(md_keywords) + ")"
-GENERIC_KEYWORDS = " AND (" + " OR ".join(generic_keywords) + ")"
+    return file_types, md_keywords, generic_keywords
 
 
 def read_zenodo_token():
@@ -62,48 +59,22 @@ def read_zenodo_token():
     return os.environ.get("ZENODO_TOKEN", "default")
 
 
-ZENODO_TOKEN = read_zenodo_token()
-print(ZENODO_TOKEN)
+def test_zenodo_connection(token):
+    """Test connection to Zenodo API.
 
-# Basic Zenodo query
-r = requests.get(
-    "https://zenodo.org/api/deposit/depositions", params={"access_token": ZENODO_TOKEN}
-)
-print(f"Status code:{r.status_code}")
-
-# Status code should be 200
-
-
-"""def search_zenodo(page=1, hits_per_page=10, year=2016):
-    #Makes a request on the Zenodo website.
-    response = requests.get("https://zenodo.org/api/records",
-                            params={"q": ("(title:(+molecular +dynamics) OR description:(+molecular +dynamics)')"
-                                          f" AND publication_date:[{year}-01-01 TO {year}-12-31]"
-                                          " AND access_right:open"),
-                                    "type": "dataset",
-                                    "size": hits_per_page,
-                                    "page": page,
-                                    "status": "published",
-                                    "access_token": ZENODO_TOKEN})
-    return response.json()"""
-
-# resp_json = search_zenodo(hits_per_page=100, year=2017)
-# total_hits = resp_json["hits"]["total"]
-# print(f'Number of hits: {total_hits}')
-
-
-# Record example
-
-response = requests.get(
-    "https://zenodo.org/api/records/53887", params={"access_token": ZENODO_TOKEN}
-)
-resp_json = response.json()
-
-
-# print(resp_json)
-
-
-# Query Zenodo
+    Parameters
+    ----------
+    token : str
+        Token for Zenodo API
+    """
+    print("Trying connection to Zenodo...")
+    # Basic Zenodo query
+    r = requests.get(
+        "https://zenodo.org/api/deposit/depositions",
+        params={"access_token": token}
+    )
+    # Status code should be 200
+    print(f"Status code: {r.status_code}")
 
 
 def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
@@ -216,54 +187,54 @@ def extract_records(response_json):
     Arguments
     ----------
     response_json: dict
-        JSON object obtained after a request on Zenodo.
+        JSON object obtained after a request on Zenodo API.
     Returns
     ----------
     records: list
-        Information about datasets.
+        List of dictionnaries. Information on datasets.
     files: list
-        Information about files.
+        List of dictionnaies. Information on files.
     """
     records = []
     files = []
     if response_json["hits"]["hits"]:
         for hit in response_json["hits"]["hits"]:
-            record = {}
-            record["dataset_id"] = hit["id"]
-            record["origin"] = "zenodo"
-            record["doi"] = hit["doi"]
-            record["title"] = hit["metadata"]["title"]
-            record["date_creation"] = hit["created"]
-            record["date_last_modified"] = hit["updated"]
-            record["author"] = hit["metadata"]["creators"][0]["name"]
+            record_dict = {}
+            record_dict["dataset_id"] = hit["id"]
+            record_dict["origin"] = "zenodo"
+            record_dict["doi"] = hit["doi"]
+            record_dict["title"] = hit["metadata"]["title"]
+            record_dict["date_creation"] = hit["created"]
+            record_dict["date_last_modified"] = hit["updated"]
+            record_dict["author"] = hit["metadata"]["creators"][0]["name"]
             if "keywords" in hit["metadata"]:
-                record["keywords"] = " ; ".join(
+                record_dict["keywords"] = " ; ".join(
                     [str(elem) for elem in hit["metadata"]["keywords"]]
                 )
             else:
-                record["keywords"] = ""
-            record["file_number"] = len(hit["files"])
-            record["download_number"] = hit["stats"]["version_downloads"]
-            record["view_number"] = hit["stats"]["version_views"]
-            record["access_right"] = hit["metadata"]["access_right"]
-            if record["access_right"] != "open":
+                record_dict["keywords"] = ""
+            record_dict["file_number"] = len(hit["files"])
+            record_dict["download_number"] = hit["stats"]["version_downloads"]
+            record_dict["view_number"] = hit["stats"]["version_views"]
+            record_dict["access_right"] = hit["metadata"]["access_right"]
+            if record_dict["access_right"] != "open":
                 continue
-            record["license"] = hit["metadata"]["license"]["id"]
-            records.append(record)
+            record_dict["license"] = hit["metadata"]["license"]["id"]
+            records.append(record_dict)
             for file_in in hit["files"]:
                 file_dict = {
-                    "dataset_id": record["dataset_id"],
-                    "origin": record["origin"],
-                    "doi": record["doi"],
-                    "title": record["title"],
-                    "date_creation": record["date_creation"],
-                    "date_last_modified": record["date_last_modified"],
-                    "author": record["author"],
-                    "keywords": record["keywords"],
-                    "file_number": record["file_number"],
-                    "download_number": record["download_number"],
-                    "view_number": record["view_number"],
-                    "license": record["license"],
+                    "dataset_id": record_dict["dataset_id"],
+                    "origin": record_dict["origin"],
+                    "doi": record_dict["doi"],
+                    "title": record_dict["title"],
+                    "date_creation": record_dict["date_creation"],
+                    "date_last_modified": record_dict["date_last_modified"],
+                    "author": record_dict["author"],
+                    "keywords": record_dict["keywords"],
+                    "file_number": record_dict["file_number"],
+                    "download_number": record_dict["download_number"],
+                    "view_number": record_dict["view_number"],
+                    "license": record_dict["license"],
                     "from_zip_file": "",
                     "file_name": file_in["key"],
                     "file_extension": file_in["type"],
@@ -276,79 +247,64 @@ def extract_records(response_json):
     return records, files
 
 
-args = get_arg()
-max_hits_per_record = 10_000
-max_hits_per_page = 100
-# all_records = []
-# all_files = []
-datasets_df = pd.DataFrame()
-files_df = pd.DataFrame()
-for i in range(len(file_types)):
-    zenodo_records = []
-    zenodo_files = []
-    query = f'resource_type.type:"dataset" AND filetype:"{file_types[i]["type"]}"'
-    if file_types[i]["keywords"] == "md_keywords":
-        query += MD_KEYWORDS
-    elif file_types[i]["keywords"] == "generic_keywords":
-        query += GENERIC_KEYWORDS
-    print(query)
-    resp_json = search_zenodo_with_query(query, hits_per_page=1)
-    total_hits = resp_json["hits"]["total"]
-    page_max = total_hits // max_hits_per_page + 1
-    for page in range(1, page_max + 1):
-        resp_json = search_zenodo_with_query(
-            query, page=page, hits_per_page=max_hits_per_page
-        )
-        records_tmp, files_tmp = extract_records(resp_json)
-        zenodo_records += records_tmp
-        # all_records += records_tmp
-        zenodo_files += files_tmp
-        # all_files += files_tmp
-        datasets_df_inter = pd.DataFrame(records_tmp).set_index(
-            "dataset_id", drop=False
-        )
-        datasets_df = pd.concat([datasets_df, datasets_df_inter], ignore_index=True)
-        datasets_df.drop_duplicates(keep="first", inplace=True)
-        datasets_df.to_csv("datasets.csv")
-        files_df_inter = pd.DataFrame(files_tmp).set_index("dataset_id", drop=False)
-        files_df = pd.concat([files_df, files_df_inter], ignore_index=True)
-        files_df.drop_duplicates(
-            subset=["doi", "file_name"], keep="first", inplace=True
-        )
-        # print(f"year {year} -- page {page} / {page_max} ({len(records_tmp)})")
-        if page * max_hits_per_page >= max_hits_per_record:
-            print("Max hits per query reached!")
-            break
-    print(
-        f"Number of Zenodo datasets found with files {file_types[i]['type']}: {len(zenodo_records)}"
-    )
-    print(f"Number of files found from all these datasets: {len(zenodo_files)}")
-
-print(f"Number of datasets found: {datasets_df.shape[0]}")
-datasets_df.to_csv("datasets.csv")
-
-files_df.to_csv("files.csv")
-zip_df = scrap_zip_content(files_df)
-files_df = pd.concat([files_df, zip_df], ignore_index=True)
+if __name__ == "__main__":
+    # Read Zenodo token
+    ZENODO_TOKEN = read_zenodo_token()
+    test_zenodo_connection(ZENODO_TOKEN)
+    # Read parameter file
+    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_input_file()
+    QUERY_MD_KEYWORDS = " AND (" + " OR ".join(MD_KEYWORDS) + ")"
+    QUERY_GENERIC_KEYWORDS = " AND (" + " OR ".join(GENERIC_KEYWORDS) + ")"
 
 
-print(f"Number of files found: {files_df.shape[0]}")
+    max_hits_per_record = 10_000
+    max_hits_per_page = 100
 
+    datasets_df = pd.DataFrame()
+    files_df = pd.DataFrame()
+    for file_type in FILE_TYPES:
+        print(f"Looking for filetype: {file_type['type']}")
+        query_records = []
+        query_files = []
+        query = f'resource_type.type:"dataset" AND filetype:"{file_type["type"]}"'
+        if file_type["keywords"] == "md_keywords":
+            query += QUERY_MD_KEYWORDS
+        elif file_type["keywords"] == "generic_keywords":
+            query += QUERY_GENERIC_KEYWORDS
+        print(f"Query:\n{query}")
+        resp_json = search_zenodo_with_query(query, hits_per_page=1)
+        total_hits = resp_json["hits"]["total"]
+        page_max = total_hits // max_hits_per_page + 1
+        for page in range(1, page_max + 1):
+            print(f"Page: {page}")
+            resp_json = search_zenodo_with_query(
+                query, page=page, hits_per_page=max_hits_per_page
+            )
+            datasets_tmp, files_tmp = extract_records(resp_json)
+            datasets_df_tmp = pd.DataFrame(datasets_tmp).set_index(
+                "dataset_id", drop=False
+            )
+            datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
+            datasets_df.drop_duplicates(keep="first", inplace=True)
+            files_df_tmp = pd.DataFrame(files_tmp).set_index("dataset_id", drop=False)
+            files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
+            files_df.drop_duplicates(
+                subset=["doi", "file_name"], keep="first", inplace=True
+            )
+            if page * max_hits_per_page >= max_hits_per_record:
+                print("Max hits per query reached!")
+                break
+        print(f"Number of datasets found: {len(query_records)}")
+        print(f"Number of files found: {len(query_files)}")
+        print("-"*20)
 
-files_df.to_csv("files.csv")
-
-# records_df = pd.DataFrame(zenodo_records).set_index("dataset_id")
-# records_df.to_csv("datasets.csv")
-# print(records_df.shape)
-
-# files_df = pd.DataFrame(zenodo_files).set_index("dataset_id")
-# files_df.to_csv("files.csv")
-# print(files_df.shape)
-
-
-# interest_df = pd.DataFrame(files_df[files_df["file_type"].isin(["tpr"])])
-# interest_df.to_csv("interest.csv")
-# print(interest_df.shape)
-
-# interest_df.drop_duplicates(subset="title", keep='first', inplace=True)
-# print(f"Number of datasets found with tpr files: {interest_df.shape[0]}")  # 473 datasets with tpr files
+    print(f"Total number of datasets found: {datasets_df.shape[0]}")
+    print(f"Total number of files found: {files_df.shape[0]}")
+    # Save dataframes to disk
+    datasets_df.to_csv("datasets.csv", index=None)
+    files_df.to_csv("files.csv", index=None)
+    exit(0)
+    zip_df = scrap_zip_content(files_df)
+    files_df = pd.concat([files_df, zip_df], ignore_index=True)
+    print(f"Number of files found: {files_df.shape[0]}")
+    files_df.to_csv("files.csv")
