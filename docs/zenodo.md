@@ -16,6 +16,8 @@ Query:
 resource_type.type:"dataset" AND filetype:"tpr"
 ```
 
+Datasets:
+
 - [Simulations of a beta-2 adrenergic receptor monomer on a flat membrane](https://zenodo.org/record/4114422)
 - [GROMACS simulations of unfolding of ubiqutin in a strong electric field](https://zenodo.org/record/4056037)
 
@@ -27,34 +29,38 @@ Query:
 resource_type.type:"dataset" AND filetype:"zip" AND (simulation* "molecular dynamics" gromacs charmm namd)
 ```
 
-Examples: 
+Datasets:
+
 - [All-atom molecular dynamics simulations of SARS-CoV-2 envelope protein E](https://zenodo.org/record/4743386)
 - [Structural dynamics of DNA depending on methylation pattern: Simulation dataset](https://zenodo.org/record/3992686)
 - [Exploring the interaction of a curcumin azobioisostere with Abeta42 dimers using replica exchange molecular dynamics simulations](https://zenodo.org/record/5573728)
 - [Molecular dynamics simulation data of regulatory ACT domain dimer of human phenylalanine hydroxylase (PAH) (with unbound ligand)](https://zenodo.org/record/3814193) (with multiple zip files)
 
 
-Some dataset cannot be found with keywords. Fort instance:
+Some dataset cannot be found with keywords. For instance:
+
 - [Ternary lipid composition in a curved geometry, more flat surface](https://zenodo.org/record/4644379)
 
 #### Accessing zip file content
 
 Zip file content can be obtained through a preview page provided by Zenodo.
 
-Example : dataset [All-atom molecular dynamics simulations of SARS-CoV-2 envelope protein E](https://zenodo.org/record/4743386)
+Example dataset: [All-atom molecular dynamics simulations of SARS-CoV-2 envelope protein E](https://zenodo.org/record/4743386)
 
 - preview for [NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip](https://zenodo.org/record/4743386/preview/NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip)
 - preview for [NoPTM-4_POPC_CHARMM36m_0.1x3mks.zip](https://zenodo.org/record/4743386/preview/NoPTM-4_POPC_CHARMM36m_0.1x3mks.zip)
 
+#### Issues with zip file content
+
 Some zip file content are really dense, with a directory-like organization.
 
-Example : dataset [Input files and scripts for Hamiltonian replica-exchange molecular dynamics simulations of intrinsically disordered proteins using a software GROMACS patched with PLUMED](https://zenodo.org/record/4319228)
+Example dataset: [Input files and scripts for Hamiltonian replica-exchange molecular dynamics simulations of intrinsically disordered proteins using a software GROMACS patched with PLUMED](https://zenodo.org/record/4319228)
 
 - preview for [hremd-idp.zip](https://zenodo.org/record/4319228/preview/hremd-idp.zip)
 
 Some zip file content are not accessible.
 
-Example : dataset [G-Protein Coupled Receptor-Ligand Dissociation Rates and Mechanisms from tauRAMD Simulations](https://zenodo.org/record/5151217)
+Example dataset: [G-Protein Coupled Receptor-Ligand Dissociation Rates and Mechanisms from tauRAMD Simulations](https://zenodo.org/record/5151217)
 
 - bad preview for [Example_b2AR-alprenolol.zip](https://zenodo.org/record/5151217/preview/Example_b2AR-alprenolol.zip) probably beacause file is too large (5.4 GB)
 
