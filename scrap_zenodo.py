@@ -1,6 +1,7 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 import os
 
@@ -53,6 +54,25 @@ def read_input_file():
     return file_types, md_keywords, generic_keywords
 
 
+def extract_date(date_str):
+    """Extract and format date from a string.
+
+    Parameters
+    ----------
+    date_str : str
+        Date as a string in ISO 8601.
+        For example: 2020-07-29T19:22:57.752335+00:00
+
+    Returns
+    -------
+    str
+        Date as in string in YYYY-MM-DD format.
+        For example: 2020-07-29
+    """
+    date = datetime.fromisoformat(date_str)
+    return f"{date:%Y-%m-%d}"
+
+
 def read_zenodo_token():
     """Read file Zenodo token from disk."""
     dotenv.load_dotenv(".env")
@@ -74,7 +94,11 @@ def test_zenodo_connection(token):
         params={"access_token": token}
     )
     # Status code should be 200
-    print(f"Status code: {r.status_code}")
+    print(f"Status code: {r.status_code}", end="")
+    if r.status_code == 200:
+        print(" success!")
+    else:
+        print(" failed!")
 
 
 def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
@@ -158,16 +182,6 @@ def scrap_zip_content(files_df):
                 file_dict = {
                     "dataset_id": files_df.iloc[i]["dataset_id"],
                     "origin": files_df.iloc[i]["origin"],
-                    "doi": files_df.iloc[i]["doi"],
-                    "title": files_df.iloc[i]["title"],
-                    "date_creation": files_df.iloc[i]["date_creation"],
-                    "date_last_modified": files_df.iloc[i]["date_last_modified"],
-                    "author": files_df.iloc[i]["author"],
-                    "keywords": files_df.iloc[i]["keywords"],
-                    "file_number": files_df.iloc[i]["file_number"],
-                    "download_number": files_df.iloc[i]["download_number"],
-                    "view_number": files_df.iloc[i]["view_number"],
-                    "license": files_df.iloc[i]["license"],
                     "from_zip_file": files_df.iloc[i]["file_name"],
                     "file_name": chain[j],
                     "file_extension": chain[j][-3:],
@@ -203,16 +217,9 @@ def extract_records(response_json):
             record_dict["dataset_id"] = hit["id"]
             record_dict["origin"] = "zenodo"
             record_dict["doi"] = hit["doi"]
-            record_dict["title"] = hit["metadata"]["title"]
-            record_dict["date_creation"] = hit["created"]
-            record_dict["date_last_modified"] = hit["updated"]
-            record_dict["author"] = hit["metadata"]["creators"][0]["name"]
-            if "keywords" in hit["metadata"]:
-                record_dict["keywords"] = " ; ".join(
-                    [str(elem) for elem in hit["metadata"]["keywords"]]
-                )
-            else:
-                record_dict["keywords"] = ""
+            record_dict["date_creation"] = extract_date(hit["created"])
+            record_dict["date_last_modified"] = extract_date(hit["updated"])
+            record_dict["date_fetched"] = datetime.now().isoformat(timespec="seconds")
             record_dict["file_number"] = len(hit["files"])
             record_dict["download_number"] = hit["stats"]["version_downloads"]
             record_dict["view_number"] = hit["stats"]["version_views"]
@@ -220,21 +227,18 @@ def extract_records(response_json):
             if record_dict["access_right"] != "open":
                 continue
             record_dict["license"] = hit["metadata"]["license"]["id"]
+            record_dict["title"] = hit["metadata"]["title"]
+            record_dict["author"] = hit["metadata"]["creators"][0]["name"]
+            record_dict["keywords"] = ""
+            if "keywords" in hit["metadata"]:
+                record_dict["keywords"] = " ; ".join(
+                    [str(elem) for elem in hit["metadata"]["keywords"]]
+                )
             records.append(record_dict)
             for file_in in hit["files"]:
                 file_dict = {
                     "dataset_id": record_dict["dataset_id"],
                     "origin": record_dict["origin"],
-                    "doi": record_dict["doi"],
-                    "title": record_dict["title"],
-                    "date_creation": record_dict["date_creation"],
-                    "date_last_modified": record_dict["date_last_modified"],
-                    "author": record_dict["author"],
-                    "keywords": record_dict["keywords"],
-                    "file_number": record_dict["file_number"],
-                    "download_number": record_dict["download_number"],
-                    "view_number": record_dict["view_number"],
-                    "license": record_dict["license"],
                     "from_zip_file": "",
                     "file_name": file_in["key"],
                     "file_extension": file_in["type"],
@@ -256,7 +260,6 @@ if __name__ == "__main__":
     QUERY_MD_KEYWORDS = " AND (" + " OR ".join(MD_KEYWORDS) + ")"
     QUERY_GENERIC_KEYWORDS = " AND (" + " OR ".join(GENERIC_KEYWORDS) + ")"
 
-
     max_hits_per_record = 10_000
     max_hits_per_page = 100
 
@@ -266,7 +269,8 @@ if __name__ == "__main__":
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
         query_files = []
-        query = f'resource_type.type:"dataset" AND filetype:"{file_type["type"]}"'
+        query = (f'resource_type.type:"dataset" '
+                 f'AND filetype:"{file_type["type"]}"')
         if file_type["keywords"] == "md_keywords":
             query += QUERY_MD_KEYWORDS
         elif file_type["keywords"] == "generic_keywords":
@@ -289,13 +293,13 @@ if __name__ == "__main__":
             files_df_tmp = pd.DataFrame(files_tmp).set_index("dataset_id", drop=False)
             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
             files_df.drop_duplicates(
-                subset=["doi", "file_name"], keep="first", inplace=True
+                subset=["dataset_id", "file_name"], keep="first", inplace=True
             )
             if page * max_hits_per_page >= max_hits_per_record:
                 print("Max hits per query reached!")
                 break
-        print(f"Number of datasets found: {len(query_records)}")
-        print(f"Number of files found: {len(query_files)}")
+        print(f"Number of datasets found: {len(datasets_tmp)}")
+        print(f"Number of files found: {len(files_tmp)}")
         print("-"*20)
 
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
