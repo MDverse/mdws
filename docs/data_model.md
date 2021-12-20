@@ -51,12 +51,12 @@ title
 - type: string
 - example: "Berger POPE Simulations (versions 1 and 2) 303 K - de Vries repulsive H"
 
-author:
+author
 - type: string
 - example: 
 - comment: Not sure we get the uploader name in Zenodo. Maybe get all available authors.
 
-keywords:
+keywords
 - type: string with keywords separated by ;
 - example: DMTAP ; DMPC ; cationic lipid bilayer ; NaCl ; Molecular Dynamics Simulation ; Gromacs
 
@@ -71,44 +71,38 @@ origin
 - type: string
 - example: zenodo, figshare, osf
 
-file_name
+file_type
 - type: string
-- example: traj118.xtc, mini1.mdp
-
-file_extension
-- type: string
-- example: mdp, gro
+- example: mdp, gro, mdp
 - comment: remove the dot. For instance, .gro -> gro
 
 file_size
 - type: float
-- example:
+- example: 2755384, 42550830992
 - comment: File size is in KB
-
-file_url
-- type: string
-- example:
 
 file_md5
 - type: string
-- example:
+- example: ae4d3b4b88813a52a6fda3e85fa6695f, 989fa719a1a9986b24b4b4dd18dfa8a5
+- comment: MD5 checksum
 
-file_type
-- type: string from a list
-- example:
-- comment: what is it used for???
+from_zip_file
+- type: boolean
+- example: True, False
+- comment: tells whether or not a given file has been extracted from a zip file
 
-
+file_name
 - type: string
-- example:
+- example: traj118.xtc, mini1.mdp, glucose.itp, coexistence_PSM_POPC.cpt
 
-
-
+file_url
 - type: string
-- example:
+- example: https://zenodo.org/api/files/79746ec1-ad28-4e6b-acc2-b8febb8b3e76/M-4-400-330.gro
+- comment: Direct URL to access the file
 
-
-
+origin_zip_file:
 - type: string
-- example:
+- example: None, 
+- comment: Name of the zip file the given file has been extracted from
+
 

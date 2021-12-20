@@ -239,13 +239,13 @@ def extract_records(response_json):
                 file_dict = {
                     "dataset_id": record_dict["dataset_id"],
                     "origin": record_dict["origin"],
-                    "from_zip_file": "",
-                    "file_name": file_in["key"],
-                    "file_extension": file_in["type"],
-                    "file_size": file_in["size"],
-                    "file_url": file_in["links"],
-                    "file_md5": file_in["checksum"],
                     "file_type": file_in["type"],
+                    "file_size": file_in["size"],
+                    "file_md5": file_in["checksum"].replace("md5:", ""),
+                    "from_zip_file": False,
+                    "file_name": file_in["key"],
+                    "file_url": file_in["links"]["self"],
+                    "origin_zip_file": "None"
                 }
                 files.append(file_dict)
     return records, files
