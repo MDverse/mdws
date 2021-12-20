@@ -140,9 +140,14 @@ def extract_data_from_zip_file_preview(url, token):
         file_size_in_kb = normalize_file_size(file_size_raw)
         file_dict = {
             "file_name": file_name,
-            "file_type": file_name.split(".")[-1],
             "file_size": file_size_in_kb
         }
+        file_dict["file_type"] = ""
+        if "." in file_name:
+            file_dict["file_type"] = file_name.split(".")[-1]
+        # Ignore files starting with a dot
+        if file_name.startswith("."):
+            continue
         file_lst.append(file_dict)
     return file_lst
 
@@ -243,11 +248,12 @@ def scrap_zip_content(files_df):
         for file_idx in range(len(file_lst)):
             file_lst[file_idx]["dataset_id"] = target_df.loc[idx, "dataset_id"]
             file_lst[file_idx]["origin"] = target_df.loc[idx, "origin"]
-            file_lst[file_idx]["from_zip_file"] = target_df.loc[idx, "file_name"]
+            file_lst[file_idx]["from_zip_file"] = True
+            file_lst[file_idx]["origin_zip_file"] = target_df.loc[idx, "file_name"]
             file_lst[file_idx]["file_url"] = ""
             file_lst[file_idx]["file_md5"] = ""
         zip_lst += file_lst
-    zip_df = pd.DataFrame(zip_lst).set_index("dataset_id")
+    zip_df = pd.DataFrame(zip_lst)
     return zip_df
 
 
@@ -270,7 +276,7 @@ def extract_records(response_json):
     if response_json["hits"]["hits"]:
         for hit in response_json["hits"]["hits"]:
             record_dict = {}
-            record_dict["dataset_id"] = hit["id"]
+            record_dict["dataset_id"] = str(hit["id"])
             record_dict["origin"] = "zenodo"
             record_dict["doi"] = hit["doi"]
             record_dict["date_creation"] = extract_date(hit["created"])
