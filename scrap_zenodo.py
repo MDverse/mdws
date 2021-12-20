@@ -2,8 +2,10 @@
 
 import argparse
 from datetime import datetime
-from pathlib import Path
+import json
 import os
+from pathlib import Path
+import time
 
 
 from bs4 import BeautifulSoup
@@ -73,8 +75,86 @@ def extract_date(date_str):
     return f"{date:%Y-%m-%d}"
 
 
+def normalize_file_size(file_str):
+    """Normalize file size in kB.
+
+    Parameters
+    ----------
+    file_str : str
+        File size with unit.
+        For instance: 1.8 GB, 108.7 kB
+
+    Returns
+    -------
+    float
+        File size in kB.
+    """
+    size, unit = file_str.split()
+    if unit == "GB":
+        size_in_kb = float(size) * 1_000_000
+    elif unit == "MB":
+        size_in_kb = float(size) * 1_000
+    elif unit == "kB":
+        size_in_kb = float(size) 
+    elif unit == "Bytes":
+        size_in_kb = float(size) / 1_000
+    else:
+        size_in_kb = 0.0
+    return size_in_kb
+
+
+def extract_data_from_zip_file_preview(url, token):
+    """Extract data from zip file preview.
+
+    Parameters
+    ----------
+    url : str
+        URL of zip file preview
+    token : str
+        Token for Zenodo API
+
+
+    Returns
+    -------
+    list
+        List of dictionnaries with data extracted from zip preview.
+    """
+    response = requests.get(url,
+                            params={"access_token": token})
+    
+    if response.status_code != 200:
+        print(f"Status code: {response.status_code}")
+        print(response.headers)
+    soup = BeautifulSoup(response.content, "html5lib")
+    if "Zipfile is not previewable" in response.text:
+        print(f"No preview available for {url}!")
+        return []
+    table = soup.find("ul", attrs={"class": "tree list-unstyled"})
+    file_info = []
+    for row in table.findAll("span"):
+        file_info.append(row.text)
+    file_lst = []
+    for idx in range(0, len(file_info), 2):
+        file_name = file_info[idx].strip()
+        file_size_raw = file_info[idx+1].strip()
+        file_size_in_kb = normalize_file_size(file_size_raw)
+        file_dict = {
+            "file_name": file_name,
+            "file_type": file_name.split(".")[-1],
+            "file_size": file_size_in_kb
+        }
+        file_lst.append(file_dict)
+    return file_lst
+
+
 def read_zenodo_token():
-    """Read file Zenodo token from disk."""
+    """Read file Zenodo token from disk.
+    
+    Returns
+    -------
+    str
+        Zenodo token.
+    """
     dotenv.load_dotenv(".env")
     return os.environ.get("ZENODO_TOKEN", "default")
 
@@ -99,22 +179,7 @@ def test_zenodo_connection(token):
         print(" success!")
     else:
         print(" failed!")
-
-
-def search_zenodo_by_filetype(filetype, page=1, hits_per_page=10):
-    """Search for datasets containing tpr files."""
-    response = requests.get(
-        "https://zenodo.org/api/records",
-        params={
-            "q": f'resource_type.type:"dataset" AND filetype:"{filetype}"',
-            "type": "dataset",
-            "size": hits_per_page,
-            "page": page,
-            "status": "published",
-            "access_token": ZENODO_TOKEN,
-        },
-    )
-    return response.json()
+        print(r.headers)
 
 
 def search_zenodo_with_query(query, page=1, hits_per_page=10):
@@ -158,40 +223,31 @@ def scrap_zip_content(files_df):
     zip_df: dataframe
         Dataframe with information about files in zip archive.
     """
-    zip = []
-    for i in range(files_df.shape[0]):
-        if (files_df["file_type"].iloc[i]) == "zip":
-            URL = f"https://zenodo.org/record/{files_df.iloc[i]['dataset_id']}/preview/{files_df.iloc[i]['file_name']}"
-            print(URL)
-            r = requests.get(URL)
-            soup = BeautifulSoup(r.content, "html5lib")
-            table = soup.find("ul", attrs={"class": "tree list-unstyled"})
-            chain = []
-            for row in table.findAll("span"):
-                chain.append(row.text)
-            for j in range(0, len(chain), 2):
-                size = chain[j + 1].split()
-                if size[1] == "GB":
-                    s = float(size[0]) * (10 ** 9)
-                elif size[1] == "MB":
-                    s = float(size[0]) * (10 ** 6)
-                elif size[1] == "kB":
-                    s = float(size[0]) * (10 ** 3)
-                else:
-                    s = float(size[0])
-                file_dict = {
-                    "dataset_id": files_df.iloc[i]["dataset_id"],
-                    "origin": files_df.iloc[i]["origin"],
-                    "from_zip_file": files_df.iloc[i]["file_name"],
-                    "file_name": chain[j],
-                    "file_extension": chain[j][-3:],
-                    "file_size": s,
-                    "file_url": "",
-                    "file_md5": "",
-                    "file_type": chain[j][-3:],
-                }
-                zip.append(file_dict)
-    zip_df = pd.DataFrame(zip).set_index("dataset_id")
+    zip_lst = []
+    zip_counter = 0
+    target_df = files_df[files_df["file_type"] == "zip"]
+    print(f"Number of zip files to scrap content from: {target_df.shape[0]}")
+    for idx in target_df.index:
+        zip_counter += 1
+        if zip_counter % 60 == 0:
+            time.sleep(60)
+            print("---")
+        URL = (f"https://zenodo.org/record/{target_df.loc[idx,'dataset_id']}"
+               f"/preview/{target_df.loc[idx, 'file_name']}"
+               )
+        print(zip_counter, URL)
+        file_lst = extract_data_from_zip_file_preview(URL, ZENODO_TOKEN)
+        if file_lst == []:
+            continue
+        # Add common extra fields
+        for file_idx in range(len(file_lst)):
+            file_lst[file_idx]["dataset_id"] = target_df.loc[idx, "dataset_id"]
+            file_lst[file_idx]["origin"] = target_df.loc[idx, "origin"]
+            file_lst[file_idx]["from_zip_file"] = target_df.loc[idx, "file_name"]
+            file_lst[file_idx]["file_url"] = ""
+            file_lst[file_idx]["file_md5"] = ""
+        zip_lst += file_lst
+    zip_df = pd.DataFrame(zip_lst).set_index("dataset_id")
     return zip_df
 
 
@@ -234,6 +290,8 @@ def extract_records(response_json):
                 record_dict["keywords"] = " ; ".join(
                     [str(elem) for elem in hit["metadata"]["keywords"]]
                 )
+            # Dataset description might be interesting. Not saved yet.
+            # record_dict["description"] = hit["metadata"]["description"]
             records.append(record_dict)
             for file_in in hit["files"]:
                 file_dict = {
@@ -307,7 +365,7 @@ if __name__ == "__main__":
     # Save dataframes to disk
     datasets_df.to_csv("datasets.tsv", sep="\t", index=None)
     files_df.to_csv("files.tsv", sep="\t", index=None)
-    exit(0)
+    #exit(0)
     zip_df = scrap_zip_content(files_df)
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
     print(f"Number of files found: {files_df.shape[0]}")

@@ -60,6 +60,10 @@ keywords
 - type: string with keywords separated by ;
 - example: DMTAP ; DMPC ; cationic lipid bilayer ; NaCl ; Molecular Dynamics Simulation ; Gromacs
 
+description:
+- type: string
+- example:
+- comment: Interesting field with highly complex because of its 'free' format. May also vary a lot in length.
 
 ## files.csv
 
@@ -79,7 +83,7 @@ file_type
 file_size
 - type: float
 - example: 2755384, 42550830992
-- comment: File size is in KB
+- comment: File size is in kB
 
 file_md5
 - type: string
