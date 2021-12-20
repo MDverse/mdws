@@ -167,6 +167,9 @@ def read_zenodo_token():
 def test_zenodo_connection(token):
     """Test connection to Zenodo API.
 
+    Zenodo HTTP status codes are listed here:
+    https://developers.zenodo.org/#http-status-codes
+
     Parameters
     ----------
     token : str

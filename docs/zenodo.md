@@ -5,6 +5,8 @@
 The [rate limit](https://developers.zenodo.org/#rate-limiting) is 
 > 100 requests per minute, 5000 requests per hour
 
+List of [HTTP status codes](https://developers.zenodo.org/#http-status-codes)
+
 [Search guide](https://help.zenodo.org/guides/search/)
 
 ## Dataset examples
