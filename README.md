@@ -24,7 +24,7 @@ conda install mamba -n base -c conda-forge
 
 Create the `mdws` conda environment:
 ```
-mamba env create -f dashboard_conda_env.yml
+mamba env create -f binder/environment.yml
 ```
 
 Load the `mdws` conda environment:
