@@ -264,7 +264,7 @@ def scrap_zip_content(files_df):
             print(
                 f"Scraped {zip_counter} zip files / "
                 f"{zip_files_df.shape[0]}\n"
-                f"Waiting {sleep_time} seconds..."
+                f"Waiting for {sleep_time} seconds..."
             )
             time.sleep(sleep_time)
         URL = (
