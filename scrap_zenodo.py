@@ -95,7 +95,7 @@ def normalize_file_size(file_str):
     elif unit == "MB":
         size_in_kb = float(size) * 1_000
     elif unit == "kB":
-        size_in_kb = float(size) 
+        size_in_kb = float(size)
     elif unit == "Bytes":
         size_in_kb = float(size) / 1_000
     else:
@@ -119,9 +119,8 @@ def extract_data_from_zip_file(url, token):
     list
         List of dictionnaries with data extracted from zip preview.
     """
-    response = requests.get(url,
-                            params={"access_token": token})
-    
+    response = requests.get(url, params={"access_token": token})
+
     if response.status_code != 200:
         print(f"Status code: {response.status_code}")
         print(response.headers)
@@ -136,12 +135,9 @@ def extract_data_from_zip_file(url, token):
     file_lst = []
     for idx in range(0, len(file_info), 2):
         file_name = file_info[idx].strip()
-        file_size_raw = file_info[idx+1].strip()
+        file_size_raw = file_info[idx + 1].strip()
         file_size_in_kb = normalize_file_size(file_size_raw)
-        file_dict = {
-            "file_name": file_name,
-            "file_size": file_size_in_kb
-        }
+        file_dict = {"file_name": file_name, "file_size": file_size_in_kb}
         file_dict["file_type"] = ""
         if "." in file_name:
             file_dict["file_type"] = file_name.split(".")[-1]
@@ -187,7 +183,7 @@ def test_zenodo_connection(token, show_headers=False):
     # Basic Zenodo query
     response = requests.get(
         "https://zenodo.org/api/deposit/depositions",
-        params={"access_token": token}
+        params={"access_token": token},
     )
     # Status code should be 200
     print(f"Status code: {response.status_code}", end="")
@@ -253,18 +249,20 @@ def scrap_zip_content(files_df):
     files_in_zip_lst = []
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
-    print("Number of zip files to scrap content from: "
-         f"{zip_files_df.shape[0]}"
-         )
+    print(
+        "Number of zip files to scrap content from: "
+        f"{zip_files_df.shape[0]}"
+    )
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         zip_counter += 1
         if zip_counter % 60 == 0:
             time.sleep(60)
             print("---")
-        URL = (f"https://zenodo.org/record/{zip_file['dataset_id']}"
-               f"/preview/{zip_file.loc['file_name']}"
-               )
+        URL = (
+            f"https://zenodo.org/record/{zip_file['dataset_id']}"
+            f"/preview/{zip_file.loc['file_name']}"
+        )
         print(zip_counter, URL)
         files_tmp = extract_data_from_zip_file(URL, ZENODO_TOKEN)
         if files_tmp == []:
@@ -317,7 +315,7 @@ def extract_records(response_json):
                 "license": hit["metadata"]["license"]["id"],
                 "title": hit["metadata"]["title"],
                 "author": hit["metadata"]["creators"][0]["name"],
-                "keywords": ""
+                "keywords": "",
             }
             if "keywords" in hit["metadata"]:
                 record_dict["keywords"] = " ; ".join(
@@ -336,7 +334,7 @@ def extract_records(response_json):
                     "from_zip_file": False,
                     "file_name": file_in["key"],
                     "file_url": file_in["links"]["self"],
-                    "origin_zip_file": "None"
+                    "origin_zip_file": "None",
                 }
                 files.append(file_dict)
     return records, files
@@ -365,15 +363,19 @@ if __name__ == "__main__":
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
         query_files = []
-        query = (f'resource_type.type:"dataset" '
-                 f'AND filetype:"{file_type["type"]}"')
+        query = (
+            f'resource_type.type:"dataset" '
+            f'AND filetype:"{file_type["type"]}"'
+        )
         if file_type["keywords"] == "md_keywords":
             query += QUERY_MD_KEYWORDS
         elif file_type["keywords"] == "generic_keywords":
             query += QUERY_GENERIC_KEYWORDS
         print(f"Query:\n{query}")
         # First get the total number of hits for a given query.
-        resp_json = search_zenodo_with_query(query, ZENODO_TOKEN, hits_per_page=1)
+        resp_json = search_zenodo_with_query(
+            query, ZENODO_TOKEN, hits_per_page=1
+        )
         total_hits = resp_json["hits"]["total"]
         page_max = total_hits // MAX_HITS_PER_PAGE + 1
         # Then, slice the query by page.
@@ -385,7 +387,9 @@ if __name__ == "__main__":
             datasets_tmp, files_tmp = extract_records(resp_json)
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_tmp)
-            datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
+            datasets_df = pd.concat(
+                [datasets_df, datasets_df_tmp], ignore_index=True
+            )
             datasets_df.drop_duplicates(keep="first", inplace=True)
             # Merge files
             files_df_tmp = pd.DataFrame(files_tmp)
@@ -398,7 +402,7 @@ if __name__ == "__main__":
                 break
         print(f"Number of datasets found: {len(datasets_tmp)}")
         print(f"Number of files found: {len(files_tmp)}")
-        print("-"*20)
+        print("-" * 20)
 
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
