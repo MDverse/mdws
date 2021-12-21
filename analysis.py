@@ -25,6 +25,9 @@ plt.show()
 ## Number of files per filetype
 
 count_filetype = tab["file_type"].value_counts().plot(kind="bar")
+plt.xlabel("File type")
+plt.ylabel("Number of files")
+plt.savefig("nb_files_per_type.png")
 plt.show()
 
 ## Number of files submitted per year
@@ -35,4 +38,7 @@ for i in range(len(date)):
     years.append(date[i][:4])
 years.sort()
 plt.hist(years)
+plt.xlabel("Years")
+plt.ylabel("Number of files")
+plt.savefig("histogram_files_per_year.png")
 plt.show()
