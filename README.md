@@ -45,7 +45,7 @@ This file is ignored by git.
 
 ## Scrap Zenodo
 
-Scrap Zenodo for all MD-related datasets and files:
+Scrap Zenodo for MD-related datasets and files:
 
 ```bash
 python scrap_zenodo.py query.yml
