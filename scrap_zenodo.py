@@ -255,9 +255,14 @@ def scrap_zip_content(files_df):
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         zip_counter += 1
+        sleep_time = 60
         if zip_counter % 60 == 0:
-            time.sleep(60)
-            print("---")
+            print(
+                f"Scraped {zip_counter} zip files / "
+                f"{zip_files_df.shape[0]}\n"
+                f"Waiting {sleep_time} seconds..."
+            )
+            time.sleep(sleep_time)
         URL = (
             f"https://zenodo.org/record/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
@@ -405,7 +410,7 @@ if __name__ == "__main__":
                 break
         print(f"Number of datasets found: {len(datasets_tmp)}")
         print(f"Number of files found: {len(files_tmp)}")
-        print("-" * 20)
+        print("-" * 30)
 
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
