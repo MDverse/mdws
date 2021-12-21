@@ -1,0 +1,34 @@
+md_keywords:
+- molecular dynamics
+- molecular dynamic
+- molecular-dynamics
+- molecular-dynamic
+- namd
+- md trajectory
+- md trajectories
+- md simulation
+- md simulations
+- amber
+- gromacs
+- charmm
+- plumed
+
+generic_keywords:
+- gromacs
+
+file_types:
+- type: tpr
+  engine: gromacs
+  keywords: none
+- type: gro
+  engine: gromacs
+  keywords: none
+- type: mdp
+  engine: gromacs
+  keywords: md_keywords
+- type: itp
+  engine: gromacs
+  keywords: md_keywords
+- type: zip
+  engine: unknown
+  keywords: generic_keywords
