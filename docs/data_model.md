@@ -77,7 +77,7 @@ origin
 
 file_type
 - type: string
-- example: mdp, gro, mdp
+- example: mdp, gro, mdp, zip
 - comment: remove the dot. For instance, .gro -> gro
 
 file_size
@@ -106,7 +106,7 @@ file_url
 
 origin_zip_file:
 - type: string
-- example: None, 
+- example: None, PeptideGraphZenodo.zip, paissoni19diubq.zip
 - comment: Name of the zip file the given file has been extracted from
 
 
