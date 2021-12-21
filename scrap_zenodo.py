@@ -255,6 +255,10 @@ def scrap_zip_content(files_df):
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         zip_counter += 1
+        # According to Zenodo documentation.
+        # https://developers.zenodo.org/#rate-limiting
+        # One can run 60 or 100 requests per minute.
+        # To be careful, we wait 60 secondes every 60 requests.
         sleep_time = 60
         if zip_counter % 60 == 0:
             print(
