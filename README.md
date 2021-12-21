@@ -46,5 +46,5 @@ This file is ignored by git.
 ## Scrap Zenodo
 
 ```bash
-python scrap_zenodo.py
+python scrap_zenodo.py query.yml
 ```
