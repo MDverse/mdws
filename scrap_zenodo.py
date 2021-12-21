@@ -21,7 +21,7 @@ def get_cli_arguments():
     This function parses the name of the yaml input file.
 
     Returns
-    ----------
+    -------
     str
         Name of the yaml input file.
     """
@@ -113,7 +113,6 @@ def extract_data_from_zip_file(url, token):
     token : str
         Token for Zenodo API
 
-
     Returns
     -------
     list
@@ -157,7 +156,7 @@ def read_zenodo_token():
         Zenodo token.
     """
     dotenv.load_dotenv(".env")
-    return os.environ.get("ZENODO_TOKEN", "default")
+    return os.environ.get("ZENODO_TOKEN", "token_not_found")
 
 
 def test_zenodo_connection(token, show_headers=False):
@@ -263,7 +262,7 @@ def scrap_zip_content(files_df):
             f"https://zenodo.org/record/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
         )
-        print(zip_counter, URL)
+        # print(zip_counter, URL)
         files_tmp = extract_data_from_zip_file(URL, ZENODO_TOKEN)
         if files_tmp == []:
             continue
@@ -347,8 +346,11 @@ if __name__ == "__main__":
 
     # Read parameter file
     FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_input_file()
-    QUERY_MD_KEYWORDS = " AND (" + " OR ".join(MD_KEYWORDS) + ")"
-    QUERY_GENERIC_KEYWORDS = " AND (" + " OR ".join(GENERIC_KEYWORDS) + ")"
+    # Build query part with keywords.
+    # We want something like:
+    # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
+    QUERY_MD_KEYWORDS = ' AND ("' + '" OR "'.join(MD_KEYWORDS) + '")'
+    QUERY_GENERIC_KEYWORDS = ' AND ("' + '" OR "'.join(GENERIC_KEYWORDS) + '")'
 
     # There is a hard limit of the number of hits
     # one can get from a single query.
@@ -377,6 +379,7 @@ if __name__ == "__main__":
             query, ZENODO_TOKEN, hits_per_page=1
         )
         total_hits = resp_json["hits"]["total"]
+        print(f"Number of hits: {total_hits}")
         page_max = total_hits // MAX_HITS_PER_PAGE + 1
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
