@@ -338,7 +338,7 @@ def extract_records(response_json):
                     "origin": record_dict["origin"],
                     "file_type": file_in["type"],
                     "file_size": file_in["size"],
-                    "file_md5": file_in["checksum"].replace("md5:", ""),
+                    "file_md5": file_in["checksum"].removeprefix("md5:"),
                     "from_zip_file": False,
                     "file_name": file_in["key"],
                     "file_url": file_in["links"]["self"],
