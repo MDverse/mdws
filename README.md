@@ -16,7 +16,7 @@ cd mdws
 
 Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
-Install [mamba](https://github.com/mamba-org/mamba) :
+Install [mamba](https://github.com/mamba-org/mamba):
 
 ```bash
 conda install mamba -n base -c conda-forge
