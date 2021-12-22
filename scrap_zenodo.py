@@ -419,8 +419,8 @@ if __name__ == "__main__":
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
     # Save dataframes to disk
-    datasets_df.to_csv("datasets.tsv", sep="\t", index=False)
-    files_df.to_csv("files.tsv", sep="\t", index=False)
+    datasets_df.to_csv("zenodo_datasets.tsv", sep="\t", index=False)
+    files_df.to_csv("zenodo_files.tsv", sep="\t", index=False)
 
     # Scrap zip files content
     zip_df = scrap_zip_content(files_df)
@@ -430,4 +430,4 @@ if __name__ == "__main__":
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
     print(f"Number of files found inside zip files: {zip_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
-    files_df.to_csv("files.tsv", sep="\t", index=False)
+    files_df.to_csv("zenodo_files.tsv", sep="\t", index=False)
