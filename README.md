@@ -56,3 +56,7 @@ Scrap Zenodo with a small query, for development or demo purpose:
 ```bash
 python scrap_zenodo.py query_dev.yml
 ```
+
+The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
+
+Eventually, the scraper will produce two files: `zenodo_datasets.tsv` and `zenodo_files.tsv` :sparkles: 
