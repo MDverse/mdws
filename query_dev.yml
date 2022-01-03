@@ -20,15 +20,20 @@ file_types:
 - type: tpr
   engine: gromacs
   keywords: none
+  category: coordinate
 - type: gro
   engine: gromacs
   keywords: none
+  category: coordinate
 - type: mdp
   engine: gromacs
   keywords: md_keywords
+  category: topology
 - type: itp
   engine: gromacs
   keywords: md_keywords
+  category: topology
 - type: zip
   engine: unknown
   keywords: generic_keywords
+  category: none
