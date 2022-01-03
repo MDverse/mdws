@@ -43,6 +43,11 @@ ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 ```
 This file is ignored by git.
 
+### FigShare
+
+No token or API key needed.
+
+
 ## Scrap Zenodo
 
 Scrap Zenodo for MD-related datasets and files:
@@ -60,3 +65,22 @@ python scrap_zenodo.py query_dev.yml
 The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
 
 Eventually, the scraper will produce two files: `zenodo_datasets.tsv` and `zenodo_files.tsv` :sparkles: 
+
+
+## Scrap FigShare
+
+Scrap FigShare for MD-related datasets and files:
+
+```bash
+python scrap_figshare.py query.yml
+```
+
+Scrap FigShare with a small query, for development or demo purpose:
+
+```bash
+python scrap_figshare.py query_dev.yml
+```
+
+The scraping takes some time (complete query: ~1h20min). Be patient.
+
+Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `figshare_files.tsv` :sparkles: 
