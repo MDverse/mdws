@@ -31,78 +31,100 @@ file_types:
 - type: tpr
   engine: gromacs
   keywords: none
+  category: coordinate
 - type: gro
   engine: gromacs
   keywords: none
+  category: coordinate
 - type: mdp
   engine: gromacs
   keywords: md_keywords
+  category: topology
 - type: itp
   engine: gromacs
   keywords: md_keywords
+  category: topology
 - type: ndx
   engine: gromacs
   keywords: none
+  category: topology
 - type: top
   engine: gromacs
   keywords: md_keywords
+  category: topology
 - type: xtc
   engine: gromacs
   keywords: none
+  category: trajectory
 - type: trr
   engine: gromacs
   keywords: none
+  category: trajectory
 - type: edr
   engine: gromacs
   keywords: none
+  category: trajectory
 - type: cpt
   engine: gromacs
   keywords: none
+  category: topology
 - type: psf
   engine: namd
   keywords: md_keywords
+  category: coordinate
 - type: inp
   engine: namd
   keywords: md_keywords
+  category: topology
 - type: prm
-  engine: namd/amber
+  engine: namd
   keywords: md_keywords
+  category: topology
 - type: crd
   engine: namd
   keywords: none
+  category: coordinate
 - type: dcd
   engine: namd
   keywords: md_keywords
+  category: trajectory
 - type: coor
   engine: namd
   keywords: md_keywords
+  category: coordinate
 - type: vel
   engine: namd
   keywords: md_keywords
+  category: trajectory
 - type: xsc
   engine: namd
   keywords: md_keywords
+  category: topology
 - type: prmtop
   engine: amber
   keywords: none
-- type: top
-  engine: amber
-  keywords: md_keywords
+  category: topology
 - type: inpcrd
   engine: amber
   keywords: md_keywords
+  category: trajectory
 - type: mdcrd
   engine: amber
   keywords: md_keywords
+  category: trajectory
 - type: nc
   engine: amber
   keywords: md_keywords
+  category: trajectory
 - type: ncdf
   engine: amber
   keywords: md_keywords
+  category: trajectory
 - type: trj
   engine: amber
   keywords: md_keywords
+  category: trajectory
 - type: zip
   engine: unknown
   keywords: generic_keywords
+  category: none
