@@ -74,7 +74,7 @@ def extract_date(date_str):
 
 
 def normalize_file_size(file_str):
-    """Normalize file size in kB.
+    """Normalize file size in bytes.
 
     Parameters
     ----------
@@ -84,21 +84,21 @@ def normalize_file_size(file_str):
 
     Returns
     -------
-    float
-        File size in kB.
+    int
+        File size in bytes.
     """
     size, unit = file_str.split()
     if unit == "GB":
-        size_in_kb = float(size) * 1_000_000
+        size_in_bytes = float(size) * 1_000_000_000
     elif unit == "MB":
-        size_in_kb = float(size) * 1_000
+        size_in_bytes = float(size) * 1_000_000
     elif unit == "kB":
-        size_in_kb = float(size)
+        size_in_bytes = float(size) * 1_000
     elif unit == "Bytes":
-        size_in_kb = float(size) / 1_000
+        size_in_bytes = float(size)
     else:
-        size_in_kb = 0.0
-    return size_in_kb
+        size_in_bytes = 0
+    return int(size_in_bytes)
 
 
 def extract_data_from_zip_file(url, token):
@@ -133,8 +133,8 @@ def extract_data_from_zip_file(url, token):
     for idx in range(0, len(file_info), 2):
         file_name = file_info[idx].strip()
         file_size_raw = file_info[idx + 1].strip()
-        file_size_in_kb = normalize_file_size(file_size_raw)
-        file_dict = {"file_name": file_name, "file_size": file_size_in_kb}
+        file_size = normalize_file_size(file_size_raw)
+        file_dict = {"file_name": file_name, "file_size": file_size}
         file_dict["file_type"] = "none"
         if "." in file_name:
             file_dict["file_type"] = file_name.split(".")[-1].lower()
@@ -336,7 +336,7 @@ def extract_records(response_json):
                     "dataset_id": record_dict["dataset_id"],
                     "origin": record_dict["origin"],
                     "file_type": file_in["type"],
-                    "file_size": file_in["size"],
+                    "file_size": int(file_in["size"]),  # File size in bytes.
                     "file_md5": file_in["checksum"].removeprefix("md5:"),
                     "from_zip_file": False,
                     "file_name": file_in["key"],

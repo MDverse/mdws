@@ -88,7 +88,7 @@ file_type
 file_size
 - type: float
 - example: 2755384, 42550830992
-- comment: File size is in kB
+- comment: File size is in bytes.
 
 file_md5
 - type: string
