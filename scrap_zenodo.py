@@ -403,7 +403,8 @@ if __name__ == "__main__":
             datasets_df = pd.concat(
                 [datasets_df, datasets_df_tmp], ignore_index=True
             )
-            datasets_df.drop_duplicates(keep="first", inplace=True)
+            datasets_df.drop_duplicates(
+                subset=["dataset_id", "origin"], keep="first", inplace=True)
             # Merge files
             files_df_tmp = pd.DataFrame(files_tmp)
             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
