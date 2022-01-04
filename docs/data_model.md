@@ -57,7 +57,7 @@ author
 - comment: Not sure we get the uploader name in Zenodo. Maybe get all available authors.
 
 keywords
-- type: string with keywords separated by ;
+- type: string with keywords separated by ";". Default is "None".
 - example: DMTAP ; DMPC ; cationic lipid bilayer ; NaCl ; Molecular Dynamics Simulation ; Gromacs
 
 dateset_url
@@ -81,7 +81,7 @@ origin
 - example: zenodo, figshare, osf
 
 file_type
-- type: string
+- type: string. Default is "None".
 - example: mdp, gro, mdp, zip
 - comment: remove the dot. For instance, .gro -> gro
 
@@ -91,7 +91,7 @@ file_size
 - comment: File size is in bytes.
 
 file_md5
-- type: string
+- type: string.
 - example: ae4d3b4b88813a52a6fda3e85fa6695f, 989fa719a1a9986b24b4b4dd18dfa8a5
 - comment: MD5 checksum
 

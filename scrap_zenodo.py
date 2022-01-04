@@ -135,7 +135,7 @@ def extract_data_from_zip_file(url, token):
         file_size_raw = file_info[idx + 1].strip()
         file_size = normalize_file_size(file_size_raw)
         file_dict = {"file_name": file_name, "file_size": file_size}
-        file_dict["file_type"] = "none"
+        file_dict["file_type"] = "None"
         if "." in file_name:
             file_dict["file_type"] = file_name.split(".")[-1].lower()
         # Ignore files starting with a dot
@@ -321,7 +321,7 @@ def extract_records(response_json):
                 "license": hit["metadata"]["license"]["id"],
                 "title": hit["metadata"]["title"],
                 "author": hit["metadata"]["creators"][0]["name"],
-                "keywords": "",
+                "keywords": "None",
                 "dataset_url": f"https://zenodo.org/record/{dataset_id}",
             }
             if "keywords" in hit["metadata"]:
