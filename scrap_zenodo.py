@@ -319,7 +319,6 @@ def extract_records(response_json):
                 "file_number": len(hit["files"]),
                 "download_number": int(hit["stats"]["downloads"]),
                 "view_number": int(hit["stats"]["views"]),
-                "access_right": hit["metadata"]["access_right"],
                 "license": hit["metadata"]["license"]["id"],
                 "title": hit["metadata"]["title"],
                 "author": hit["metadata"]["creators"][0]["name"],
