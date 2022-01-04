@@ -137,9 +137,9 @@ def extract_data_from_zip_file(url, token):
         file_size_raw = file_info[idx + 1].strip()
         file_size_in_kb = normalize_file_size(file_size_raw)
         file_dict = {"file_name": file_name, "file_size": file_size_in_kb}
-        file_dict["file_type"] = ""
+        file_dict["file_type"] = "none"
         if "." in file_name:
-            file_dict["file_type"] = file_name.split(".")[-1]
+            file_dict["file_type"] = file_name.split(".")[-1].lower()
         # Ignore files starting with a dot
         if file_name.startswith("."):
             continue
