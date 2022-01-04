@@ -60,6 +60,11 @@ keywords
 - type: string with keywords separated by ;
 - example: DMTAP ; DMPC ; cationic lipid bilayer ; NaCl ; Molecular Dynamics Simulation ; Gromacs
 
+dateset_url
+- type: string
+- example: https://zenodo.org/record/4537794
+- comment: Direct URL to dataset
+
 description:
 - type: string
 - example:

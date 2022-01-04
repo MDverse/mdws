@@ -309,8 +309,9 @@ def extract_records(response_json):
         for hit in response_json["hits"]["hits"]:
             if hit["metadata"]["access_right"] != "open":
                 continue
+            dataset_id = str(hit["id"])
             record_dict = {
-                "dataset_id": str(hit["id"]),
+                "dataset_id": dataset_id,
                 "origin": "zenodo",
                 "doi": hit["doi"],
                 "date_creation": extract_date(hit["created"]),
@@ -323,6 +324,7 @@ def extract_records(response_json):
                 "title": hit["metadata"]["title"],
                 "author": hit["metadata"]["creators"][0]["name"],
                 "keywords": "",
+                "dataset_url": f"https://zenodo.org/record/{dataset_id}",
             }
             if "keywords" in hit["metadata"]:
                 record_dict["keywords"] = " ; ".join(
