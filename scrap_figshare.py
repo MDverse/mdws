@@ -121,6 +121,44 @@ def request_figshare_dataset_with_id(datasetID):
     return json.loads(response.content)
 
 
+def request_figshare_downloadstats_with_id(datasetID):
+    """Get download stats for articles.
+
+    Arguments
+    ---------
+    datasetID: str
+        Dataset ID.
+
+    Returns
+    -------
+    dict
+        FigShare response as a JSON object.
+    """
+    response = requests.get(
+        f"https://stats.figshare.com/total/downloads/article/{datasetID}"
+    )
+    return json.loads(response.content)
+
+
+def request_figshare_viewstats_with_id(datasetID):
+    """Get view stats for articles.
+
+    Arguments
+    ---------
+    datasetID: str
+        Dataset ID.
+
+    Returns
+    -------
+    dict
+        FigShare response as a JSON object.
+    """
+    response = requests.get(
+        f"https://stats.figshare.com/total/views/article/{datasetID}"
+    )
+    return json.loads(response.content)
+
+
 def extract_records(hit):
     """Extract information from the FigShare records.
 
@@ -142,19 +180,19 @@ def extract_records(hit):
         return records, files
     record_dict = {
         "dataset_id": str(hit["id"]),
-        "origin": "FigShare",
+        "origin": "figshare",
         "doi": hit["doi"],
         "date_creation": extract_date(hit["created_date"][:-1]),
         "date_last_modified": extract_date(hit["modified_date"][:-1]),
         "date_fetched": datetime.now().isoformat(timespec="seconds"),
         "file_number": len(hit["files"]),
-        "download_number": None,
-        "view_number": None,
-        "access_right": hit["status"],
+        "download_number": request_figshare_downloadstats_with_id(hit['id'])["totals"],
+        "view_number": request_figshare_viewstats_with_id(hit['id'])["totals"],
         "license": hit["license"]["name"],
         "title": hit["title"],
         "author": hit["authors"][0]["full_name"],
         "keywords": "",
+        "dataset_url": hit["url"],
     }
     if "tags" in hit:
         record_dict["keywords"] = " ; ".join(
@@ -164,10 +202,14 @@ def extract_records(hit):
     # record_dict["description"] = hit["description"]
     records.append(record_dict)
     for file_in in hit["files"]:
+        if len(file_in["name"].split('.'))==1:
+            filetype = "none"
+        else:
+            filetype = file_in["name"].split('.')[-1].lower()
         file_dict = {
             "dataset_id": record_dict["dataset_id"],
             "origin": record_dict["origin"],
-            "file_type": file_in["name"].split('.')[-1],
+            "file_type": filetype,
             "file_size": file_in["size"],
             "file_md5": file_in["computed_md5"],
             "from_zip_file": False,
@@ -253,7 +295,8 @@ def main_scrap_figshare(arg):
                             datasets_df = pd.concat(
                                 [datasets_df, datasets_df_tmp], ignore_index=True
                             )
-                            datasets_df.drop_duplicates(keep="first", inplace=True)
+                            datasets_df.drop_duplicates(
+                                subset=["dataset_id", "origin"], keep="first", inplace=True)
                             # Merge files
                             files_df_tmp = pd.DataFrame(files_tmp)
                             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)

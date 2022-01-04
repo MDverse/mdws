@@ -81,6 +81,6 @@ Scrap FigShare with a small query, for development or demo purpose:
 python scrap_figshare.py query_dev.yml
 ```
 
-The scraping takes some time (complete query: ~1h20min). Be patient.
+The scraping takes some time (complete query: 20min-120min). Be patient.
 
 Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `figshare_files.tsv` :sparkles: 
