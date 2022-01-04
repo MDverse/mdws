@@ -1,11 +1,23 @@
 # Zenodo documentation
 
+## File size
+
+According to Zenodo [FAQ](https://help.zenodo.org/):
+
+> We currently accept up to 50GB per dataset (you can have multiple datasets); there is no size limit on communities.
+
+So we don't expect much files to have an individual size above 50 GB.
+
+## API
+
 [REST API](https://developers.zenodo.org/)
 
 The [rate limit](https://developers.zenodo.org/#rate-limiting) is 
 > 100 requests per minute, 5000 requests per hour
 
 List of [HTTP status codes](https://developers.zenodo.org/#http-status-codes)
+
+## Query
 
 [Search guide](https://help.zenodo.org/guides/search/)
 
