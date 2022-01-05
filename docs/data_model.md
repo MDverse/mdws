@@ -15,17 +15,17 @@ doi:
 - example: 10.6084/m9.figshare.104603.v3, 10.5281/zenodo.3814193
 
 date_creation
-- type: string in the format YYYY-MM-DD
+- type: string in the format "YYYY-MM-DD"
 - example: 2012-11-25, 2020-07-29
 - comment: Date dataset has been created
 
 date_last_modified
-- type: string in the format YYYY-MM-DD
+- type: string in the format "YYYY-MM-DD"
 - example: 2012-11-25, 2020-07-29
 - comment: Last date dataset has been modified
 
 date_fetched
-- type: string in the format YYYY-MM-DDTHH:MM:SS
+- type: string in the format "YYYY-MM-DDTHH:MM:SS"
 - example: 2012-11-25T10:34:36
 - comment: Date dataset has been fetched
 
@@ -57,8 +57,9 @@ author
 - comment: Not sure we get the uploader name in Zenodo. Maybe get all available authors.
 
 keywords
-- type: string with keywords separated by ";". Default is "None".
+- type: string with keywords separated by ";"
 - example: DMTAP ; DMPC ; cationic lipid bilayer ; NaCl ; Molecular Dynamics Simulation ; Gromacs
+- comment: Default is "none".
 
 dateset_url
 - type: string
@@ -81,9 +82,9 @@ origin
 - example: zenodo, figshare, osf
 
 file_type
-- type: string. Default is "None".
+- type: string
 - example: mdp, gro, mdp, zip
-- comment: remove the dot. For instance, .gro -> gro
+- comment: Default is "none". Remove the dot. For instance, .gro -> gro
 
 file_size
 - type: float
@@ -112,6 +113,6 @@ file_url
 origin_zip_file:
 - type: string
 - example: None, PeptideGraphZenodo.zip, paissoni19diubq.zip
-- comment: Name of the zip file the given file has been extracted from
+- comment: Default is "none". Name of the zip file the given file has been extracted from.
 
 
