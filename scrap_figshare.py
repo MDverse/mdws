@@ -9,6 +9,7 @@ import time
 
 # Third party imports
 from bs4 import BeautifulSoup
+import numpy as np
 import pandas as pd
 import requests
 import yaml
@@ -71,6 +72,66 @@ def extract_date(date_str):
     """
     date = datetime.fromisoformat(date_str)
     return f"{date:%Y-%m-%d}"
+
+
+def extract_files_from_response(json_dic, file_list):
+    """Go recursively through the json directory tree structure
+
+    Parameters
+    ----------
+    json_dic : dict
+        json dictionary of zip file preview
+    
+    file_list : list
+        list with filenames
+
+    Returns
+    -------
+    list
+        List of filenames extracted from zip preview.
+    """
+    for value in json_dic['files']:
+        file_list.append(value['path'])
+    for dir_list in json_dic['dirs']:
+        file_list = extract_files_from_response(dir_list, file_list)
+    return file_list
+
+
+def extract_data_from_figshare_zip_file(url):
+    """Extract data from zip file preview.
+
+    Parameters
+    ----------
+    url : str
+        URL of zip file preview
+
+    Returns
+    -------
+    list
+        List of dictionnaries with data extracted from zip preview.
+    """
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        print(f"Status code: {response.status_code}")
+        print(response.headers)
+        print(url)
+        return {}
+    file_list_json = response.json()
+    file_list = extract_files_from_response(file_list_json, [])
+    file_lst = []
+    for idx, file in enumerate(file_list):
+        file_name = file.strip()
+        file_size = np.nan
+        file_dict = {"file_name": file_name, "file_size": np.nan}
+        file_dict["file_type"] = "none"
+        if "." in file_name:
+            file_dict["file_type"] = file_name.split(".")[-1].lower()
+        # Ignore files starting with a dot
+        if file_name.startswith("."):
+            continue
+        file_lst.append(file_dict)
+    return file_lst
 
 
 def search_figshare_with_query(query, page=1, hits_per_page=1000):
@@ -159,6 +220,63 @@ def request_figshare_viewstats_with_id(datasetID):
     return json.loads(response.content)
 
 
+def scrap_figshare_zip_content(files_df):
+    """Scrap information from files contained in zip archives.
+
+    Uncertain how many files can be fetched from the preview.
+
+    Arguments
+    ---------
+    files_df: dataframe
+        Dataframe with information about files.
+
+    Returns
+    -------
+    zip_df: dataframe
+        Dataframe with information about files in zip archive.
+    """
+    files_in_zip_lst = []
+    zip_counter = 0
+    zip_files_df = files_df[files_df["file_type"] == "zip"]
+    print(
+        "Number of zip files to scrap content from: "
+        f"{zip_files_df.shape[0]}"
+    )
+    for zip_idx in zip_files_df.index:
+        zip_file = zip_files_df.loc[zip_idx]
+        file_id = zip_file['file_url'].split('/')[-1]
+        zip_counter += 1
+        # According to Figshare support
+        # One can run 100 requests per 5 minutes.
+        # To be careful, we wait 300 secondes every 60 requests.
+        sleep_time = 300
+        if zip_counter % 60 == 0:
+            print(
+                f"Scraped {zip_counter} zip files / "
+                f"{zip_files_df.shape[0]}\n"
+                f"Waiting for {sleep_time} seconds..."
+            )
+            time.sleep(sleep_time)
+        URL = (
+            f"https://figshare.com/ndownloader/files/{file_id}"
+            f"/preview/{file_id}/structure.json"
+        )
+        files_tmp = extract_data_from_figshare_zip_file(URL)
+        if files_tmp == []:
+            continue
+        # Add common extra fields
+        for idx in range(len(files_tmp)):
+            files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
+            files_tmp[idx]["origin"] = zip_file.loc["origin"]
+            files_tmp[idx]["from_zip_file"] = True
+            files_tmp[idx]["origin_zip_file"] = zip_file.loc["file_name"]
+            files_tmp[idx]["file_url"] = ""
+            files_tmp[idx]["file_md5"] = ""
+        files_in_zip_lst += files_tmp
+    files_in_zip_df = pd.DataFrame(files_in_zip_lst)
+    return files_in_zip_df
+
+
 def extract_records(hit):
     """Extract information from the FigShare records.
 
@@ -221,7 +339,7 @@ def extract_records(hit):
     return records, files
 
 
-def main_scrap_figshare(arg):
+def main_scrap_figshare(arg, scrap_zip=False):
     """
     Main function called as default at the end.
     """
@@ -317,6 +435,19 @@ def main_scrap_figshare(arg):
     datasets_df.to_csv("figshare_datasets.tsv", sep="\t", index=False)
     files_df.to_csv("figshare_files.tsv", sep="\t", index=False)
 
+
+    if scrap_zip:
+        # Scrap zip files content
+        zip_df = scrap_figshare_zip_content(files_df)
+        # We don't remove duplicates here because
+        # one zip file can contain several files with the same name
+        # but within different folders.
+        files_df_new = pd.concat([files_df, zip_df], ignore_index=True)
+        print(f"Number of files found inside zip files: {zip_df.shape[0]}")
+        print(f"Total number of files found: {files_df_new.shape[0]}")
+        files_df.to_csv("figshare_files.tsv", sep="\t", index=False)    
+
+
     return datasets_df, files_df
 
 
@@ -325,5 +456,5 @@ if __name__ == "__main__":
     arg = get_cli_arguments()
     
     # Call extract main scrap function
-    main_scrap_figshare(arg)
+    main_scrap_figshare(arg, scrap_zip=True)
 
