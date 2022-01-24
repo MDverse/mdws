@@ -104,6 +104,11 @@ file_types:
   engine: amber
   keywords: none
   category: topology
+- type: rst7
+  engine: amber
+  keywords: none
+  category: coordinate
+  source: https://ambermd.org/tutorials/advanced/tutorial21/section1.htm
 - type: inpcrd
   engine: amber
   keywords: md_keywords

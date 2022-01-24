@@ -119,8 +119,10 @@ def extract_data_from_zip_file(url, token):
     response = requests.get(url, params={"access_token": token})
 
     if response.status_code != 200:
+        print(f"Error with URL: {url}")
         print(f"Status code: {response.status_code}")
         print(response.headers)
+        return []
     soup = BeautifulSoup(response.content, "html5lib")
     if "Zipfile is not previewable" in response.text:
         print(f"No preview available for {url}")
