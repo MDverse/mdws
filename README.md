@@ -84,3 +84,14 @@ python scrap_figshare.py query_dev.yml
 The scraping takes some time (complete query: 20min-120min). Be patient.
 
 Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `figshare_files.tsv` :sparkles: 
+
+
+## Download mdp and gro files from Zenodo
+
+```bash
+python download_gromacs_inputs.py
+```
+
+This step will take a couple of hours to complete. If it fails in the mean time, re-rerun the same command.
+
+
