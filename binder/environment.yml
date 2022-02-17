@@ -20,8 +20,6 @@ dependencies:
     - pyyaml
     - beautifulsoup4
     - html5lib
-    - pooch # download data from Zenodo
-    - tqdm # progressbar for Pooch
     # linters and more
     - pylint
     - pycodestyle
