@@ -1,4 +1,11 @@
-"""Download Gromacs input files."""
+"""Download Gromacs input files.
+
+We use Pooch, a Python library dedicated to fetch data files
+https://www.fatiando.org/pooch/latest/index.html
+
+Pooch can download a file and verify its integrity with a given hash.
+It also uses a local cache and downloads data once.
+"""
 
 import pandas as pd
 import pooch
