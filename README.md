@@ -92,6 +92,13 @@ Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `fig
 python download_gromacs_inputs.py
 ```
 
-This step will take a couple of hours to complete. If it fails in the mean time, re-rerun the same command.
+This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of Zenodo servers, the download might fail with an error messages similar to
 
+> requests.exceptions.HTTPError: 429 Client Error: TOO MANY REQUESTS
+
+or 
+
+> requests.exceptions.ConnectionError: HTTPSConnectionPool(host='zenodo.org', port=443)
+
+Re-rerun the previous command to resume the download. Files already retrieved files will not be downloaded again.
 
