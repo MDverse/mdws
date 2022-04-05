@@ -1,6 +1,10 @@
 # Results files
 *.tsv
 
+# Figures
+notebooks/*.png
+notebooks/*.svg
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
