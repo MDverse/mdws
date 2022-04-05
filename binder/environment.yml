@@ -21,6 +21,9 @@ dependencies:
     - beautifulsoup4
     - html5lib
     - biopython
+    # download data files
+    - pooch
+    - tqdm
     # linters and more
     - pylint
     - pycodestyle
