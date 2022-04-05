@@ -20,6 +20,7 @@ dependencies:
     - pyyaml
     - beautifulsoup4
     - html5lib
+    - biopython
     # download data files
     - pooch
     - tqdm

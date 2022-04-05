@@ -32,6 +32,12 @@ Load the `mdws` conda environment:
 conda activate mdws
 ```
 
+Note: you can also update the conda environment with:
+
+```bash
+mamba env update -f binder/environment.yml
+```
+
 ## Add API keys
 
 ### Zenodo
