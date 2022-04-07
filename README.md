@@ -38,6 +38,12 @@ Note: you can also update the conda environment with:
 mamba env update -f binder/environment.yml
 ```
 
+To deactivate an active environment, use
+
+```
+conda deactivate
+```
+
 ## Add API keys
 
 ### Zenodo

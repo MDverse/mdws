@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 import os
 from pathlib import Path
+import re
 import time
 
 # Third party imports
@@ -277,7 +278,26 @@ def scrap_figshare_zip_content(files_df):
     return files_in_zip_df
 
 
-def extract_records(hit):
+def decoder(string):
+    """Decodes from html and removes breaks
+
+    Arguments
+    ---------
+    string: str
+        input string
+
+    Returns
+    -------
+    str
+        decoded string.
+    """
+    text_decode = BeautifulSoup(string, features="lxml")
+    text_decode = u''.join(text_decode.findAll(text=True))
+    text_decode = re.sub(r"[-\+\n\r]", " ", text_decode)
+    return text_decode
+
+
+def extract_records(hit, fetch_description=False):
     """Extract information from the FigShare records.
 
     Arguments
@@ -307,17 +327,18 @@ def extract_records(hit):
         "download_number": request_figshare_downloadstats_with_id(hit['id'])["totals"],
         "view_number": request_figshare_viewstats_with_id(hit['id'])["totals"],
         "license": hit["license"]["name"],
-        "title": hit["title"],
+        "title": decoder(hit["title"]),
         "author": hit["authors"][0]["full_name"],
         "keywords": "",
         "dataset_url": hit["url"],
     }
     if "tags" in hit:
         record_dict["keywords"] = " ; ".join(
-            [str(keyword) for keyword in hit["tags"]]
+            [str(decoder(keyword)) for keyword in hit["tags"]]
         )
-    # Dataset description might be interesting. Not saved yet.
-    # record_dict["description"] = hit["description"]
+    if fetch_description:
+        # Dataset description might be interesting. Not saved yet.
+        record_dict["description"] = decoder(hit["description"])
     records.append(record_dict)
     for file_in in hit["files"]:
         if len(file_in["name"].split('.'))==1:
@@ -339,7 +360,7 @@ def extract_records(hit):
     return records, files
 
 
-def main_scrap_figshare(arg, scrap_zip=False):
+def main_scrap_figshare(arg, scrap_zip=False, fetch_description=False):
     """
     Main function called as default at the end.
     """
@@ -407,7 +428,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
                         dataset_id = dataset['id']
                         if datasets_df.empty or not dataset_id in datasets_df['dataset_id']:
                             resp_json_article = request_figshare_dataset_with_id(dataset_id)
-                            datasets_tmp, files_tmp = extract_records(resp_json_article)
+                            datasets_tmp, files_tmp = extract_records(resp_json_article, fetch_description=fetch_description)
                             # Merge datasets
                             datasets_df_tmp = pd.DataFrame(datasets_tmp)
                             datasets_df = pd.concat(
@@ -435,16 +456,15 @@ def main_scrap_figshare(arg, scrap_zip=False):
     datasets_df.to_csv("figshare_datasets.tsv", sep="\t", index=False)
     files_df.to_csv("figshare_files.tsv", sep="\t", index=False)
 
-
     if scrap_zip:
         # Scrap zip files content
         zip_df = scrap_figshare_zip_content(files_df)
         # We don't remove duplicates here because
         # one zip file can contain several files with the same name
         # but within different folders.
-        files_df_new = pd.concat([files_df, zip_df], ignore_index=True)
+        files_df = pd.concat([files_df, zip_df], ignore_index=True)
         print(f"Number of files found inside zip files: {zip_df.shape[0]}")
-        print(f"Total number of files found: {files_df_new.shape[0]}")
+        print(f"Total number of files found: {files_df.shape[0]}")
         files_df.to_csv("figshare_files.tsv", sep="\t", index=False)    
 
 
@@ -456,5 +476,5 @@ if __name__ == "__main__":
     arg = get_cli_arguments()
     
     # Call extract main scrap function
-    main_scrap_figshare(arg, scrap_zip=True)
+    main_scrap_figshare(arg, scrap_zip=True, fetch_description=False)
 
