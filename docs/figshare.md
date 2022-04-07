@@ -47,5 +47,5 @@ Datasets:
 
 ### zip files
 
-currently not scraping
+Are scrapped similar to zenodo but no access about the single file sizes.
 
