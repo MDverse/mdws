@@ -96,7 +96,7 @@ def plot_timeline_dataset_files(df):
         Takes the timeline prepared dataframe.
     """
     df = df.loc[df['type']!='authors']
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     ax2 = ax1.twinx()
@@ -105,7 +105,7 @@ def plot_timeline_dataset_files(df):
     ax.legend([])
     ax = sns.barplot(ax = ax2, x="year", y="file_number", hue='type', data=df, palette=palette)
     plt.title('Dataset and total file counts per year')
-    plt.savefig("timeline_dataset_files.png")
+    plt.savefig("timeline_dataset_files.svg",dpi=350)
     plt.show()
 
 
@@ -120,7 +120,7 @@ def plot_timeline_dataset_authors(df):
         Takes the timeline prepared dataframe.
     """
     df = df.loc[df['type']!='files']
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     palette = {c: "grey" if c != "datasets" else "r" for c in df["type"].unique()}
@@ -132,10 +132,29 @@ def plot_timeline_dataset_authors(df):
     LH[0].set_color('r')
     LH[1].set_color('grey')
     plt.title('Dataset and unique author counts per year')
-    plt.savefig("timeline_dataset_authors.png")
+    plt.savefig("timeline_dataset_authors.svg", dpi=350)
     plt.show()
 
 
+def plot_origin_count(df):
+    """plotter temperature count
+
+    This function plots the number of mdp files by their temperature.
+
+    Parameters
+    ----------
+    df : pandas dataframe
+        Takes the mdp prepared dataframe.
+    """
+    fig, ax1 = plt.subplots(figsize=(9, 6))
+    sns.set_style("white")
+    sns.set_style("ticks")
+    ax = sns.countplot(ax = ax1, x='year', hue='origin', data=df)
+    plt.title(f'File count for each year by origin')
+    plt.savefig("origin_timeline_count.svg", dpi=350)
+    plt.show()
+    
+    
 def prepare_ext_count_df(df):
     """file extension grouper.
 
@@ -158,22 +177,28 @@ def prepare_ext_count_df(df):
     namd = ["psf","namd","inp","prm","ntf","crd","dcd","coor","namdbin","vel","xsc"]
     amber = ["prmtop","coord","prm7","top","crdbox","inpcrd","mdcrd","nc","ncdf","trj"]
     def ext_cat(ext):
-        if ext.lower() in coordinate:
-            return 'coordinate'
-        elif ext.lower() in topology:
-            return 'topology'
-        elif ext.lower() in trajectory:
-            return 'trajectory'
-        else:
+        try:
+            if ext.lower() in coordinate:
+                return 'coordinate'
+            elif ext.lower() in topology:
+                return 'topology'
+            elif ext.lower() in trajectory:
+                return 'trajectory'
+            else:
+                return 'other'
+        except:
             return 'other'
     def engine(ext):
-        if ext.lower() in gromacs:
-            return 'gromacs'
-        elif ext.lower() in namd:
-            return 'namd'
-        elif ext.lower() in amber:
-            return 'amber'
-        else:
+        try:
+            if ext.lower() in gromacs:
+                return 'gromacs'
+            elif ext.lower() in namd:
+                return 'namd'
+            elif ext.lower() in amber:
+                return 'amber'
+            else:
+                return 'other'
+        except:
             return 'other'
         
     count_article_df = []
@@ -206,12 +231,12 @@ def plot_timeline_category(df):
     """
     df_tmp = df.copy()
     df_tmp = df_tmp.loc[df_tmp['cat']!='other']
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     ax = sns.countplot(ax = ax1, x='year', hue="cat", data=df_tmp)
     plt.title('File count per year for each category')
-    plt.savefig("timeline_category.png")
+    plt.savefig("timeline_category.svg", dpi=350)
     plt.show()
 
 
@@ -227,12 +252,12 @@ def plot_timeline_engine(df):
     """
     df_tmp = df.copy()
     df_tmp = df_tmp.loc[df_tmp['engine']!='other']
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     ax = sns.countplot(ax = ax1, x='year', hue="engine", data=df_tmp)
     plt.title('File count per year for each engine')
-    plt.savefig("timeline_engine.png")
+    plt.savefig("timeline_engine.svg", dpi=350)
     plt.show()
 
 
@@ -248,12 +273,12 @@ def plot_timeline_size_engine(df):
     """
     df_tmp = df.copy()
     df_tmp = df_tmp.loc[df_tmp['cat']=='trajectory']
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     ax = sns.barplot(ax = ax1, x='year', y='size', hue="engine", data=df_tmp)
     plt.title('Mean file size per year for each engine')
-    plt.savefig("timeline_size_engine.png")
+    plt.savefig("timeline_size_engine.svg", dpi=350)
     plt.show()
 
 
@@ -269,12 +294,12 @@ def plot_extension_engine(df):
     """
     df_tmp = df.copy()
     df_tmp = df_tmp.loc[df_tmp['engine']!='other']
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     ax = sns.countplot(ax = ax1, x='ext', hue="engine", data=df_tmp)
     plt.title('File extension count for each engine')
-    plt.savefig("extension_engine.png")
+    plt.savefig("extension_engine.svg", dpi=350)
     plt.show()
 
 
@@ -322,12 +347,12 @@ def plot_temp_count(df):
     df : pandas dataframe
         Takes the mdp prepared dataframe.
     """
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=(9, 6))
     sns.set_style("white")
     sns.set_style("ticks")
     ax = sns.countplot(ax = ax1, x='temperatures', data=df)
     plt.title(f'File count for each temperature extracted from {len(df)} mdp files')
-    plt.savefig("temp_count.png")
+    plt.savefig("temp_count.svg", dpi=350)
     plt.show()
 
 
@@ -391,7 +416,7 @@ def plot_sys_size_count(df):
     sns.set_style("ticks")
     ax = sns.countplot(ax = ax1, x='atoms', data=df_tmp)
     plt.title(f'File counts for each size (= number of atoms) extracted from {len(df)} gro files')
-    plt.savefig("sys_size_count.png")
+    plt.savefig("sys_size_count.svg", dpi=350)
     plt.show()
 
 
