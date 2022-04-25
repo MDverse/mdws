@@ -93,18 +93,29 @@ Scrap FigShare with a small query, for development or demo purpose:
 python scrap_figshare.py query_dev.yml
 ```
 
-The scraping takes some time (complete query: 20min-120min). Be patient.
+The scraping takes some time (complete query: 20 min-120 min). Be patient.
 
 Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `figshare_files.tsv` :sparkles: 
 
 
-## Download mdp and gro files from Zenodo
+## Analyse data
 
-```bash
-python download_gromacs_inputs.py
+Run all Jupyter notebooks in batch mode:
+```
+jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/analyze_zenodo.ipynb
+cp notebooks/*.{csv,png} results/
 ```
 
-This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of Zenodo servers, the download might fail with an error messages similar to
+
+## Download files
+
+To download Gromacs mdp and gro files from Zenodo, one can use the command line:
+
+```bash
+python scripts/download_files.py -i data/zenodo_files.tsv -o data/downloads/ -t mdp -t gro
+```
+
+This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail with an error messages similar to
 
 > requests.exceptions.HTTPError: 429 Client Error: TOO MANY REQUESTS
 
@@ -112,5 +123,5 @@ or
 
 > requests.exceptions.ConnectionError: HTTPSConnectionPool(host='zenodo.org', port=443)
 
-Re-rerun the previous command to resume the download. Files already retrieved files will not be downloaded again.
+Re-rerun the previous command to resume the download. Files already retrieved will not be downloaded again.
 

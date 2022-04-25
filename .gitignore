@@ -1,9 +1,12 @@
 # Results files
 *.tsv
+data/*
+!data/.gitkeep
 
-# Figures
+# Results
 notebooks/*.png
 notebooks/*.svg
+results/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
