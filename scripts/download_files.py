@@ -21,8 +21,8 @@ def get_cli_arguments():
 
     Returns
     -------
-    str
-        Name of the yaml input file.
+    argparse.Namespace
+        Object containing arguments
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
