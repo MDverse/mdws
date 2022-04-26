@@ -107,7 +107,9 @@ cp notebooks/*.{csv,png} results/
 ```
 
 
-## Download files
+## Analyze Gromacs mdp and gro files
+
+### Download files
 
 To download Gromacs mdp and gro files from Zenodo, one can use the command line:
 
@@ -124,4 +126,11 @@ or
 > requests.exceptions.ConnectionError: HTTPSConnectionPool(host='zenodo.org', port=443)
 
 Re-rerun the previous command to resume the download. Files already retrieved will not be downloaded again.
+
+### Parse files
+
+```bash
+python scripts/parse_mdp_files.py -i data/downloads -o data
+python scripts/parse_gro_files.py -i data/downloads -r residue_names.yml -o data
+```
 
