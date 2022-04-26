@@ -94,7 +94,9 @@ Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `fig
 Run all Jupyter notebooks in batch mode:
 ```
 jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/analyze_zenodo.ipynb
-cp notebooks/*.{csv,png} results/
+jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/zenodo_stats.ipynb
+jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/search_MD_in_pubmed.ipynb
+cp notebooks/*.{svg,png} results/
 ```
 
 
