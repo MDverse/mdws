@@ -13,7 +13,7 @@ import pandas as pd
 import requests
 import yaml
 
-import tools
+import toolbox
 
 
 def get_cli_arguments():
@@ -390,7 +390,7 @@ if __name__ == "__main__":
     QUERY_GENERIC_KEYWORDS = ' AND ("' + '" OR "'.join(GENERIC_KEYWORDS) + '")'
 
     # Verify results output directory
-    tools.verify_output_directory(ARGS.output)
+    toolbox.verify_output_directory(ARGS.output)
 
     # There is a hard limit of the number of hits
     # one can get from a single query.
