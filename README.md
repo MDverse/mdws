@@ -65,13 +65,13 @@ No token or API key needed.
 Scrap Zenodo for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_zenodo.py params/query.yml
+python scripts/scrap_zenodo.py -q params/query.yml -o data
 ```
 
 Scrap Zenodo with a small query, for development or demo purpose:
 
 ```bash
-python scritps/scrap_zenodo.py params/query_dev.yml
+python scritps/scrap_zenodo.py -q params/query_dev.yml -o data
 ```
 
 The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -84,7 +84,7 @@ Eventually, the scraper will produce two files: `zenodo_datasets.tsv` and `zenod
 Scrap FigShare for MD-related datasets and files:
 
 ```bash
-python scrits/scrap_figshare.py params/query.yml
+python scripts/scrap_figshare.py params/query.yml
 ```
 
 Scrap FigShare with a small query, for development or demo purpose:

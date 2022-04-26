@@ -3,6 +3,7 @@
 import argparse
 from datetime import datetime
 import os
+import pathlib
 import time
 
 
@@ -11,6 +12,8 @@ import dotenv
 import pandas as pd
 import requests
 import yaml
+
+import tools
 
 
 def get_cli_arguments():
@@ -25,28 +28,46 @@ def get_cli_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "input_file", metavar="input_file", type=str, help="Input file."
+        "-q",
+        "--query-file",
+        metavar="query_file",
+        type=str,
+        help="Query file (YAML format)",
+        required=True
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        action="store",
+        type=str,
+        help="Path to save results",
+        required=True,
     )
     return parser.parse_args()
 
 
-def read_input_file():
-    """Argument parser.
+def read_query_file(query_file_path):
+    """Read the query definition file
 
-    This function parses the name of the input file.
+    The query definition file is formatted in yaml.
 
+    Parameters
+    ----------
+    query_file_path : str
+        Path to the query definition file.
+    
     Returns
     -------
     file_types : dict
-        Dictionary with type, engine and keywords to use
+        Dictionary with type, engine and keywords to use.
     md_keywords : list
         Keywords related to molecular dynamics.
     generic_keywords : list
-        Generic keywords for zip archives
+        Generic keywords for zip archives.
     """
     arg = get_cli_arguments()
-    with open(arg.input_file, "r") as param_file:
-        print(f"Reading parameters from: {arg.input_file}")
+    with open(arg.query_file, "r") as param_file:
+        print(f"Reading parameters from: {arg.query_file}")
         data_loaded = yaml.safe_load(param_file)
     md_keywords = data_loaded["md_keywords"]
     generic_keywords = data_loaded["generic_keywords"]
@@ -354,17 +375,22 @@ def extract_records(response_json):
 
 
 if __name__ == "__main__":
+    ARGS = get_cli_arguments()
+
     # Read Zenodo token
     ZENODO_TOKEN = read_zenodo_token()
     test_zenodo_connection(ZENODO_TOKEN)
 
     # Read parameter file
-    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_input_file()
+    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_query_file(ARGS.query_file)
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
     QUERY_MD_KEYWORDS = ' AND ("' + '" OR "'.join(MD_KEYWORDS) + '")'
     QUERY_GENERIC_KEYWORDS = ' AND ("' + '" OR "'.join(GENERIC_KEYWORDS) + '")'
+
+    # Verify results output directory
+    tools.verify_output_directory(ARGS.output)
 
     # There is a hard limit of the number of hits
     # one can get from a single query.
@@ -425,8 +451,12 @@ if __name__ == "__main__":
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
     # Save dataframes to disk
-    datasets_df.to_csv("zenodo_datasets.tsv", sep="\t", index=False)
-    files_df.to_csv("zenodo_files.tsv", sep="\t", index=False)
+    datasets_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
+    datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
+    print(f"Results saved in {str(datasets_export_path)}")
+    files_export_path = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
+    files_df.to_csv(files_export_path, sep="\t", index=False)
+    print(f"Results saved in {str(files_export_path)}")
 
     # Scrap zip files content
     zip_df = scrap_zip_content(files_df)
@@ -436,4 +466,5 @@ if __name__ == "__main__":
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
     print(f"Number of files found inside zip files: {zip_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
-    files_df.to_csv("zenodo_files.tsv", sep="\t", index=False)
+    files_df.to_csv("files_export_path", sep="\t", index=False)
+    print(f"Results saved in {str(files_export_path)}")
