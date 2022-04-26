@@ -75,7 +75,9 @@ def read_residue_file(residue_filename):
     protein_residues = data_loaded["protein"]
     lipid_residues = data_loaded["lipid"]
     nucleic_residues = data_loaded["nucleic"]
-    return protein_residues, lipid_residues, nucleic_residues
+    water_ion_residues = data_loaded["water_ion"]
+    glucid_residues = data_loaded["glucid"]
+    return protein_residues, lipid_residues, nucleic_residues, water_ion_residues, glucid_residues
 
 
 def verify_output_directory(directory):
@@ -125,6 +127,8 @@ def extract_info_from_gro(
     protein_residues,
     lipid_residues,
     nucleic_residues,
+    water_ion_residues,
+    glucid_residues
 ):
     """Extract information from Gromacs mdp file.
 
@@ -144,6 +148,10 @@ def extract_info_from_gro(
         List of lipid residues
     nucleic_residues : lst
         List of nucleic acid residues
+    water_ion_residues : lst
+        List of water and ions
+    glucid_residues : lst
+        List of glucid residues
 
     Returns
     -------
@@ -157,6 +165,8 @@ def extract_info_from_gro(
         "has_protein": False,
         "has_nucleic": False,
         "has_lipid": False,
+        "has_water_ion": False,
+        "has_glucid": False,
         "filename": None,
     }
     info["dataset_origin"], info["dataset_id"], info["filename"] = str(
@@ -180,22 +190,23 @@ def extract_info_from_gro(
                     info["has_lipid"] = True
                 elif residue_name in nucleic_residues:
                     info["has_nucleic"] = True
-                # solvant and ions
-                elif residue_name in ["SOL", "TIP3", "K", "CL", "NA"]:
-                    pass
-                # sugar
-                elif residue_name in ["0ZB", "3YB", "4ZB"]:
+                elif residue_name in water_ion_residues:
+                    info["has_water_ion"] = True
+                elif residue_name in glucid_residues:
+                    info["has_glucid"] = True
+                # WALL particles
+                elif residue_name in ["W"]:
                     pass
                 else:
                     pass
-                    # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
+                    #print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
     return info
 
 
 if __name__ == "__main__":
     args = get_cli_arguments()
     verify_output_directory(args.output)
-    PROTEIN_RESIDUES, LIPID_RESIDUES, NUCLEIC_RESIDUES = read_residue_file(
+    PROTEIN_RESIDUES, LIPID_RESIDUES, NUCLEIC_RESIDUES, WATER_ION_RESIDUES, GLUCID_RESIDUES = read_residue_file(
         args.residues
     )
 
@@ -213,6 +224,8 @@ if __name__ == "__main__":
             PROTEIN_RESIDUES,
             LIPID_RESIDUES,
             NUCLEIC_RESIDUES,
+            WATER_ION_RESIDUES,
+            GLUCID_RESIDUES
         )
         gro_info_lst.append(gro_info)
     gro_info_df = pd.DataFrame(gro_info_lst)
@@ -220,12 +233,3 @@ if __name__ == "__main__":
     gro_info_df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Saved results in {str(result_file_path)}")
     print(f"Total number of gro files parsed: {gro_info_df.shape[0]}")
-    print(
-        f"Total number of gro files with protein: {gro_info_df[gro_info_df['has_protein'] == True].shape[0]}"
-    )
-    print(
-        f"Total number of gro files with lipid: {gro_info_df[gro_info_df['has_lipid'] == True].shape[0]}"
-    )
-    print(
-        f"Total number of gro files with nucleic acid: {gro_info_df[gro_info_df['has_nucleic'] == True].shape[0]}"
-    )

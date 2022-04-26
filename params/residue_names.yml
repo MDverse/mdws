@@ -52,7 +52,11 @@ lipid:
 - DSUA
 - POPG
 - CHOL
+- CHL1
+- CER16
 - PSM
+- PLA
+- PGR
 - DPP
 - OPC
 - SDS
@@ -98,4 +102,14 @@ nucleic:
 - G
 - C
 
+water_ion:
+- SOL
+- TIP3
+- K
+- CL
+- NA
 
+glucid:
+- 0ZB
+- 3YB
+- 4ZB
