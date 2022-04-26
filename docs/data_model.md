@@ -1,14 +1,14 @@
 # Data model for collected data
 
-## datasets.csv
+## datasets.tsv
+
+dataset_origin
+- type: string
+- example: zenodo, figshare, osf
 
 dataset_id
 - type: string
 - example: 3814193, M1_gro/5840706
-
-origin
-- type: string
-- example: zenodo, figshare, osf
 
 doi:
 - type: string
@@ -47,6 +47,24 @@ license
 - type: string
 - example: CC-BY-4.0, CC0-1.0
 
+dateset_url
+- type: string
+- example: https://zenodo.org/record/4537794
+- comment: Direct URL to dataset
+
+
+
+
+## datasets_text.tsv
+
+dataset_origin
+- type: string
+- example: zenodo, figshare, osf
+
+dataset_id
+- type: string
+- example: 3814193, M1_gro/5840706
+
 title
 - type: string
 - example: "Berger POPE Simulations (versions 1 and 2) 303 K - de Vries repulsive H"
@@ -58,28 +76,23 @@ author
 
 keywords
 - type: string with keywords separated by ";"
-- example: DMTAP ; DMPC ; cationic lipid bilayer ; NaCl ; Molecular Dynamics Simulation ; Gromacs
+- example: DMTAP;DMPC;cationic lipid bilayer;NaCl;Molecular Dynamics Simulation;Gromacs
 - comment: Default is "none".
-
-dateset_url
-- type: string
-- example: https://zenodo.org/record/4537794
-- comment: Direct URL to dataset
 
 description:
 - type: string
 - example:
 - comment: Interesting field with highly complex because of its 'free' format. May also vary a lot in length.
 
-## files.csv
+## files.tsv
+
+dataset_origin
+- type: string
+- example: zenodo, figshare, osf
 
 dataset_id
 - type: string
 - example: 3814193, M1_gro/5840706
-
-origin
-- type: string
-- example: zenodo, figshare, osf
 
 file_type
 - type: string
