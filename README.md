@@ -44,9 +44,7 @@ To deactivate an active environment, use
 conda deactivate
 ```
 
-## Add API keys
-
-### Zenodo
+## Scrap Zenodo
 
 Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
 and store it in the file `.env`:
@@ -54,13 +52,6 @@ and store it in the file `.env`:
 ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 ```
 This file is ignored by git.
-
-### FigShare
-
-No token or API key needed.
-
-
-## Scrap Zenodo
 
 Scrap Zenodo for MD-related datasets and files:
 
