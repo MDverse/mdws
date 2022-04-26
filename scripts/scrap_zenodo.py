@@ -466,5 +466,5 @@ if __name__ == "__main__":
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
     print(f"Number of files found inside zip files: {zip_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
-    files_df.to_csv("files_export_path", sep="\t", index=False)
+    files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
