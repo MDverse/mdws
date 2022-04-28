@@ -105,6 +105,8 @@ nucleic:
 water_ion:
 - SOL
 - TIP3
+- W      # Martini water
+- WF     # Martini water antifreeze
 - K
 - CL
 - NA

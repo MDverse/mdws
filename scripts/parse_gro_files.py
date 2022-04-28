@@ -195,7 +195,7 @@ def extract_info_from_gro(
                 elif residue_name in glucid_residues:
                     info["has_glucid"] = True
                 # WALL particles
-                elif residue_name in ["W"]:
+                elif residue_name in ["WAL"]:
                     pass
                 else:
                     pass
