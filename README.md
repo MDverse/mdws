@@ -62,12 +62,12 @@ python scripts/scrap_zenodo.py -q params/query.yml -o data
 Scrap Zenodo with a small query, for development or demo purpose:
 
 ```bash
-python scritps/scrap_zenodo.py -q params/query_dev.yml -o data
+python scripts/scrap_zenodo.py -q params/query_dev.yml -o test
 ```
 
 The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
 
-Eventually, the scraper will produce two files: `zenodo_datasets.tsv` and `zenodo_files.tsv` :sparkles: 
+Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo_datasets_text.tsv` and `zenodo_files.tsv` :sparkles: 
 
 
 ## Scrap FigShare
@@ -75,18 +75,18 @@ Eventually, the scraper will produce two files: `zenodo_datasets.tsv` and `zenod
 Scrap FigShare for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_figshare.py params/query.yml
+python scripts/scrap_figshare.py -q params/query.yml -o data
 ```
 
 Scrap FigShare with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_figshare.py params/query_dev.yml
+python scripts/scrap_figshare.py -q params/query_dev.yml -o test
 ```
 
 The scraping takes some time (complete query: 20 min-120 min). Be patient.
 
-Eventually, the scraper will produce two files: `figshare_datasets.tsv` and `figshare_files.tsv` :sparkles: 
+Eventually, the scraper will produce three files: `figshare_datasets.tsv`, `figshare_datasets_text.tsv` and `figshare_files.tsv` :sparkles: 
 
 
 ## Analyse data
@@ -119,6 +119,8 @@ or
 > requests.exceptions.ConnectionError: HTTPSConnectionPool(host='zenodo.org', port=443)
 
 Re-rerun the previous command to resume the download. Files already retrieved will not be downloaded again.
+
+Expect between 10 and 15 GB of data.
 
 ### Parse files
 

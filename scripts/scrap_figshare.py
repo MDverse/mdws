@@ -4,16 +4,18 @@ import argparse
 from datetime import datetime
 import json
 import os
-from pathlib import Path
+import pathlib
 import re
 import time
 
 # Third party imports
-from bs4 import BeautifulSoup
 import numpy as np
 import pandas as pd
 import requests
 import yaml
+
+
+import toolbox
 
 
 def get_cli_arguments():
@@ -28,15 +30,33 @@ def get_cli_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "input_file", metavar="input_file", type=str, help="Input file."
+        "-q",
+        "--query-file",
+        metavar="query_file",
+        type=str,
+        help="Query file (YAML format)",
+        required=True
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        action="store",
+        type=str,
+        help="Path to save results",
+        required=True,
     )
     return parser.parse_args()
 
 
-def read_input_file(arg):
-    """Argument parser.
+def read_query_file(query_file_path):
+    """Read the query definition file
 
-    This function parses the name of the input file.
+    The query definition file is formatted in yaml.
+
+    Parameters
+    ----------
+    query_file_path : str
+        Path to the query definition file.
 
     Returns
     -------
@@ -47,8 +67,8 @@ def read_input_file(arg):
     generic_keywords : list
         Generic keywords for zip archives
     """
-    with open(arg.input_file, "r") as param_file:
-        print(f"Reading parameters from: {arg.input_file}")
+    with open(query_file_path, "r") as param_file:
+        print(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
     md_keywords = data_loaded["md_keywords"]
     generic_keywords = data_loaded["generic_keywords"]
@@ -267,8 +287,8 @@ def scrap_figshare_zip_content(files_df):
             continue
         # Add common extra fields
         for idx in range(len(files_tmp)):
+            files_tmp[idx]["dataset_origin"] = zip_file.loc["dataset_origin"]
             files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
-            files_tmp[idx]["origin"] = zip_file.loc["origin"]
             files_tmp[idx]["from_zip_file"] = True
             files_tmp[idx]["origin_zip_file"] = zip_file.loc["file_name"]
             files_tmp[idx]["file_url"] = ""
@@ -278,26 +298,7 @@ def scrap_figshare_zip_content(files_df):
     return files_in_zip_df
 
 
-def decoder(string):
-    """Decodes from html and removes breaks
-
-    Arguments
-    ---------
-    string: str
-        input string
-
-    Returns
-    -------
-    str
-        decoded string.
-    """
-    text_decode = BeautifulSoup(string, features="lxml")
-    text_decode = u''.join(text_decode.findAll(text=True))
-    text_decode = re.sub(r"[-\+\n\r]", " ", text_decode)
-    return text_decode
-
-
-def extract_records(hit, fetch_description=False):
+def extract_records(hit):
     """Extract information from the FigShare records.
 
     Arguments
@@ -309,16 +310,19 @@ def extract_records(hit, fetch_description=False):
     -------
     records: list
         List of dictionnaries. Information on datasets.
+    texts: list
+        List of dictionnaries. Textual information on datasets
     files: list
         List of dictionnaies. Information on files.
     """
-    records = []
+    datasets = []
+    texts = []
     files = []
     if hit["is_embargoed"] != False:
-        return records, files
-    record_dict = {
+        return datasets, texts, files
+    dataset_dict = {
+        "dataset_origin": "figshare",
         "dataset_id": str(hit["id"]),
-        "origin": "figshare",
         "doi": hit["doi"],
         "date_creation": extract_date(hit["created_date"][:-1]),
         "date_last_modified": extract_date(hit["modified_date"][:-1]),
@@ -327,27 +331,30 @@ def extract_records(hit, fetch_description=False):
         "download_number": request_figshare_downloadstats_with_id(hit['id'])["totals"],
         "view_number": request_figshare_viewstats_with_id(hit['id'])["totals"],
         "license": hit["license"]["name"],
-        "title": decoder(hit["title"]),
-        "author": hit["authors"][0]["full_name"],
-        "keywords": "",
         "dataset_url": hit["url"],
     }
+    datasets.append(dataset_dict)
+    text_dict = {
+        "dataset_origin": dataset_dict["dataset_origin"],
+        "dataset_id": dataset_dict["dataset_id"],
+        "title": toolbox.clean_text(hit["title"]),
+        "author": toolbox.clean_text(hit["authors"][0]["full_name"]),
+        "keywords": "",
+        "description": toolbox.clean_text(hit["description"])
+    }
     if "tags" in hit:
-        record_dict["keywords"] = " ; ".join(
-            [str(decoder(keyword)) for keyword in hit["tags"]]
+        text_dict["keywords"] = ";".join(
+            [str(toolbox.clean_text(keyword)) for keyword in hit["tags"]]
         )
-    if fetch_description:
-        # Dataset description might be interesting. Not saved yet.
-        record_dict["description"] = decoder(hit["description"])
-    records.append(record_dict)
+    texts.append(text_dict)
     for file_in in hit["files"]:
         if len(file_in["name"].split('.'))==1:
             filetype = "none"
         else:
             filetype = file_in["name"].split('.')[-1].lower()
         file_dict = {
-            "dataset_id": record_dict["dataset_id"],
-            "origin": record_dict["origin"],
+            "dataset_origin": dataset_dict["dataset_origin"],
+            "dataset_id": dataset_dict["dataset_id"],
             "file_type": filetype,
             "file_size": file_in["size"],
             "file_md5": file_in["computed_md5"],
@@ -357,21 +364,25 @@ def extract_records(hit, fetch_description=False):
             "origin_zip_file": "None",
         }
         files.append(file_dict)
-    return records, files
+    return datasets, texts, files
 
 
-def main_scrap_figshare(arg, scrap_zip=False, fetch_description=False):
+def main_scrap_figshare(arg, scrap_zip=False):
     """
     Main function called as default at the end.
     """
     # Read parameter file
-    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_input_file(arg)
+    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_query_file(arg.query_file)
     # Query with keywords are build in the loop as Figshare has a char limit
+
+    # Verify results output directory
+    toolbox.verify_output_directory(arg.output)
 
     # The best strategy is to use paging.
     MAX_HITS_PER_PAGE = 1000
 
     datasets_df = pd.DataFrame()
+    texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
     prev_datasets_count = 0
     prev_file_count = 0
@@ -428,14 +439,21 @@ def main_scrap_figshare(arg, scrap_zip=False, fetch_description=False):
                         dataset_id = dataset['id']
                         if datasets_df.empty or not dataset_id in datasets_df['dataset_id']:
                             resp_json_article = request_figshare_dataset_with_id(dataset_id)
-                            datasets_tmp, files_tmp = extract_records(resp_json_article, fetch_description=fetch_description)
+                            datasets_tmp, texts_tmp, files_tmp = extract_records(resp_json_article)
                             # Merge datasets
                             datasets_df_tmp = pd.DataFrame(datasets_tmp)
                             datasets_df = pd.concat(
                                 [datasets_df, datasets_df_tmp], ignore_index=True
                             )
                             datasets_df.drop_duplicates(
-                                subset=["dataset_id", "origin"], keep="first", inplace=True)
+                                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
+                            # Merge texts
+                            texts_df_tmp = pd.DataFrame(texts_tmp)
+                            texts_df = pd.concat(
+                                [texts_df, texts_df_tmp], ignore_index=True
+                            )
+                            texts_df.drop_duplicates(
+                                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)                            
                             # Merge files
                             files_df_tmp = pd.DataFrame(files_tmp)
                             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
@@ -453,8 +471,15 @@ def main_scrap_figshare(arg, scrap_zip=False, fetch_description=False):
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
     # Save dataframes to disk
-    datasets_df.to_csv("figshare_datasets.tsv", sep="\t", index=False)
-    files_df.to_csv("figshare_files.tsv", sep="\t", index=False)
+    datasets_export_path = pathlib.Path(arg.output) / "figshare_datasets.tsv"
+    datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
+    print(f"Results saved in {str(datasets_export_path)}")
+    texts_export_path = pathlib.Path(arg.output) / "figshare_datasets_text.tsv"
+    texts_df.to_csv(texts_export_path, sep="\t", index=False)
+    print(f"Results saved in {str(texts_export_path)}")
+    files_export_path = pathlib.Path(arg.output) / "figshare_files.tsv"
+    files_df.to_csv(files_export_path, sep="\t", index=False)
+    print(f"Results saved in {str(files_export_path)}")
 
     if scrap_zip:
         # Scrap zip files content
@@ -465,10 +490,8 @@ def main_scrap_figshare(arg, scrap_zip=False, fetch_description=False):
         files_df = pd.concat([files_df, zip_df], ignore_index=True)
         print(f"Number of files found inside zip files: {zip_df.shape[0]}")
         print(f"Total number of files found: {files_df.shape[0]}")
-        files_df.to_csv("figshare_files.tsv", sep="\t", index=False)    
-
-
-    return datasets_df, files_df
+        files_df.to_csv(files_export_path, sep="\t", index=False)
+        print(f"Results saved in {str(files_export_path)}")
 
 
 if __name__ == "__main__":
@@ -476,5 +499,5 @@ if __name__ == "__main__":
     arg = get_cli_arguments()
     
     # Call extract main scrap function
-    main_scrap_figshare(arg, scrap_zip=True, fetch_description=False)
+    main_scrap_figshare(arg, scrap_zip=True)
 

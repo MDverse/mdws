@@ -65,9 +65,8 @@ def read_query_file(query_file_path):
     generic_keywords : list
         Generic keywords for zip archives.
     """
-    arg = get_cli_arguments()
-    with open(arg.query_file, "r") as param_file:
-        print(f"Reading parameters from: {arg.query_file}")
+    with open(query_file_path, "r") as param_file:
+        print(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
     md_keywords = data_loaded["md_keywords"]
     generic_keywords = data_loaded["generic_keywords"]
@@ -298,8 +297,8 @@ def scrap_zip_content(files_df):
             continue
         # Add common extra fields
         for idx in range(len(files_tmp)):
+            files_tmp[idx]["dataset_origin"] = zip_file.loc["dataset_origin"]
             files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
-            files_tmp[idx]["origin"] = zip_file.loc["origin"]
             files_tmp[idx]["from_zip_file"] = True
             files_tmp[idx]["origin_zip_file"] = zip_file.loc["file_name"]
             files_tmp[idx]["file_url"] = ""
@@ -319,21 +318,24 @@ def extract_records(response_json):
 
     Returns
     -------
-    records: list
+    datasets: list
         List of dictionnaries. Information on datasets.
+    texts: list
+        List of dictionnaries. Textual information on datasets
     files: list
         List of dictionnaies. Information on files.
     """
-    records = []
+    datasets = []
+    texts = []
     files = []
     if response_json["hits"]["hits"]:
         for hit in response_json["hits"]["hits"]:
             if hit["metadata"]["access_right"] != "open":
                 continue
             dataset_id = str(hit["id"])
-            record_dict = {
+            dataset_dict = {
+                "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
-                "origin": "zenodo",
                 "doi": hit["doi"],
                 "date_creation": extract_date(hit["created"]),
                 "date_last_modified": extract_date(hit["updated"]),
@@ -342,26 +344,30 @@ def extract_records(response_json):
                 "download_number": int(hit["stats"]["downloads"]),
                 "view_number": int(hit["stats"]["views"]),
                 "license": hit["metadata"]["license"]["id"],
-                "title": hit["metadata"]["title"],
-                "author": hit["metadata"]["creators"][0]["name"],
-                "keywords": "none",
                 "dataset_url": f"https://zenodo.org/record/{dataset_id}",
             }
+            datasets.append(dataset_dict)
+            text_dict = {
+                "dataset_origin": dataset_dict["dataset_origin"],
+                "dataset_id": dataset_dict["dataset_id"],
+                "title": toolbox.clean_text(hit["metadata"]["title"]),
+                "author": toolbox.clean_text(hit["metadata"]["creators"][0]["name"]),
+                "keywords": "none",
+                "description": toolbox.clean_text(hit["metadata"]["description"])
+            }
             if "keywords" in hit["metadata"]:
-                record_dict["keywords"] = " ; ".join(
+                text_dict["keywords"] = ";".join(
                     [str(keyword) for keyword in hit["metadata"]["keywords"]]
                 )
             # Handle existing but empty keywords.
             # For instance: https://zenodo.org/record/3741678
-            if record_dict["keywords"] == "":
-                record_dict["keywords"] = "none"
-            # Dataset description might be interesting. Not saved yet.
-            # record_dict["description"] = hit["metadata"]["description"]
-            records.append(record_dict)
+            if text_dict["keywords"] == "":
+                text_dict["keywords"] = "none"
+            texts.append(text_dict)
             for file_in in hit["files"]:
                 file_dict = {
-                    "dataset_id": record_dict["dataset_id"],
-                    "origin": record_dict["origin"],
+                    "dataset_origin": dataset_dict["dataset_origin"],
+                    "dataset_id": dataset_dict["dataset_id"],
                     "file_type": file_in["type"],
                     "file_size": int(file_in["size"]),  # File size in bytes.
                     "file_md5": file_in["checksum"].removeprefix("md5:"),
@@ -371,7 +377,7 @@ def extract_records(response_json):
                     "origin_zip_file": "none",
                 }
                 files.append(file_dict)
-    return records, files
+    return datasets, texts, files
 
 
 if __name__ == "__main__":
@@ -400,6 +406,7 @@ if __name__ == "__main__":
     MAX_HITS_PER_PAGE = 1_000
 
     datasets_df = pd.DataFrame()
+    texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
     for file_type in FILE_TYPES:
         print(f"Looking for filetype: {file_type['type']}")
@@ -427,14 +434,21 @@ if __name__ == "__main__":
             resp_json = search_zenodo_with_query(
                 query, ZENODO_TOKEN, page=page, hits_per_page=MAX_HITS_PER_PAGE
             )
-            datasets_tmp, files_tmp = extract_records(resp_json)
+            datasets_tmp, texts_tmp, files_tmp = extract_records(resp_json)
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_tmp)
             datasets_df = pd.concat(
                 [datasets_df, datasets_df_tmp], ignore_index=True
             )
             datasets_df.drop_duplicates(
-                subset=["dataset_id", "origin"], keep="first", inplace=True)
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
+            # Merge dataset texts
+            texts_df_tmp = pd.DataFrame(texts_tmp)
+            texts_df = pd.concat(
+                [texts_df, texts_df_tmp], ignore_index=True
+            )
+            texts_df.drop_duplicates(
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
             # Merge files
             files_df_tmp = pd.DataFrame(files_tmp)
             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
@@ -454,6 +468,9 @@ if __name__ == "__main__":
     datasets_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
     datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
     print(f"Results saved in {str(datasets_export_path)}")
+    texts_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets_text.tsv"
+    texts_df.to_csv(texts_export_path, sep="\t", index=False)
+    print(f"Results saved in {str(texts_export_path)}")
     files_export_path = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
