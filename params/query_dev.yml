@@ -11,9 +11,17 @@ md_keywords:
 - amber
 - gromacs
 - charmm
-- plumed
 
 generic_keywords:
+- molecular dynamics
+- molecular dynamic
+- molecular-dynamics
+- molecular-dynamic
+- namd
+- md trajectory
+- md trajectories
+- md simulation
+- md simulations
 - gromacs
 
 file_types:
