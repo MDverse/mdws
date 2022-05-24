@@ -14,15 +14,6 @@ md_keywords:
 
 generic_keywords:
 - molecular dynamics
-- molecular dynamic
-- molecular-dynamics
-- molecular-dynamic
-- namd
-- md trajectory
-- md trajectories
-- md simulation
-- md simulations
-- gromacs
 
 file_types:
 - type: tpr
@@ -45,3 +36,10 @@ file_types:
   engine: unknown
   keywords: generic_keywords
   category: none
+
+excluded_files_starting_with:
+- "."
+
+excluded_paths_containing:
+- "__MACOSX"
+- ".git"

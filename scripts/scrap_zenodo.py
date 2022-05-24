@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime
+from json import tool
 import os
 import pathlib
 import time
@@ -11,7 +12,7 @@ from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
 import requests
-import yaml
+
 
 import toolbox
 
@@ -33,7 +34,7 @@ def get_cli_arguments():
         metavar="query_file",
         type=str,
         help="Query file (YAML format)",
-        required=True
+        required=True,
     )
     parser.add_argument(
         "-o",
@@ -44,34 +45,6 @@ def get_cli_arguments():
         required=True,
     )
     return parser.parse_args()
-
-
-def read_query_file(query_file_path):
-    """Read the query definition file
-
-    The query definition file is formatted in yaml.
-
-    Parameters
-    ----------
-    query_file_path : str
-        Path to the query definition file.
-    
-    Returns
-    -------
-    file_types : dict
-        Dictionary with type, engine and keywords to use.
-    md_keywords : list
-        Keywords related to molecular dynamics.
-    generic_keywords : list
-        Generic keywords for zip archives.
-    """
-    with open(query_file_path, "r") as param_file:
-        print(f"Reading parameters from: {query_file_path}")
-        data_loaded = yaml.safe_load(param_file)
-    md_keywords = data_loaded["md_keywords"]
-    generic_keywords = data_loaded["generic_keywords"]
-    file_types = data_loaded["file_types"]
-    return file_types, md_keywords, generic_keywords
 
 
 def extract_date(date_str):
@@ -160,9 +133,6 @@ def extract_data_from_zip_file(url, token):
         file_dict["file_type"] = "none"
         if "." in file_name:
             file_dict["file_type"] = file_name.split(".")[-1].lower()
-        # Ignore files starting with a dot
-        if file_name.startswith("."):
-            continue
         file_lst.append(file_dict)
     return file_lst
 
@@ -268,10 +238,7 @@ def scrap_zip_content(files_df):
     files_in_zip_lst = []
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
-    print(
-        "Number of zip files to scrap content from: "
-        f"{zip_files_df.shape[0]}"
-    )
+    print("Number of zip files to scrap content from: " f"{zip_files_df.shape[0]}")
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         zip_counter += 1
@@ -353,7 +320,7 @@ def extract_records(response_json):
                 "title": toolbox.clean_text(hit["metadata"]["title"]),
                 "author": toolbox.clean_text(hit["metadata"]["creators"][0]["name"]),
                 "keywords": "none",
-                "description": toolbox.clean_text(hit["metadata"]["description"])
+                "description": toolbox.clean_text(hit["metadata"]["description"]),
             }
             if "keywords" in hit["metadata"]:
                 text_dict["keywords"] = ";".join(
@@ -388,7 +355,13 @@ if __name__ == "__main__":
     test_zenodo_connection(ZENODO_TOKEN)
 
     # Read parameter file
-    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS = read_query_file(ARGS.query_file)
+    (
+        FILE_TYPES,
+        MD_KEYWORDS,
+        GENERIC_KEYWORDS,
+        EXCLUDED_FILES,
+        EXCLUDED_PATHS,
+    ) = toolbox.read_query_file(ARGS.query_file)
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
@@ -412,19 +385,14 @@ if __name__ == "__main__":
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
         query_files = []
-        query = (
-            f'resource_type.type:"dataset" '
-            f'AND filetype:"{file_type["type"]}"'
-        )
+        query = f'resource_type.type:"dataset" ' f'AND filetype:"{file_type["type"]}"'
         if file_type["keywords"] == "md_keywords":
             query += QUERY_MD_KEYWORDS
         elif file_type["keywords"] == "generic_keywords":
             query += QUERY_GENERIC_KEYWORDS
         print(f"Query:\n{query}")
         # First get the total number of hits for a given query.
-        resp_json = search_zenodo_with_query(
-            query, ZENODO_TOKEN, hits_per_page=1
-        )
+        resp_json = search_zenodo_with_query(query, ZENODO_TOKEN, hits_per_page=1)
         total_hits = resp_json["hits"]["total"]
         print(f"Number of hits: {total_hits}")
         page_max = total_hits // MAX_HITS_PER_PAGE + 1
@@ -437,18 +405,16 @@ if __name__ == "__main__":
             datasets_tmp, texts_tmp, files_tmp = extract_records(resp_json)
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_tmp)
-            datasets_df = pd.concat(
-                [datasets_df, datasets_df_tmp], ignore_index=True
-            )
+            datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
             datasets_df.drop_duplicates(
-                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
+            )
             # Merge dataset texts
             texts_df_tmp = pd.DataFrame(texts_tmp)
-            texts_df = pd.concat(
-                [texts_df, texts_df_tmp], ignore_index=True
-            )
+            texts_df = pd.concat([texts_df, texts_df_tmp], ignore_index=True)
             texts_df.drop_duplicates(
-                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
+            )
             # Merge files
             files_df_tmp = pd.DataFrame(files_tmp)
             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
@@ -464,13 +430,16 @@ if __name__ == "__main__":
 
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
-    # Save dataframes to disk
+    # Save datasets dataframe to disk
     datasets_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
     datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
     print(f"Results saved in {str(datasets_export_path)}")
+    # Save text datasets dataframe to disk
     texts_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets_text.tsv"
     texts_df.to_csv(texts_export_path, sep="\t", index=False)
     print(f"Results saved in {str(texts_export_path)}")
+    # Save files dataframe to disk
+    files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
     files_export_path = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
@@ -483,5 +452,6 @@ if __name__ == "__main__":
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
     print(f"Number of files found inside zip files: {zip_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
+    files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")

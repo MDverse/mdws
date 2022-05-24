@@ -131,3 +131,10 @@ file_types:
   engine: unknown
   keywords: generic_keywords
   category: none
+
+excluded_files_starting_with:
+- "."
+
+excluded_paths_containing:
+- "__MACOSX"
+- ".git"
