@@ -101,6 +101,23 @@ nucleic:
 - U
 - G
 - C
+- rA
+- A3
+- A5
+- rC
+- C3
+- C5
+- rG
+- RG
+- G3
+- rU
+- U3
+- U5
+- T
+- dT
+- dA
+- dC
+- dG
 
 water_ion:
 - SOL
