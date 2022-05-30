@@ -1,5 +1,6 @@
 """Common functions and utilities used in the project."""
 
+import argparse
 import pathlib
 import re
 import warnings
@@ -15,6 +16,34 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
+
+
+def get_scraper_cli_arguments():
+    """Parse scraper scripts command line.
+
+    Returns
+    -------
+    argparse.ArgumentParser()
+        Object with options
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-q",
+        "--query-file",
+        metavar="query_file",
+        type=str,
+        help="Query file (YAML format)",
+        required=True,
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        action="store",
+        type=str,
+        help="Path to save results",
+        required=True,
+    )
+    return parser.parse_args()
 
 
 def read_query_file(query_file_path):

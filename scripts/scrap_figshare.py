@@ -1,6 +1,5 @@
 """Scrap molecular dynamics datasets and files from FigShare."""
-# Standard library imports
-import argparse
+
 from datetime import datetime
 import json
 import os
@@ -8,43 +7,13 @@ import pathlib
 import re
 import time
 
-# Third party imports
+
 import numpy as np
 import pandas as pd
 import requests
 
 
 import toolbox
-
-
-def get_cli_arguments():
-    """Argument parser.
-
-    This function parses the name of the yaml input file.
-
-    Returns
-    -------
-    str
-        Name of the yaml input file.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-q",
-        "--query-file",
-        metavar="query_file",
-        type=str,
-        help="Query file (YAML format)",
-        required=True
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        action="store",
-        type=str,
-        help="Path to save results",
-        required=True,
-    )
-    return parser.parse_args()
 
 
 def extract_date(date_str):
@@ -469,7 +438,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
 
 if __name__ == "__main__":
     # Parse input arguments
-    arg = get_cli_arguments()
+    arg = toolbox.get_scraper_cli_arguments()
     
     # Call extract main scrap function
     main_scrap_figshare(arg, scrap_zip=True)

@@ -1,6 +1,5 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
 
-import argparse
 from datetime import datetime
 from json import tool
 import os
@@ -15,36 +14,6 @@ import requests
 
 
 import toolbox
-
-
-def get_cli_arguments():
-    """Argument parser.
-
-    This function parses the name of the yaml input file.
-
-    Returns
-    -------
-    str
-        Name of the yaml input file.
-    """
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-q",
-        "--query-file",
-        metavar="query_file",
-        type=str,
-        help="Query file (YAML format)",
-        required=True,
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        action="store",
-        type=str,
-        help="Path to save results",
-        required=True,
-    )
-    return parser.parse_args()
 
 
 def extract_date(date_str):
@@ -138,7 +107,7 @@ def extract_data_from_zip_file(url, token):
 
 
 def read_zenodo_token():
-    """Read file Zenodo token from disk.
+    """Read Zenodo token from disk.
 
     Returns
     -------
@@ -348,7 +317,7 @@ def extract_records(response_json):
 
 
 if __name__ == "__main__":
-    ARGS = get_cli_arguments()
+    ARGS = toolbox.get_scraper_cli_arguments()
 
     # Read Zenodo token
     ZENODO_TOKEN = read_zenodo_token()
