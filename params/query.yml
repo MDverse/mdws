@@ -62,6 +62,10 @@ file_types:
   engine: gromacs
   keywords: none
   category: trajectory
+- type: tng
+  engine: gromacs
+  keywords: none
+  category: trajectory
 - type: cpt
   engine: gromacs
   keywords: none
