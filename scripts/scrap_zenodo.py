@@ -1,7 +1,6 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
 
 from datetime import datetime
-from json import tool
 import os
 import pathlib
 import time
@@ -14,25 +13,6 @@ import requests
 
 
 import toolbox
-
-
-def extract_date(date_str):
-    """Extract and format date from a string.
-
-    Parameters
-    ----------
-    date_str : str
-        Date as a string in ISO 8601.
-        For example: 2020-07-29T19:22:57.752335+00:00
-
-    Returns
-    -------
-    str
-        Date as in string in YYYY-MM-DD format.
-        For example: 2020-07-29
-    """
-    date = datetime.fromisoformat(date_str)
-    return f"{date:%Y-%m-%d}"
 
 
 def normalize_file_size(file_str):
@@ -273,8 +253,8 @@ def extract_records(response_json):
                 "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
                 "doi": hit["doi"],
-                "date_creation": extract_date(hit["created"]),
-                "date_last_modified": extract_date(hit["updated"]),
+                "date_creation": toolbox.extract_date(hit["created"]),
+                "date_last_modified": toolbox.extract_date(hit["updated"]),
                 "date_fetched": datetime.now().isoformat(timespec="seconds"),
                 "file_number": len(hit["files"]),
                 "download_number": int(hit["stats"]["downloads"]),
@@ -337,7 +317,7 @@ if __name__ == "__main__":
     QUERY_MD_KEYWORDS = ' AND ("' + '" OR "'.join(MD_KEYWORDS) + '")'
     QUERY_GENERIC_KEYWORDS = ' AND ("' + '" OR "'.join(GENERIC_KEYWORDS) + '")'
 
-    # Verify results output directory
+    # Verify output directory exists
     toolbox.verify_output_directory(ARGS.output)
 
     # There is a hard limit of the number of hits

@@ -1,6 +1,7 @@
 """Common functions and utilities used in the project."""
 
 import argparse
+from datetime import datetime
 import pathlib
 import re
 import warnings
@@ -122,6 +123,25 @@ def clean_text(string):
     # Remove multi spaces
     text_decode = re.sub(" {2,}", " ", text_decode)
     return text_decode
+
+
+def extract_date(date_str):
+    """Extract and format date from a string.
+
+    Parameters
+    ----------
+    date_str : str
+        Date as a string in ISO 8601.
+        For example: 2020-07-29T19:22:57.752335+00:00
+
+    Returns
+    -------
+    str
+        Date as in string in YYYY-MM-DD format.
+        For example: 2020-07-29
+    """
+    date = datetime.fromisoformat(date_str)
+    return f"{date:%Y-%m-%d}"
 
 
 def remove_excluded_files(files_df, exclusion_files, exclusion_paths):
