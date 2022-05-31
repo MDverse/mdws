@@ -15,3 +15,8 @@ API to search for files: https://api.osf.io/v2/search/files/. Example with .mdp 
 
 [API](https://developer.osf.io/) documentation.
 
+### Scraping strategy
+
+1. [Search for relevant files](https://api.osf.io/v2/search/files/). Loop on file extensions with keywords. Results are paginated. Extract a set of unique datasets.
+1. For each dataset, retrieve [informations](https://api.osf.io/v2/nodes/pdszh/) and [files list](https://api.osf.io/v2/nodes/pdszh/files/).
+1. [Retrieve files informations](https://api.osf.io/v2/nodes/pdszh/files/osfstorage/). Results are paginated.
