@@ -7,7 +7,7 @@ Web form: https://osf.io/search/. Example with .mdp files: https://osf.io/search
 Query follows [Lucene Search Query Help](https://extensions.xwiki.org/xwiki/bin/view/Extension/Search+Application+Query+Syntax)
 
 > **Note**  
-> OSF does not allow to search for file extension
+> OSF does not allow to search by file extension
 
 ## API
 
