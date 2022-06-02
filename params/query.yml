@@ -54,18 +54,21 @@ file_types:
   engine: gromacs
   keywords: none
   category: trajectory
+  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
 - type: trr
   engine: gromacs
   keywords: none
   category: trajectory
+  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
 - type: edr
   engine: gromacs
   keywords: none
   category: trajectory
 - type: tng
   engine: gromacs
-  keywords: none
+  keywords: md_keywords
   category: trajectory
+  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
 - type: cpt
   engine: gromacs
   keywords: none
