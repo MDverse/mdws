@@ -14,12 +14,10 @@ md_keywords:
 
 generic_keywords:
 - molecular dynamics
+- md simulation
+- gromacs
 
 file_types:
-- type: tpr
-  engine: gromacs
-  keywords: none
-  category: coordinate
 - type: gro
   engine: gromacs
   keywords: none
