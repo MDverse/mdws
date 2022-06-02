@@ -168,10 +168,10 @@ if __name__ == "__main__":
             with ZipFile(file_path, "r") as zip_file:
                 # Get a list of all archived file names from the zip
                 zip_file_list = zip_file.namelist()
-                for filename in zip_file_list:
-                    if filename.startswith("__MACOSX"):
+                for file_name in zip_file_list:
+                    if file_name.startswith("__MACOSX"):
                         continue
-                    if ".DS_Store" in filename:
-                        continue
-                    print(f"Extracting {filename} from {file_path}")
-                    zip_file.extract(filename, path=file_path.parent)
+                    for file_type in ARGS.type:
+                        if file_name.endswith(file_type):
+                            print(f"Extracting {file_name} from {file_path}")
+                            zip_file.extract(file_name, path=file_path.parent)
