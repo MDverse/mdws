@@ -111,6 +111,12 @@ python scripts/download_files.py -i data/zenodo_files.tsv -o data/downloads/ -t 
 python scripts/download_files.py -i data/figshare_files.tsv -o data/downloads/ -t mdp -t gro
 ```
 
+To download Gromacs mdp and gro files also from zip files, use the `--includezipfiles` option:
+
+```bash
+python scripts/download_files.py -i data/zenodo_files.tsv -o data/downloads/ -t mdp -t gro --includezipfiles
+```
+
 This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail with an error messages similar to
 
 > requests.exceptions.HTTPError: 429 Client Error: TOO MANY REQUESTS
