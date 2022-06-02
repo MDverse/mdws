@@ -104,10 +104,11 @@ cp notebooks/*.{svg,png} results/
 
 ### Download files
 
-To download Gromacs mdp and gro files from Zenodo, one can use the command line:
+To download Gromacs mdp and gro files, use the following commands:
 
 ```bash
 python scripts/download_files.py -i data/zenodo_files.tsv -o data/downloads/ -t mdp -t gro
+python scripts/download_files.py -i data/figshare_files.tsv -o data/downloads/ -t mdp -t gro
 ```
 
 This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail with an error messages similar to
@@ -120,7 +121,21 @@ or
 
 Re-rerun the previous command to resume the download. Files already retrieved will not be downloaded again.
 
-Expect between 10 and 15 GB of data.
+Expect about 15 GB of data.
+
+To count the number of files, could do use:
+
+```bash
+find data/downloads -name *.gro | wc -l
+```
+
+or
+
+```bash
+find data/downloads -name *.mdp | wc -l
+```
+
+Numbers are indicative only.
 
 ### Parse files
 

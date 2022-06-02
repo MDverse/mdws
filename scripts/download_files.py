@@ -86,7 +86,7 @@ def select_files_to_download(filename, file_types):
     """
     files = pd.read_csv(filename, sep="\t")
     print(f"Found {files.shape[0]} files in {filename}")
-    repository_name = files.iloc[0]["origin"]
+    repository_name = files.iloc[0]["dataset_origin"]
     print(f"Data repository: {repository_name}")
 
     selected_files = files.query("from_zip_file == False").query(

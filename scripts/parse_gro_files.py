@@ -6,9 +6,9 @@ https://manual.gromacs.org/5.1.1/user-guide/file-formats.html#gro
 
 import argparse
 import pathlib
-import re
 
 import pandas as pd
+from tqdm import tqdm
 import yaml
 
 FILE_TYPE = "gro"
@@ -77,7 +77,13 @@ def read_residue_file(residue_filename):
     nucleic_residues = data_loaded["nucleic"]
     water_ion_residues = data_loaded["water_ion"]
     glucid_residues = data_loaded["glucid"]
-    return protein_residues, lipid_residues, nucleic_residues, water_ion_residues, glucid_residues
+    return (
+        protein_residues,
+        lipid_residues,
+        nucleic_residues,
+        water_ion_residues,
+        glucid_residues,
+    )
 
 
 def verify_output_directory(directory):
@@ -120,15 +126,13 @@ def find_all_files(path, file_type):
 
 
 def extract_info_from_gro(
-    gro_file_path,
-    target_path,
-    gro_file_counter,
-    gro_file_number,
-    protein_residues,
-    lipid_residues,
-    nucleic_residues,
-    water_ion_residues,
-    glucid_residues
+    gro_file_path="",
+    target_path="",
+    protein_residues=[],
+    lipid_residues=[],
+    nucleic_residues=[],
+    water_ion_residues=[],
+    glucid_residues=[],
 ):
     """Extract information from Gromacs mdp file.
 
@@ -138,10 +142,6 @@ def extract_info_from_gro(
         Path to gro file
     target_path : str
         Path to the directory to find gro files
-    gro_file_counter : int
-        Counter for the current gro file
-    gro_file_number : int
-        Total number of gro files to parse
     protein_residues : list
         List of protein residues
     lipid_residues : list
@@ -169,63 +169,93 @@ def extract_info_from_gro(
         "has_glucid": False,
         "filename": None,
     }
+    # Extract repository name, dataset id and file name from file path
+    # For instance, extract:
+    # dataset_origin: zenodo
+    # dataset_id: 3862992
+    # filename: mdia2-30-r1.gro
+    # from
+    # gro_file_path: data/downloads/zenodo/3862992/mdia2-30-r1.gro
+    # target_path: data/downloads
     info["dataset_origin"], info["dataset_id"], info["filename"] = str(
         gro_file_path.relative_to(target_path)
-    ).split("/")
-    print(
-        f"Reading {gro_file_counter:{len(str(gro_file_number))}d}/{gro_file_number} {str(gro_file_path)}"
-    )
-    with open(gro_file_path, "r") as gro_file:
-        for idx, line in enumerate(gro_file):
-            if idx == 1:
-                info["atom_number"] = int(line)
-            if (idx > 1) and (len(line.rstrip()) <= 70) and (len(line.split()) > 3):
-                residue_number = int(line[0:5])
-                residue_name = line[5:10].strip()
-                atom_name = line[10:15].strip()
-                atom_number = int(line[15:20])
-                if residue_name in protein_residues:
-                    info["has_protein"] = True
-                elif residue_name in lipid_residues:
-                    info["has_lipid"] = True
-                elif residue_name in nucleic_residues:
-                    info["has_nucleic"] = True
-                elif residue_name in water_ion_residues:
-                    info["has_water_ion"] = True
-                elif residue_name in glucid_residues:
-                    info["has_glucid"] = True
-                # WALL particles
-                elif residue_name in ["WAL"]:
-                    pass
-                else:
-                    pass
-                    #print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
+    ).split("/", maxsplit=3)
+    try:
+        with open(gro_file_path, "r") as gro_file:
+            for idx, line in enumerate(gro_file):
+                # Some .gro files are sometimes badly formatted
+                # so we need to be extra cautious
+                try:
+                    # The first line (idx=0) is a comment
+                    # The second line (idx=1) is the number of atoms
+                    if idx == 1:
+                        info["atom_number"] = int(line)
+                    if (
+                        (idx > 1)
+                        and (len(line.rstrip()) <= 70)
+                        and (len(line.split()) > 3)
+                    ):
+                        residue_number = int(line[0:5])
+                        residue_name = line[5:10].strip()
+                        atom_name = line[10:15].strip()
+                        atom_number = int(line[15:20])
+                        if residue_name in protein_residues:
+                            info["has_protein"] = True
+                        elif residue_name in lipid_residues:
+                            info["has_lipid"] = True
+                        elif residue_name in nucleic_residues:
+                            info["has_nucleic"] = True
+                        elif residue_name in water_ion_residues:
+                            info["has_water_ion"] = True
+                        elif residue_name in glucid_residues:
+                            info["has_glucid"] = True
+                        # WALL particles
+                        elif residue_name in ["WAL"]:
+                            pass
+                        else:
+                            pass
+                            # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
+                except:
+                    print(f"\nCannot read {gro_file_path} at line {idx+1}")
+                    print(f"Faulty line: {line.strip()}")
+                    break
+    except UnicodeDecodeError:
+        print(f"\nCannot read: {gro_file_path}")
     return info
 
 
 if __name__ == "__main__":
     args = get_cli_arguments()
     verify_output_directory(args.output)
-    PROTEIN_RESIDUES, LIPID_RESIDUES, NUCLEIC_RESIDUES, WATER_ION_RESIDUES, GLUCID_RESIDUES = read_residue_file(
-        args.residues
-    )
+    (
+        PROTEIN_RESIDUES,
+        LIPID_RESIDUES,
+        NUCLEIC_RESIDUES,
+        WATER_ION_RESIDUES,
+        GLUCID_RESIDUES,
+    ) = read_residue_file(args.residues)
 
     GRO_FILES_LST = find_all_files(args.input, FILE_TYPE)
     print(f"Found {len(GRO_FILES_LST)} {FILE_TYPE} files in {args.input}")
     GRO_FILE_NUMBER = len(GRO_FILES_LST)
 
     gro_info_lst = []
-    for gro_file_idx, gro_file_name in enumerate(GRO_FILES_LST):
+    pbar = tqdm(
+        GRO_FILES_LST,
+        leave=True,
+        bar_format="{l_bar}{n_fmt}/{total_fmt} [{elapsed}<{remaining}]{postfix}",
+    )
+    for gro_file_name in pbar:
+        pbar.set_postfix({"file": str(gro_file_name)})
+        # pbar.set_description(f"Reading {gro_file_name}", refresh=True)
         gro_info = extract_info_from_gro(
             gro_file_name,
             args.input,
-            gro_file_idx,
-            GRO_FILE_NUMBER,
             PROTEIN_RESIDUES,
             LIPID_RESIDUES,
             NUCLEIC_RESIDUES,
             WATER_ION_RESIDUES,
-            GLUCID_RESIDUES
+            GLUCID_RESIDUES,
         )
         gro_info_lst.append(gro_info)
     gro_info_df = pd.DataFrame(gro_info_lst)
