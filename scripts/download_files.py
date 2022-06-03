@@ -9,10 +9,12 @@ It also uses a local cache and downloads data once.
 
 import argparse
 import pathlib
+import time
 from zipfile import ZipFile
 
 import pandas as pd
 import pooch
+from tqdm import tqdm
 
 
 def get_cli_arguments():
@@ -122,6 +124,50 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
     return repository_name, selected_files_df
 
 
+def download_file(url="", hash="", file_name="", path="", retry_if_failed=3, time_between_attempt=3):
+    """Download file.
+
+    Parameters
+    ----------
+    url : str
+        URL of file to download.
+    hash : str
+        MD5 hash.
+    file_name : st
+        Name of file.
+    path : str
+        Local path where file is stored.
+    retry_if_failed : int
+        Number of time to retry download if download fails.
+    time_between_attempt : int
+        Number of seconds to wait between download attempt.
+    
+    Returns
+    -------
+    pathlib.Path
+        Full path of downloaded file.
+    """
+    file_path = ""
+    for attempt in range(retry_if_failed):
+        try:
+            file_path = pooch.retrieve(
+                url=url,
+                known_hash=f"md5:{hash}",
+                fname=file_name,
+                path=path,
+                progressbar=True,
+            )
+        except Exception as exc:
+            print(f"Cannot download {url} (attempt {attempt+1}/{retry_if_failed})")
+            print(f"Will retry in {time_between_attempt} s")
+            print(f"Exception type: {exc.__class__}")
+            print(f"Exception message: {exc}\n")
+            time.sleep(time_between_attempt)
+        else:
+            break
+    return pathlib.Path(file_path)
+
+
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
@@ -139,36 +185,40 @@ if __name__ == "__main__":
     data_repo_name, target_df = select_files_to_download(ARGS.input, ARGS.type)
 
     # Download files
-    for idx in target_df.index:
+    pbar = tqdm(
+        target_df.index,
+        leave=True,
+        bar_format="--- {l_bar}{n_fmt}/{total_fmt} --- ",
+    )
+    for idx in pbar:
         dataset_id = target_df.loc[idx, "dataset_id"]
-        file_path = pooch.retrieve(
-            url=target_df.loc[idx, "file_url"],
-            known_hash=f"md5:{target_df.loc[idx, 'file_md5']}",
-            fname=target_df.loc[idx, "file_name"],
-            path=f"{ARGS.output}/{data_repo_name}/{dataset_id}",
-            progressbar=True,
+        file_path = download_file(
+            url=target_df.loc[idx, "file_url"], 
+            hash=target_df.loc[idx, "file_md5"], 
+            file_name=target_df.loc[idx, "file_name"], 
+            path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
         )
 
     # If includezipfiles option is triggered
     if ARGS.includezipfiles:
         data_repo_name, target_df = select_files_to_download(ARGS.input, ARGS.type, withzipfiles=True)
-
-        for idx in target_df.index:
-            # Download zip files
+        pbar = tqdm(
+            target_df.index,
+            leave=True,
+            bar_format="--- {l_bar}{n_fmt}/{total_fmt} --- ",
+        )
+        for idx in pbar:
+            # Download zip file
             dataset_id = target_df.loc[idx, "dataset_id"]
-            file_path = pooch.retrieve(
-                url=target_df.loc[idx, "file_url"],
-                known_hash=f"md5:{target_df.loc[idx, 'file_md5']}",
-                fname=target_df.loc[idx, "file_name"],
-                path=f"{ARGS.output}/{data_repo_name}/{dataset_id}",
-                progressbar=True,
+            file_path = download_file(
+                url=target_df.loc[idx, "file_url"], 
+                hash=target_df.loc[idx, "file_md5"], 
+                file_name=target_df.loc[idx, "file_name"], 
+                path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
             )
             # Extract zip content
-            file_path = pathlib.Path(file_path)
             with ZipFile(file_path, "r") as zip_file:
-                # Get a list of all archived file names from the zip
-                zip_file_list = zip_file.namelist()
-                for file_name in zip_file_list:
+                for file_name in zip_file.namelist():
                     if file_name.startswith("__MACOSX"):
                         continue
                     for file_type in ARGS.type:
