@@ -188,7 +188,7 @@ def extract_zip_content(file_path, selected_types):
                         print(f"Extracting {file_name} from {file_path}")
                         zip_file.extract(file_name, path=file_path.parent)
     except Exception as exc:
-        print(f"Cannot open {file_path}")
+        print(f"Cannot open zip archive: {file_path}")
         print(f"Exception type: {exc.__class__}")
         print(f"Exception message: {exc}\n")
 
