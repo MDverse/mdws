@@ -117,7 +117,7 @@ def extract_info_from_mdp(mdp_file_path, target_path):
     }
     info["dataset_origin"], info["dataset_id"], info["filename"] = str(
         mdp_file_path.relative_to(target_path)
-    ).split("/")
+    ).split("/", maxsplit=3)
     #print(f"Reading {str(mdp_file_path)}")
     with open(mdp_file_path, "r") as mdp_file:
         for line in mdp_file:
