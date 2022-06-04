@@ -11,6 +11,7 @@ import pathlib
 import re
 
 import pandas as pd
+from tqdm import tqdm
 
 
 REGEX_DT = re.compile("^\s*dt\s*=\s*([.\d]+)", re.IGNORECASE)
@@ -145,18 +146,24 @@ def extract_info_from_mdp(mdp_file_path, target_path):
 
 
 if __name__ == "__main__":
-    args = get_cli_arguments()
-    verify_output_directory(args.output)
+    ARGS = get_cli_arguments()
+    verify_output_directory(ARGS.output)
 
-    mdp_files = find_all_files(args.input, FILE_TYPE)
-    print(f"Found {len(mdp_files)} {FILE_TYPE} files in {args.input}")
+    MDP_FILES_LST = find_all_files(ARGS.input, FILE_TYPE)
+    print(f"Found {len(MDP_FILES_LST)} {FILE_TYPE} files in {ARGS.input}")
 
     mdp_info_lst = []
-    for mdp_file in mdp_files:
-        mdp_info = extract_info_from_mdp(mdp_file, args.input)
+    pbar = tqdm(
+        MDP_FILES_LST,
+        leave=True,
+        bar_format="{l_bar}{n_fmt}/{total_fmt} [{elapsed}<{remaining}]{postfix}",
+    )
+    for mdp_file_name in pbar:
+        pbar.set_postfix({"file": str(mdp_file_name)})
+        mdp_info = extract_info_from_mdp(mdp_file_name, ARGS.input)
         mdp_info_lst.append(mdp_info)
     mdp_info_df = pd.DataFrame(mdp_info_lst)
-    result_file_path = pathlib.Path(args.output) / "gromacs_mdp_files_info.tsv"
+    result_file_path = pathlib.Path(ARGS.output) / "gromacs_mdp_files_info.tsv"
     mdp_info_df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Saved results in {str(result_file_path)}")
     print(f"Total number of mdp files parsed: {mdp_info_df.shape[0]}")
