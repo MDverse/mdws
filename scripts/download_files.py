@@ -168,6 +168,31 @@ def download_file(url="", hash="", file_name="", path="", retry_if_failed=3, tim
     return pathlib.Path(file_path)
 
 
+def extract_zip_content(file_path, selected_types):
+    """Extract selected files from zip archive.
+
+    Parameters
+    ----------
+    file_path : pathlib.Path
+        Path of zip file.
+    selected_types : list of str
+        List of selected file types.
+    """
+    try:
+        with ZipFile(file_path, "r") as zip_file:
+            for file_name in zip_file.namelist():
+                if file_name.startswith("__MACOSX"):
+                    continue
+                for file_type in selected_types:
+                    if file_name.endswith(file_type):
+                        print(f"Extracting {file_name} from {file_path}")
+                        zip_file.extract(file_name, path=file_path.parent)
+    except Exception as exc:
+        print(f"Cannot open {file_path}")
+        print(f"Exception type: {exc.__class__}")
+        print(f"Exception message: {exc}\n")
+
+
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
@@ -217,11 +242,4 @@ if __name__ == "__main__":
                 path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
             )
             # Extract zip content
-            with ZipFile(file_path, "r") as zip_file:
-                for file_name in zip_file.namelist():
-                    if file_name.startswith("__MACOSX"):
-                        continue
-                    for file_type in ARGS.type:
-                        if file_name.endswith(file_type):
-                            print(f"Extracting {file_name} from {file_path}")
-                            zip_file.extract(file_name, path=file_path.parent)
+            extract_zip_content(file_path, ARGS.type)
