@@ -179,7 +179,7 @@ def extract_info_from_gro(
     # target_path: data/downloads
     info["dataset_origin"], info["dataset_id"], info["filename"] = str(
         gro_file_path.relative_to(target_path)
-    ).split("/", maxsplit=3)
+    ).split("/", maxsplit=2)
     try:
         with open(gro_file_path, "r") as gro_file:
             for idx, line in enumerate(gro_file):
