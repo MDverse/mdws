@@ -76,7 +76,8 @@ file_types:
 - type: psf
   engine: namd
   keywords: md_keywords
-  category: coordinate
+  category: topology
+  source: https://www.melbournebioinformatics.org.au/tutorials/tutorials/molecular_dynamics_201/molecular_dynamics_201/
 - type: inp
   engine: namd
   keywords: md_keywords
