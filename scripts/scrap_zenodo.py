@@ -1,6 +1,7 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
 
 from datetime import datetime
+from json import tool
 import os
 import pathlib
 import time
@@ -78,10 +79,11 @@ def extract_data_from_zip_file(url, token):
         file_name = file_info[idx].strip()
         file_size_raw = file_info[idx + 1].strip()
         file_size = normalize_file_size(file_size_raw)
-        file_dict = {"file_name": file_name, "file_size": file_size}
-        file_dict["file_type"] = "none"
-        if "." in file_name:
-            file_dict["file_type"] = file_name.split(".")[-1].lower()
+        file_dict = {
+            "file_name": file_name, 
+            "file_size": file_size,
+            "file_type": toolbox.extract_file_extension(file_name)
+        }
         file_lst.append(file_dict)
     return file_lst
 

@@ -125,6 +125,29 @@ def clean_text(string):
     return text_decode
 
 
+def extract_file_extension(file_path):
+    """Extract file extension from file path.
+
+    Parameters
+    ----------
+    file_path : str
+        File path.
+        Example: "/something/here/file.txt"
+
+    Returns
+    -------
+    str
+        File extension without a dot.
+        Example: "txt"
+    """
+    # Extract the file name for its path.
+    file_name = file_path.split("/")[-1]
+    file_type = "none"
+    if "." in file_name:
+        file_type = file_name.split(".")[-1].lower()
+    return file_type
+
+
 def extract_date(date_str):
     """Extract and format date from a string.
 
