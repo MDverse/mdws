@@ -74,9 +74,7 @@ def query_osf_api(
     while attempt <= attempt_number:
         try:
             response = requests.get(
-                url,
-                params=params,
-                headers={"Authorization": f"Bearer {token}"}
+                url, params=params, headers={"Authorization": f"Bearer {token}"}
             )
             # Count the number of times API is called
             query_osf_api.counter += 1
@@ -85,13 +83,15 @@ def query_osf_api(
             print(f"Exception type: {exc.__class__}")
             print(f"Exception message: {exc}\n")
             return {"errors": {"detail": "Cannot established connection."}}
-        if  response.status_code == 200:
+        if response.status_code == 200:
             break
         else:
             print(f"Error with URL: {url}")
             print(f"Status code: {response.status_code}")
             print(f"Headers: {response.headers}")
-            print(f"Attempt {attempt}/{attempt_number}. Will retry in {time_between_attempt} seconds")
+            print(
+                f"Attempt {attempt}/{attempt_number}. Will retry in {time_between_attempt} seconds"
+            )
             time.sleep(time_between_attempt)
         attempt += 1
     if print_status:
@@ -204,6 +204,7 @@ def add_children_datasets(token, dataset_ids):
     print("Looking for datasets children")
     pbar = tqdm.tqdm(
         dataset_ids,
+        leave=False,
         bar_format="{l_bar}{n_fmt}/{total_fmt}{postfix}",
     )
     for dataset_id in pbar:
@@ -228,7 +229,7 @@ def query_datasets(token, datasets):
     API endpoints:
     - node details: https://api.osf.io/v2/nodes/{datasetid}/
     - file storage: https://api.osf.io/v2/nodes/{datasetid}/files/
-    - file list: https://api.osf.io/v2/nodes/{datasetid}/files/osfstorage/
+    - file list (first level): https://api.osf.io/v2/nodes/{datasetid}/files/osfstorage/
 
     Parameters
     ----------
@@ -249,6 +250,7 @@ def query_datasets(token, datasets):
     print("Scraping datasets information")
     pbar = tqdm.tqdm(
         datasets,
+        leave=False,
         bar_format="{l_bar}{n_fmt}/{total_fmt}{postfix}",
     )
     for dataset_id in pbar:
@@ -377,6 +379,9 @@ def index_files_from_one_dataset(token, dataset_id, dataset_files_url):
                         "file_url": files["links"]["download"],
                         "origin_zip_file": "none",
                     }
+                    # Remove / at beginning of file path
+                    if file_dict["file_name"].startswith("/"):
+                        file_dict["file_name"] = file_dict["file_name"][1:]
                     files_lst.append(file_dict)
             page += 1
     print(f"\nFiles found in dataset {dataset_id}: {len(files_lst)}")
