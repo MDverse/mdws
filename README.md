@@ -89,6 +89,32 @@ The scraping takes some time (complete query: 20 min-120 min). Be patient.
 Eventually, the scraper will produce three files: `figshare_datasets.tsv`, `figshare_datasets_text.tsv` and `figshare_files.tsv` :sparkles: 
 
 
+## Scrap Zenodo
+
+Create a token here: <https://osf.io/settings/tokens> (select the `osf.full_read` scope)
+and store it in the file `.env`:
+```
+OSF_TOKEN=<YOUR OSF TOKEN HERE>
+```
+This file is ignored by git.
+
+Scrap OSF for MD-related datasets and files:
+
+```bash
+python scripts/scrap_osf.py -q params/query.yml -o data
+```
+
+Scrap OSF with a small query, for development or demo purpose:
+
+```bash
+python scripts/scrap_osf.py -q params/query_dev.yml -o test
+```
+
+The scraping takes some time (~ 20 min). Be patient.
+
+Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
+
+
 ## Analyse data
 
 Run all Jupyter notebooks in batch mode:

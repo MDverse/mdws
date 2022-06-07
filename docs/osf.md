@@ -17,7 +17,7 @@ API to search for files: https://api.osf.io/v2/search/files/. Example with .mdp 
 
 A token is required to use the API programmatically. Create one from your user [settings](https://osf.io/settings/tokens). Select the `osf.full_read` scope. Save this token in a `.env` file:
 ```
-OSF_TOKEN=<YOUR TOKEN HERE>
+OSF_TOKEN=<YOUR OSF TOKEN HERE>
 ```
 
 ### Scraping strategy
