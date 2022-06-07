@@ -110,7 +110,7 @@ Scrap OSF with a small query, for development or demo purpose:
 python scripts/scrap_osf.py -q params/query_dev.yml -o test
 ```
 
-The scraping takes some time (~ 20 min). Be patient.
+The scraping takes some time (~ 25 min). Be patient.
 
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
 
