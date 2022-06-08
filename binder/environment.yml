@@ -25,6 +25,8 @@ dependencies:
     # download data files
     - pooch
     - tqdm
+    # analyse GRO files
+    - mdanalysis
     # linters and more
     - pylint
     - pycodestyle

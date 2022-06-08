@@ -6,10 +6,30 @@ https://manual.gromacs.org/5.1.1/user-guide/file-formats.html#gro
 
 import argparse
 import pathlib
+from unicodedata import unidata_version
+import warnings
 
+
+import MDAnalysis as mda
 import pandas as pd
-from tqdm import tqdm
+import tqdm
 import yaml
+
+# Ignore warnings that have no consequence here: cannot guess atom mass and missing velocities
+warnings.filterwarnings(
+    "ignore",
+    message="Failed to guess the mass for the following atom types:",
+    category=UserWarning,
+    module="MDAnalysis",
+)
+
+warnings.filterwarnings(
+    "ignore",
+    message="Not all velocities were present.",
+    category=UserWarning,
+    module="MDAnalysis",
+)
+
 
 FILE_TYPE = "gro"
 
@@ -181,46 +201,29 @@ def extract_info_from_gro(
         gro_file_path.relative_to(target_path)
     ).split("/", maxsplit=2)
     try:
-        with open(gro_file_path, "r") as gro_file:
-            for idx, line in enumerate(gro_file):
-                # Some .gro files are sometimes badly formatted
-                # so we need to be extra cautious
-                try:
-                    # The first line (idx=0) is a comment
-                    # The second line (idx=1) is the number of atoms
-                    if idx == 1:
-                        info["atom_number"] = int(line)
-                    if (
-                        (idx > 1)
-                        and (len(line.rstrip()) <= 70)
-                        and (len(line.split()) > 3)
-                    ):
-                        residue_number = int(line[0:5])
-                        residue_name = line[5:10].strip()
-                        atom_name = line[10:15].strip()
-                        atom_number = int(line[15:20])
-                        if residue_name in protein_residues:
-                            info["has_protein"] = True
-                        elif residue_name in lipid_residues:
-                            info["has_lipid"] = True
-                        elif residue_name in nucleic_residues:
-                            info["has_nucleic"] = True
-                        elif residue_name in water_ion_residues:
-                            info["has_water_ion"] = True
-                        elif residue_name in glucid_residues:
-                            info["has_glucid"] = True
-                        # WALL particles
-                        elif residue_name in ["WAL"]:
-                            pass
-                        else:
-                            pass
-                            # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
-                except:
-                    print(f"\nCannot read {gro_file_path} at line {idx+1}")
-                    print(f"Faulty line: {line.strip()}")
-                    break
-    except UnicodeDecodeError:
+        universe = mda.Universe(gro_file_path)
+        info["atom_number"] = len(universe.atoms)
+        residue_names = set(universe.residues.resnames)
+        for residue_name in residue_names:
+            if residue_name in protein_residues:
+                info["has_protein"] = True
+            elif residue_name in lipid_residues:
+                info["has_lipid"] = True
+            elif residue_name in nucleic_residues:
+                info["has_nucleic"] = True
+            elif residue_name in water_ion_residues:
+                info["has_water_ion"] = True
+            elif residue_name in glucid_residues:
+                info["has_glucid"] = True
+            # WALL particles
+            elif residue_name in ["WAL"]:
+                pass
+            else:
+                pass
+                # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
+    except (ValueError, UnicodeDecodeError):
         print(f"\nCannot read: {gro_file_path}")
+        info["dataset_origin"] = "error"
     return info
 
 
@@ -240,7 +243,8 @@ if __name__ == "__main__":
     GRO_FILE_NUMBER = len(GRO_FILES_LST)
 
     gro_info_lst = []
-    pbar = tqdm(
+    parsing_error_counter = 0
+    pbar = tqdm.tqdm(
         GRO_FILES_LST,
         leave=True,
         bar_format="{l_bar}{n_fmt}/{total_fmt} [{elapsed}<{remaining}]{postfix}",
@@ -257,9 +261,13 @@ if __name__ == "__main__":
             WATER_ION_RESIDUES,
             GLUCID_RESIDUES,
         )
-        gro_info_lst.append(gro_info)
+        if gro_info["dataset_origin"] != "error":
+            gro_info_lst.append(gro_info)
+        else:
+            parsing_error_counter += 1
     gro_info_df = pd.DataFrame(gro_info_lst)
     result_file_path = pathlib.Path(args.output) / "gromacs_gro_files_info.tsv"
     gro_info_df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Saved results in {str(result_file_path)}")
     print(f"Total number of gro files parsed: {gro_info_df.shape[0]}")
+    print(f"Number of gro files skipped due to parsing error: {parsing_error_counter}")
