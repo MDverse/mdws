@@ -38,7 +38,7 @@ def query_osf_api(
     params={},
     attempt_number=3,
     time_between_attempt=3,
-    print_status=False,
+    print_status_on_success=False,
     print_headers=False,
 ):
     """Query OSF API.
@@ -57,7 +57,7 @@ def query_osf_api(
     time_between_attempt : int, optional
         Number of seconds to way between attempts.
         Default: 3
-    print_status : bool, optional
+    print_status_on_success : bool, optional
         Default: False
         If true, prints HTTP response status
     print_headers : bool, optional
@@ -76,33 +76,31 @@ def query_osf_api(
             response = requests.get(
                 url, params=params, headers={"Authorization": f"Bearer {token}"}
             )
-            # Count the number of times API is called
+            # Count the number of times the OSF API is called
             query_osf_api.counter += 1
         except Exception as exc:
             print(f"Cannot establish connection to {url}")
             print(f"Exception type: {exc.__class__}")
             print(f"Exception message: {exc}\n")
-            return {"errors": {"detail": "Cannot established connection."}}
+            return {"error": {"detail": "Cannot established connection."}}
         if response.status_code == 200:
             break
         else:
             print(f"Error with URL: {url}")
             print(f"Status code: {response.status_code}")
-            print(f"Headers: {response.headers}")
-            print(
-                f"Attempt {attempt}/{attempt_number}. Will retry in {time_between_attempt} seconds"
-            )
-            time.sleep(time_between_attempt)
+            print(f"Attempt {attempt}/{attempt_number}")
+            if attempt < attempt_number:
+                print(f"Will retry in {time_between_attempt} seconds")
+                time.sleep(time_between_attempt)
+            else:
+                print("Cannot access ressource. Aborting.")
+                print(f"Headers: {response.headers}")
+                return {"error": {"detail": "Status code is not 200."}}
         attempt += 1
-    if print_status:
-        status_code = response.status_code
-        print(f"Status code: {status_code}", end="")
-        if status_code == 200:
-            print(" -> success")
+    if print_status_on_success:
+        print(f"Status code: {response.status_code} -> success")
     if print_headers:
         print(response.headers)
-    if response.status_code != 200:
-        return {"errors": {"detail": "Status code is not 200."}}
     return response.json()
 
 
@@ -115,11 +113,13 @@ def test_osf_connection(token):
         Token for OSF API
     """
     print("Trying connection to OSF...")
-    query_osf_api(token=token, url="https://api.osf.io/v2/users/me/", print_status=True)
+    query_osf_api(
+        token=token, url="https://api.osf.io/v2/users/me/", print_status_on_success=True
+    )
 
 
 def search_datasets(
-    token, file_types, md_keywords, generic_keywords, excluded_files, excluded_paths
+    token, file_types, query_md_keywords, query_generic_keywords, excluded_files, excluded_paths
 ):
     """Search datasets relevant to file types and keywords.
 
@@ -131,9 +131,9 @@ def search_datasets(
         Token for OSF API
     file_types : dict
         Dictionnary with file type definitions.
-    md_keywords : str
+    query_md_keywords : str
         Query string for MD specific keywords.
-    generic_keywords : str
+    query_generic_keywords : str
         Query string for MD keywords.
     excluded_files : list
         Patterns for file exclusion.
@@ -152,9 +152,9 @@ def search_datasets(
         datasets_tmp = set()
         query = file_type["type"]
         if file_type["keywords"] == "md_keywords":
-            query += QUERY_MD_KEYWORDS
+            query += query_md_keywords
         elif file_type["keywords"] == "generic_keywords":
-            query += QUERY_GENERIC_KEYWORDS
+            query += query_generic_keywords
         print(f"Query:\n{query}")
         resp_json = query_osf_api(
             token=token,
@@ -164,7 +164,12 @@ def search_datasets(
         results_total = resp_json["links"]["meta"]["total"]
         results_per_page = resp_json["links"]["meta"]["per_page"]
         page_max = math.ceil(results_total / results_per_page)
-        for page in tqdm.trange(1, page_max + 1):
+        pbar = tqdm.tqdm(
+            range(1, page_max + 1),
+            leave=True,
+            bar_format="{l_bar}{n_fmt}/{total_fmt} pages",
+        )
+        for page in pbar:
             resp_json = query_osf_api(
                 token=token,
                 url="https://api.osf.io/v2/search/files/",
@@ -183,10 +188,17 @@ def search_datasets(
     return datasets
 
 
-def add_children_datasets(token, dataset_ids):
-    """Add children datasets.
+def add_children_parent_datasets(token, dataset_ids):
+    """Add children and parent datasets.
 
-    API endpoint: https://api.osf.io/v2/nodes/{datesetid}/children/
+    API endpoint for children:
+    - https://api.osf.io/v2/nodes/{datasetid}/children/
+    - example: https://api.osf.io/v2/nodes/ugkwa/children/ (2 pages)
+
+    API endpoint fo parent:
+    - https://api.osf.io/v2/nodes/{datasetid}/
+    - example: https://api.osf.io/v2/nodes/ugkwa/
+    then look at the data -> relationships -> parent -> data property
 
     Parameters
     ----------
@@ -201,7 +213,7 @@ def add_children_datasets(token, dataset_ids):
         Set of dataset ids.
     """
     dataset_ids_out = set()
-    print("Looking for datasets children")
+    print("Looking for children and parent datasets")
     pbar = tqdm.tqdm(
         dataset_ids,
         leave=False,
@@ -211,13 +223,40 @@ def add_children_datasets(token, dataset_ids):
         pbar.set_postfix({"dataset": str(dataset_id)})
         # Add current dataset
         dataset_ids_out.add(dataset_id)
-        resp_json = query_osf_api(
-            token=token, url=f"https://api.osf.io/v2/nodes/{dataset_id}/children/"
+        # Search children
+        page = 1
+        page_max = 2
+        while page <= page_max:
+            parameters = {"page": page}
+            api_json = query_osf_api(
+                token=token,
+                url=f"https://api.osf.io/v2/nodes/{dataset_id}/children/",
+                params=parameters,
+            )
+            if "error" in api_json:
+                break
+            results_total = api_json["links"]["meta"]["total"]
+            results_per_page = api_json["links"]["meta"]["per_page"]
+            page_max = math.ceil(results_total / results_per_page)
+            for child in api_json["data"]:
+                if child["type"] == "nodes":
+                    dataset_ids_out.add(child["id"])
+            page += 1
+        # Search parent
+        api_json = query_osf_api(
+            token=token, url=f"https://api.osf.io/v2/nodes/{dataset_id}/"
         )
-        for child in resp_json["data"]:
-            if child["type"] == "nodes":
-                dataset_ids_out.add(child["id"])
-    print(f"Found {len(dataset_ids_out)-len(dataset_ids)} children")
+        if "error" in api_json:
+            continue
+        relationships = api_json["data"]["relationships"]
+        if (
+            "parent" in relationships
+            and relationships["parent"]["data"]["type"] == "nodes"
+        ):
+            dataset_ids_out.add(relationships["parent"]["data"]["id"])
+    print(
+        f"Found {len(dataset_ids_out)-len(dataset_ids)} new children / parent datasets"
+    )
     print(f"Total datasets: {len(dataset_ids_out)}")
     print("-" * 30)
     return dataset_ids_out
@@ -258,6 +297,8 @@ def query_datasets(token, datasets):
         resp_json = query_osf_api(
             token=token, url=f"https://api.osf.io/v2/nodes/{dataset_id}/"
         )
+        if "error" in resp_json:
+            continue
         dataset_dict = {
             "dataset_origin": "osf",
             "dataset_id": dataset_id,
@@ -353,7 +394,7 @@ def index_files_from_one_dataset(token, dataset_id, dataset_files_url):
         while page <= page_max:
             parameters = {"page": page}
             api_resp = query_osf_api(token, target_url, params=parameters)
-            if "errors" in api_resp:
+            if "error" in api_resp:
                 break
             results_total = api_resp["links"]["meta"]["total"]
             results_per_page = api_resp["links"]["meta"]["per_page"]
@@ -429,8 +470,10 @@ if __name__ == "__main__":
     # dataset_ids = {'3jap'}
 
     # In OSF, datasets are represented as "nodes"
-    # some nodes have "children" that are worth collecting
-    dataset_ids = add_children_datasets(OSF_TOKEN, dataset_ids)
+    # some nodes have "children" and "parent" that are worth collecting
+    # We run it twice to be as exhaustive as possible
+    dataset_ids = add_children_parent_datasets(OSF_TOKEN, dataset_ids)
+    dataset_ids = add_children_parent_datasets(OSF_TOKEN, dataset_ids)
 
     # Query datasets (called "nodes" in OSF)
     datasets_lst, texts_lst = query_datasets(OSF_TOKEN, dataset_ids)
