@@ -115,7 +115,7 @@ def test_osf_connection(token):
         Token for OSF API
     """
     print("Trying connection to OSF...")
-    query_osf_api(token=token, url="https://api.osf.io/v2/users/me/")
+    query_osf_api(token=token, url="https://api.osf.io/v2/users/me/", print_status=True)
 
 
 def search_datasets(
