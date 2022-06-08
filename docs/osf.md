@@ -29,8 +29,12 @@ OSF_TOKEN=<YOUR OSF TOKEN HERE>
 
 ## Data examples
 
+Dataset with components:
+
+- [Voltage-sensing](https://osf.io/ugkwa/). Gromacs files.
+
 Dataset with zip files: 
 
-- https://osf.io/ncfqm/
-- https://osf.io/a3gjv/
+- [Interactive molecular dynamics in virtual reality...](https://osf.io/ncfqm/)
+- [Molecular dynamics simulation of floating sphere...](https://osf.io/a3gjv/)
 
