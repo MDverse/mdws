@@ -29,6 +29,10 @@ OSF_TOKEN=<YOUR OSF TOKEN HERE>
 
 ## Data examples
 
+Dataset with folders:
+
+- [ULK1 kinase domain MD simulations](https://osf.io/8xuaj/). Gromacs files with Charmm forcefield.
+
 Dataset with components:
 
 - [Voltage-sensing](https://osf.io/ugkwa/). Gromacs files.
