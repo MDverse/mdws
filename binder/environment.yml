@@ -23,7 +23,7 @@ dependencies:
     - lxml
     - biopython
     # download data files
-    - pooch
+    - pooch>=1.6
     - tqdm
     # analyse GRO files
     - mdanalysis
