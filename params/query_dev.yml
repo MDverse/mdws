@@ -3,14 +3,21 @@ md_keywords:
 - molecular dynamic
 - molecular-dynamics
 - molecular-dynamic
-- namd
 - md trajectory
 - md trajectories
 - md simulation
 - md simulations
-- amber
 - gromacs
+- gromos
+- namd
+- amber
+- amber96
+- amber99
+- amber14
 - charmm
+- charmm27
+- charmm36
+- martini
 
 generic_keywords:
 - molecular dynamics
@@ -19,21 +26,13 @@ generic_keywords:
 
 file_types:
 - type: gro
-  engine: gromacs
   keywords: none
-  category: coordinate
 - type: mdp
-  engine: gromacs
   keywords: md_keywords
-  category: topology
 - type: itp
-  engine: gromacs
   keywords: md_keywords
-  category: topology
 - type: zip
-  engine: unknown
   keywords: generic_keywords
-  category: none
 
 excluded_files_starting_with:
 - "."
