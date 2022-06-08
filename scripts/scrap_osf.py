@@ -411,9 +411,7 @@ def index_files_from_one_dataset(token, dataset_id, dataset_files_url):
                         "file_type": toolbox.extract_file_extension(
                             files["attributes"]["name"]
                         ),
-                        "file_size": int(
-                            files["attributes"]["size"]
-                        ),  # File size in bytes.
+                        "file_size": files["attributes"]["size"],  # File size in bytes.
                         "file_md5": files["attributes"]["extra"]["hashes"]["md5"],
                         "from_zip_file": False,
                         "file_name": files["attributes"]["materialized_path"],
