@@ -79,14 +79,14 @@ def query_osf_api(
             # Count the number of times the OSF API is called
             query_osf_api.counter += 1
         except Exception as exc:
-            print(f"Cannot establish connection to {url}")
+            print(f"\nCannot establish connection to {url}")
             print(f"Exception type: {exc.__class__}")
             print(f"Exception message: {exc}\n")
             return {"error": {"detail": "Cannot established connection."}}
         if response.status_code == 200:
             break
         else:
-            print(f"Error with URL: {url}")
+            print(f"\nError with URL: {url}")
             print(f"Status code: {response.status_code}")
             print(f"Attempt {attempt}/{attempt_number}")
             if attempt < attempt_number:
@@ -94,7 +94,7 @@ def query_osf_api(
                 time.sleep(time_between_attempt)
             else:
                 print("Cannot access ressource. Aborting.")
-                print(f"Headers: {response.headers}")
+                print(f"Headers: {response.headers}\n")
                 return {"error": {"detail": "Status code is not 200."}}
         attempt += 1
     if print_status_on_success:
