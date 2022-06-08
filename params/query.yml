@@ -3,27 +3,31 @@ md_keywords:
 - molecular dynamic
 - molecular-dynamics
 - molecular-dynamic
-- namd
 - md trajectory
 - md trajectories
 - md simulation
 - md simulations
-- amber
 - gromacs
+- gromos
+- namd
+- amber
 - charmm
+- charmm27
+- charmm36
 
 generic_keywords:
 - molecular dynamics
 - molecular dynamic
 - molecular-dynamics
 - molecular-dynamic
-- namd
 - md trajectory
 - md trajectories
 - md simulation
 - md simulations
 - gromacs
-
+- namd
+- charmm27
+- charmm36
 
 file_types:
 - type: tpr
