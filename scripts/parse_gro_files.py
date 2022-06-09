@@ -221,7 +221,7 @@ def extract_info_from_gro(
             else:
                 pass
                 # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
-    except (ValueError, UnicodeDecodeError, EOFError):
+    except (ValueError, UnicodeDecodeError, EOFError, OSError):
         print(f"\nCannot read: {gro_file_path}")
         info["dataset_origin"] = "error"
     return info
