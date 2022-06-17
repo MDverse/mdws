@@ -11,9 +11,13 @@ md_keywords:
 - gromos
 - namd
 - amber
+- amber96
+- amber99
+- amber14
 - charmm
 - charmm27
 - charmm36
+- martini
 
 generic_keywords:
 - molecular dynamics
@@ -30,119 +34,63 @@ generic_keywords:
 - charmm36
 
 file_types:
+# GROMACS
 - type: tpr
-  engine: gromacs
   keywords: none
-  category: coordinate
 - type: gro
-  engine: gromacs
   keywords: none
-  category: coordinate
 - type: mdp
-  engine: gromacs
   keywords: md_keywords
-  category: topology
 - type: itp
-  engine: gromacs
   keywords: md_keywords
-  category: topology
 - type: ndx
-  engine: gromacs
   keywords: none
-  category: topology
 - type: top
-  engine: gromacs
   keywords: md_keywords
-  category: topology
 - type: xtc
-  engine: gromacs
   keywords: none
-  category: trajectory
-  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
 - type: trr
-  engine: gromacs
   keywords: none
-  category: trajectory
-  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
 - type: edr
-  engine: gromacs
   keywords: none
-  category: trajectory
-- type: tng
-  engine: gromacs
-  keywords: md_keywords
-  category: trajectory
-  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
 - type: cpt
-  engine: gromacs
   keywords: none
-  category: topology
+# NAMD
 - type: psf
-  engine: namd
   keywords: md_keywords
-  category: topology
-  source: https://www.melbournebioinformatics.org.au/tutorials/tutorials/molecular_dynamics_201/molecular_dynamics_201/
 - type: inp
-  engine: namd
   keywords: md_keywords
-  category: topology
 - type: prm
-  engine: namd
   keywords: md_keywords
-  category: topology
 - type: crd
-  engine: namd
   keywords: none
-  category: coordinate
 - type: dcd
-  engine: namd
   keywords: md_keywords
-  category: trajectory
 - type: coor
-  engine: namd
   keywords: md_keywords
-  category: coordinate
 - type: vel
-  engine: namd
   keywords: md_keywords
-  category: trajectory
 - type: xsc
-  engine: namd
   keywords: md_keywords
-  category: topology
+# AMBER
 - type: prmtop
-  engine: amber
   keywords: none
-  category: topology
 - type: rst7
-  engine: amber
   keywords: none
-  category: coordinate
-  source: https://ambermd.org/tutorials/advanced/tutorial21/section1.htm
 - type: inpcrd
-  engine: amber
   keywords: md_keywords
-  category: trajectory
 - type: mdcrd
-  engine: amber
   keywords: md_keywords
-  category: trajectory
 - type: nc
-  engine: amber
   keywords: md_keywords
-  category: trajectory
 - type: ncdf
-  engine: amber
   keywords: md_keywords
-  category: trajectory
 - type: trj
-  engine: amber
   keywords: md_keywords
-  category: trajectory
+# ZIP FILES
 - type: zip
   engine: unknown
   keywords: generic_keywords
-  category: none
 
 excluded_files_starting_with:
 - "."
