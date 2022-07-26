@@ -73,6 +73,14 @@ file_types:
   engine: namd
   category: topology
 # AMBER
+- type: prep
+  engine: amber
+  category: parameter
+  source: http://amber.manchester.ac.uk/index.html
+- type: frcmod
+  engine: amber
+  category: parameter
+  source: https://tsiangsun.github.io/programming/Amber-setup-prmtop-inpdrd/
 - type: prmtop
   engine: amber
   category: topology
@@ -83,9 +91,15 @@ file_types:
 - type: inpcrd
   engine: amber
   category: trajectory
+  source: https://tsiangsun.github.io/programming/Amber-setup-prmtop-inpdrd/
 - type: mdcrd
   engine: amber
   category: trajectory
+  source: https://tsiangsun.github.io/programming/Amber-setup-prmtop-inpdrd/
+- type: mdout
+  engine: amber
+  category: none
+  source: https://tsiangsun.github.io/programming/Amber-setup-prmtop-inpdrd/
 - type: nc
   engine: amber
   category: trajectory
