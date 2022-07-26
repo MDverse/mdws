@@ -8,7 +8,7 @@ file_types:
   category: coordinate
 - type: mdp
   engine: gromacs
-  category: topology
+  category: parameter
 - type: itp
   engine: gromacs
   category: topology
@@ -37,6 +37,14 @@ file_types:
   engine: gromacs
   category: topology
 # NAMD
+- type: conf
+  engine: namd
+  category: parameter
+  source: https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node26.html
+- type: namd
+  engine: namd
+  category: parameter
+  source: https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node26.html  
 - type: psf
   engine: namd
   category: topology
