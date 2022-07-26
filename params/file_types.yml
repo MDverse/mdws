@@ -1,5 +1,5 @@
 file_types:
-# AMBER
+# GROMACS
 - type: tpr
   engine: gromacs
   category: coordinate
