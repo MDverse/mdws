@@ -40,5 +40,7 @@ Dataset with components:
 Dataset with zip files: 
 
 - [Molecular dynamics simulation of floating sphere...](https://osf.io/a3gjv/)
-- [LN17351-MD model-NAMD conf.](https://osf.io/a3cpn/)
+- [LN17351-MD model-NAMD conf.](https://osf.io/a3cpn/). Overview of the content of [`AllModel.zip`](https://osf.io/p7wmj)
 - [Supplemental materials for preprint: Energetics of Interfacial Interactions...](https://osf.io/gwem8/)
+
+Note: we cannot easily catch the content of zip files as displayed by OSF since the overview is Javascript based. See for instance the source of the page with the content of [`AllModel.zip`](https://osf.io/p7wmj). More advanced solutions such as [selenium](https://www.selenium.dev/) might be useful.
