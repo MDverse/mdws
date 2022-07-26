@@ -27,7 +27,7 @@ OSF_TOKEN=<YOUR OSF TOKEN HERE>
 1. [Retrieve files informations](https://api.osf.io/v2/nodes/pdszh/files/osfstorage/). Results are paginated.
 
 
-## Data examples
+## Dataset examples
 
 Dataset with folders:
 
@@ -39,6 +39,6 @@ Dataset with components:
 
 Dataset with zip files: 
 
-- [Interactive molecular dynamics in virtual reality...](https://osf.io/ncfqm/)
 - [Molecular dynamics simulation of floating sphere...](https://osf.io/a3gjv/)
-
+- [LN17351-MD model-NAMD conf.](https://osf.io/a3cpn/)
+- [Supplemental materials for preprint: Energetics of Interfacial Interactions...](https://osf.io/gwem8/)
