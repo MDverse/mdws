@@ -142,3 +142,23 @@ file_types:
   engine: unknown
   category: none
   source: https://figshare.com/articles/dataset/Molecular_dynamics_simulation_of_radiation_damage_cascades_in_diamond_Dataset_1_/11876313
+- type: cms
+  engine: desmond
+  category: coordinate
+  source: Desmond 2.2 User Manual, https://www.cines.fr/wp-content/uploads/2014/01/des22_user_manual.pdf
+- type: cpt
+  engine: desmond
+  category: checkpoint
+  source: Desmond 2.2 User Manual, https://www.cines.fr/wp-content/uploads/2014/01/des22_user_manual.pdf
+- type: csb
+  engine: desmond
+  category: topology
+  source: Desmond 2.2 User Manual, https://www.cines.fr/wp-content/uploads/2014/01/des22_user_manual.pdf
+- type: dms
+  engine: desmond
+  category: coordinate
+  source: https://www.psc.edu/resources/anton/anton-2-covid/
+- type: dtr
+  engine: desmond
+  category: trajectory
+  source: Desmond 2.2 User Manual, https://www.cines.fr/wp-content/uploads/2014/01/des22_user_manual.pdf
