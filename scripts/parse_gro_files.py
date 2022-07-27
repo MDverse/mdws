@@ -15,6 +15,10 @@ import pandas as pd
 import tqdm
 import yaml
 
+
+import toolbox
+
+
 # Ignore warnings that have no consequence here: cannot guess atom mass and missing velocities
 warnings.filterwarnings(
     "ignore",
@@ -106,24 +110,7 @@ def read_residue_file(residue_filename):
     )
 
 
-def verify_output_directory(directory):
-    """Verify output directory exists.
 
-    Create it if necessary.
-
-    Parameters
-    ----------
-    directory : str
-        Path to directory to store results
-    """
-    directory_path = pathlib.Path(directory)
-    if directory_path.is_file():
-        raise FileNotFoundError(f"{directory} is an existing file.")
-    if directory_path.is_dir():
-        print(f"Output directory {directory} already exists.")
-    else:
-        directory_path.mkdir(parents=True, exist_ok=True)
-        print(f"Created output directory {directory}")
 
 
 def find_all_files(path, file_type):
@@ -229,7 +216,7 @@ def extract_info_from_gro(
 
 if __name__ == "__main__":
     args = get_cli_arguments()
-    verify_output_directory(args.output)
+    toolbox.verify_output_directory(args.output)
     (
         PROTEIN_RESIDUES,
         LIPID_RESIDUES,
