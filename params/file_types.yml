@@ -109,6 +109,14 @@ file_types:
 - type: trj
   engine: amber
   category: trajectory
+- type: leap
+  engine: amber
+  category: none
+  source: Amber 2017 Reference Manual, http://ambermd.org/doc12/Amber17.pdf
+- type: ptraj
+  engine: amber
+  category: none
+  source: http://archive.ambermd.org/201601/0233.html
 # CHARMM
 - type: psf
   engine: charmm
@@ -129,3 +137,8 @@ file_types:
 - type: zip
   engine: unknown
   category: none
+# MISC
+- type: params
+  engine: unknown
+  category: none
+  source: https://figshare.com/articles/dataset/Molecular_dynamics_simulation_of_radiation_damage_cascades_in_diamond_Dataset_1_/11876313
