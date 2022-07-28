@@ -124,9 +124,9 @@ any molecular dynamics files (after looking into the zip files).
 We add a post-precessing step to remove those files:
 
 ```bash
-python scripts/remove_false_positives.py --input data/ --repo zenodo --filetypes params/file_types.yml
-python scripts/remove_false_positives.py --input data/ --repo figshare --filetypes params/file_types.yml
-python scripts/remove_false_positives.py --input data/ --repo osf --filetypes params/file_types.yml
+python scripts/remove_false_positives.py --input data --repo zenodo --filetypes params/file_types.yml
+python scripts/remove_false_positives.py --input data --repo figshare --filetypes params/file_types.yml
+python scripts/remove_false_positives.py --input data --repo osf --filetypes params/file_types.yml
 ```
 
 "cleaned" data files have now the extension `.clean.tsv`.
