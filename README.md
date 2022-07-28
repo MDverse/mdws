@@ -141,6 +141,7 @@ Run all Jupyter notebooks in batch mode:
 jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/analyze_zenodo.ipynb
 jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/zenodo_stats.ipynb
 jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/search_MD_in_pubmed.ipynb
+jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/analyze_all2.ipynb
 cp notebooks/*.{svg,png} results/
 ```
 
