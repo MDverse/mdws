@@ -138,7 +138,8 @@ if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
     # Create logger
-    log_file = logging.FileHandler(f"{ARGS.input}/{ARGS.repo}_clean.log", mode="w")
+    log_filename = f"{ARGS.input}/{ARGS.repo}_clean.log"
+    log_file = logging.FileHandler(log_filename, mode="w")
     log_console = logging.StreamHandler()
     logging.basicConfig(handlers=[log_file, log_console],
         format="%(asctime)s %(levelname)s %(message)s",
@@ -160,3 +161,4 @@ if __name__ == "__main__":
     remove_false_positive_datasets(datasets_filename, false_positive_datasets)
     remove_false_positive_datasets(texts_filename, false_positive_datasets)
 
+    print(f"Log file is saved in {log_filename}")
