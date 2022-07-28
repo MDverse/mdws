@@ -148,17 +148,22 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.DEBUG
     )
-    # Rewire print to logger
+    # Rewire print to logging.info
+    # We like living on the edge ;-)
     print = logging.info
 
+    # Extract MD file types
     md_file_types = read_md_files(ARGS.filetypes)
 
+    # Define files to clean
     datasets_filename = f"{ARGS.input}/{ARGS.repo}_datasets.tsv"
     texts_filename = f"{ARGS.input}/{ARGS.repo}_datasets_text.tsv"
     files_filename = f"{ARGS.input}/{ARGS.repo}_files.tsv"
 
+    # Find false-positive datasets
     false_positive_datasets = find_false_positive_datasets(files_filename, md_file_types)
 
+    # Clean files
     remove_false_positive_datasets(files_filename, false_positive_datasets)
     remove_false_positive_datasets(datasets_filename, false_positive_datasets)
     remove_false_positive_datasets(texts_filename, false_positive_datasets)
