@@ -133,10 +133,6 @@ file_types:
   engine: charmm
   category: trajectory
   source: https://userguide.mdanalysis.org/stable/formats/reference/dcd.html#dcd-format
-# ZIP
-- type: zip
-  engine: unknown
-  category: none
 # MISC
 - type: params
   engine: unknown

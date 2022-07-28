@@ -64,7 +64,6 @@ def read_md_files(filename):
         data_loaded = yaml.safe_load(filetypes_file)
     md_files = data_loaded["file_types"]
     md_types = [extension["type"] for extension in md_files]
-    md_types.remove("zip")
     print(f"Found {len(md_types)} MD file types")
     return md_types
 
@@ -87,7 +86,7 @@ def find_false_positive_datasets(filename, md_file_types):
     list
         Dictionary of false positive datasets
     """
-    df = pd.read_csv(files_filename, sep="\t")
+    df = pd.read_csv(filename, sep="\t")
     df["file_type"] = df["file_type"].astype(str)
     unique_file_types_per_dataset = (df
         .groupby("dataset_id")["file_type"]
@@ -102,10 +101,11 @@ def find_false_positive_datasets(filename, md_file_types):
         # parsed by the scrapper or zip preview is not available.
         # In case of doubt, we keep these datasets.
         if file_types == ["zip"]:
-            print(f"Dataset {index}: only zip files -> keep")
+            print(f"Dataset {index} contains only zip files -> keep")
             continue
         # For a fiven dataset, if there is no MD file types in the entire set 
         # of the dataset file types, then we might have a false positive dataset.
+        # We print the first 20 file types for extra verification.
         if len(set(file_types) & set(md_file_types)) == 0:
             print(f"Dataset {index} might be a false positive ({number_files} files)")
             print(" ".join(file_types[:20]))
