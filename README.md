@@ -119,7 +119,7 @@ Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datas
 
 Due to the indexation of zip files, we might have collected some false-positive datasets, 
 i.e. datasets that contain zip files and matched our keywords but that eventually did not contain 
-any molecular dynamics files (after looking into the zip files).
+any molecular dynamics files (after looking into the zip files). See [examples](docs/false_positives.md).
 
 We add a post-precessing step to remove those files:
 
