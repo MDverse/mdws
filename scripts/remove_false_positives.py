@@ -1,8 +1,10 @@
 """Remove datasets that contains only non-MD files.
 
+Due to the indexation of zip files, we might have collected some false-positive datasets, 
+i.e. datasets that contain zip files and matched our keywords but that eventually 
+did not contain any molecular dynamics files (after looking into the zip files).
 
-python scripts/remove_false_positives.py --input data/ --repo zenodo --filetypes params/file_types.yml
-
+These datasets are likely false-positives and need to be removed.
 """
 
 import argparse
