@@ -104,8 +104,9 @@ def find_false_positive_datasets(filename, md_file_types):
             print(f"Dataset {index} contains only zip files -> keep")
             continue
         # For a fiven dataset, if there is no MD file types in the entire set 
-        # of the dataset file types, then we might have a false positive dataset.
-        # We print the first 20 file types for extra verification.
+        # of the dataset file types, then we might have a false-positive dataset.
+        # We print the total number of files in the dataset
+        # and the first 20 file types for extra verification.
         if len(set(file_types) & set(md_file_types)) == 0:
             print(f"Dataset {index} might be a false positive ({number_files} files)")
             print(" ".join(file_types[:20]))
@@ -126,6 +127,7 @@ def remove_false_positive_datasets(filename, dataset_ids_to_remove):
     """
     df = pd.read_csv(filename, sep="\t")
     records_count_old = df.shape[0]
+    # We keep rows NOT associated to false-positive dataset ids
     df_clean = df[~df["dataset_id"].isin(dataset_ids_to_remove)]
     records_count_clean = df_clean.shape[0]
     filename_clean = filename.replace(".tsv", ".clean.tsv")
