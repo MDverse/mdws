@@ -33,4 +33,5 @@ dependencies:
     - pydocstyle
     - black
     - pip:
+        - upsetplot # https://upsetplot.readthedocs.io/en/stable/index.html
         - watermark
