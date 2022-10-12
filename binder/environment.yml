@@ -13,7 +13,7 @@ dependencies:
     - numpy
     - scipy
     - pandas
-    - matplotlib
+    - matplotlib==3.5.3
     - plotly
     - requests
     - python-dotenv
@@ -33,5 +33,6 @@ dependencies:
     - pydocstyle
     - black
     - pip:
-        - upsetplot # https://upsetplot.readthedocs.io/en/stable/index.html
+        - upsetplot     # https://upsetplot.readthedocs.io/en/stable/index.html
+        - pysankeybeta  # https://github.com/pierre-sassoulas/pySankey
         - watermark
