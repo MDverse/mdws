@@ -2,7 +2,7 @@ file_types:
 # GROMACS
 - type: tpr
   engine: gromacs
-  category: coordinate
+  category: coordinate+topology
 - type: gro
   engine: gromacs
   category: coordinate
