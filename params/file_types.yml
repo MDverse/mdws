@@ -2,40 +2,50 @@ file_types:
 # GROMACS
 - type: tpr
   engine: gromacs
-  category: coordinate+topology
+  category: run input
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: gro
   engine: gromacs
-  category: coordinate
+  category: structure
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: mdp
   engine: gromacs
   category: parameter
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: itp
   engine: gromacs
   category: topology
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: ndx
   engine: gromacs
   category: topology
 - type: top
   engine: gromacs
   category: topology
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: xtc
   engine: gromacs
   category: trajectory
-  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: trr
   engine: gromacs
   category: trajectory
-  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: edr
   engine: gromacs
-  category: trajectory
+  category: energy
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: tng
   engine: gromacs
   category: trajectory
-  source: GROMACS 2022.1 Manual, p 26, https://zenodo.org/record/6451567
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 - type: cpt
   engine: gromacs
-  category: topology
+  category: others
+- type: log
+  engine: gromacs
+  category: others
+  source: https://manual.gromacs.org/current/reference-manual/file-formats.html
 # NAMD
 - type: conf
   engine: namd
