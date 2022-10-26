@@ -154,6 +154,7 @@ if __name__ == "__main__":
 
     # Extract MD file types
     md_file_types = read_md_files(ARGS.filetypes)
+    md_file_types.remove("zip")
 
     # Define files to clean
     datasets_filename = f"{ARGS.input}/{ARGS.repo}_datasets.tsv"

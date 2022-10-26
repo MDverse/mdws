@@ -64,6 +64,8 @@ file_types:
   keywords: md_keywords
 - type: crd
   keywords: none
+- type: namd
+  keywords: none
 - type: dcd
   keywords: md_keywords
 - type: coor
@@ -77,6 +79,12 @@ file_types:
   keywords: none
 - type: rst7
   keywords: none
+- type: leap
+  keywords: none
+- type: parm7
+  keywords: md_keywords
+- type: frcmod
+  keywords: md_keywords
 - type: inpcrd
   keywords: md_keywords
 - type: mdcrd
@@ -86,6 +94,11 @@ file_types:
 - type: ncdf
   keywords: md_keywords
 - type: trj
+  keywords: md_keywords
+# DESMOND
+- type: cms
+  keywords: md_keywords
+- type: dtr
   keywords: md_keywords
 # ZIP FILES
 - type: zip

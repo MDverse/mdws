@@ -94,6 +94,11 @@ file_types:
 - type: prmtop
   engine: amber
   category: topology
+  source: https://userguide.mdanalysis.org/stable/formats/reference/top.html
+- type: parm7
+  engine: amber
+  category: topology
+  source: https://userguide.mdanalysis.org/stable/formats/reference/top.html
 - type: rst7
   engine: amber
   category: coordinate
@@ -148,6 +153,7 @@ file_types:
   engine: unknown
   category: none
   source: https://figshare.com/articles/dataset/Molecular_dynamics_simulation_of_radiation_damage_cascades_in_diamond_Dataset_1_/11876313
+# DESMOND
 - type: cms
   engine: desmond
   category: coordinate
