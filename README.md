@@ -2,7 +2,15 @@
 
 ## Setup your environment
 
-Clone the repository:
+Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
+
+Install [mamba](https://github.com/mamba-org/mamba):
+
+```bash
+conda install mamba -n base -c conda-forge
+```
+
+Clone this repository:
 
 ```bash
 git clone https://github.com/MDverse/mdws.git
@@ -12,14 +20,6 @@ Move to the new directory:
 
 ```bash
 cd mdws
-```
-
-Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
-
-Install [mamba](https://github.com/mamba-org/mamba):
-
-```bash
-conda install mamba -n base -c conda-forge
 ```
 
 Create the `mdws` conda environment:
@@ -38,7 +38,7 @@ Note: you can also update the conda environment with:
 mamba env update -f binder/environment.yml
 ```
 
-To deactivate an active environment, use
+To deactivate an conda active environment, use
 
 ```
 conda deactivate
@@ -51,7 +51,7 @@ and store it in the file `.env`:
 ```
 ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 ```
-This file is ignored by git.
+This file is ignored by git and won't be published on GitHub.
 
 Scrap Zenodo for MD-related datasets and files:
 
@@ -96,7 +96,7 @@ and store it in the file `.env`:
 ```
 OSF_TOKEN=<YOUR OSF TOKEN HERE>
 ```
-This file is ignored by git.
+This file is ignored by git and won't be published on GitHub.
 
 Scrap OSF for MD-related datasets and files:
 
