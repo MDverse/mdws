@@ -349,10 +349,12 @@ if __name__ == "__main__":
 
     # The best strategy is to use paging.
     MAX_HITS_PER_PAGE = 1_000
+    print(f"Max hits per page: {MAX_HITS_PER_PAGE}")
 
     datasets_df = pd.DataFrame()
     texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
+    print("-" * 30)
     for file_type in FILE_TYPES:
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
