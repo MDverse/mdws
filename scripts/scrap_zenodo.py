@@ -1,6 +1,7 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
 
 from datetime import datetime
+import logging
 from json import tool
 import os
 import pathlib
@@ -97,7 +98,11 @@ def read_zenodo_token():
         Zenodo token.
     """
     dotenv.load_dotenv(".env")
-    return os.environ.get("ZENODO_TOKEN", "token_not_found")
+    if "ZENODO_TOKEN" in os.environ:
+        print("Found Zenodo token.")
+    else:
+        print("Zenodo token is missing.")
+    return os.environ.get("ZENODO_TOKEN", "")
 
 
 def test_zenodo_connection(token, show_headers=False):
@@ -126,11 +131,11 @@ def test_zenodo_connection(token, show_headers=False):
         params={"access_token": token},
     )
     # Status code should be 200
-    print(f"Status code: {response.status_code}", end="")
+    print(f"Status code: {response.status_code}")
     if response.status_code == 200:
-        print(" success!")
+        print("-> success!")
     else:
-        print(" failed!")
+        print("-> failed!")
     if show_headers:
         print(response.headers)
 
@@ -199,11 +204,8 @@ def scrap_zip_content(files_df):
         # To be careful, we wait 60 secondes every 60 requests.
         sleep_time = 60
         if zip_counter % 60 == 0:
-            print(
-                f"Scraped {zip_counter} zip files / "
-                f"{zip_files_df.shape[0]}\n"
-                f"Waiting for {sleep_time} seconds..."
-            )
+            print(f"Scraped {zip_counter} zip files / {zip_files_df.shape[0]}")
+            print(f"Waiting for {sleep_time} seconds...")
             time.sleep(sleep_time)
         URL = (
             f"https://zenodo.org/record/{zip_file['dataset_id']}"
@@ -301,8 +303,27 @@ def extract_records(response_json):
 if __name__ == "__main__":
     ARGS = toolbox.get_scraper_cli_arguments()
 
+    # Create logger
+    log_file = logging.FileHandler(f"{ARGS.output}/scrap_zenodo.log", mode="w")
+    log_file.setLevel(logging.INFO)
+    log_stream = logging.StreamHandler()
+    logging.basicConfig(handlers=[log_file, log_stream],
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG
+    )
+    # Rewire the print function to logging.info
+    print = logging.info
+
+    # Print script name and doctring
+    print(__file__)
+    print(__doc__)
+
     # Read Zenodo token
     ZENODO_TOKEN = read_zenodo_token()
+    if ZENODO_TOKEN == "":
+        print("No Zenodo token found.")
+        sys.exit(1)
     test_zenodo_connection(ZENODO_TOKEN)
 
     # Read parameter file
@@ -312,7 +333,7 @@ if __name__ == "__main__":
         GENERIC_KEYWORDS,
         EXCLUDED_FILES,
         EXCLUDED_PATHS,
-    ) = toolbox.read_query_file(ARGS.query_file)
+    ) = toolbox.read_query_file(ARGS.query)
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
@@ -341,7 +362,8 @@ if __name__ == "__main__":
             query += QUERY_MD_KEYWORDS
         elif file_type["keywords"] == "generic_keywords":
             query += QUERY_GENERIC_KEYWORDS
-        print(f"Query:\n{query}")
+        print("Query:")
+        print(f"{query}")
         # First get the total number of hits for a given query.
         resp_json = search_zenodo_with_query(query, ZENODO_TOKEN, hits_per_page=1)
         total_hits = resp_json["hits"]["total"]
@@ -406,3 +428,12 @@ if __name__ == "__main__":
     files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
+
+    # Remove datasets that contain zip files with non-MD related files
+    # Find false-positive datasets
+    FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
+    FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(files_export_path, FILE_TYPES_LST)
+    # Clean files
+    toolbox.remove_false_positive_datasets(files_export_path, FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(datasets_export_path, FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(texts_export_path, FALSE_POSITIVE_DATASETS)

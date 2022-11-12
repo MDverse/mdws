@@ -56,13 +56,13 @@ This file is ignored by git and won't be published on GitHub.
 Scrap Zenodo for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_zenodo.py -q params/query.yml -o data
+python scripts/scrap_zenodo.py --query params/query.yml --output data
 ```
 
 Scrap Zenodo with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_zenodo.py -q params/query_dev.yml -o test
+python scripts/scrap_zenodo.py --query params/query_dev.yml --output test
 ```
 
 The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -75,13 +75,13 @@ Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo
 Scrap FigShare for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_figshare.py -q params/query.yml -o data
+python scripts/scrap_figshare.py --query params/query.yml --output data
 ```
 
 Scrap FigShare with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_figshare.py -q params/query_dev.yml -o test
+python scripts/scrap_figshare.py --query params/query_dev.yml --output test
 ```
 
 The scraping takes some time (complete query: 20 min-120 min). Be patient.
@@ -101,13 +101,13 @@ This file is ignored by git and won't be published on GitHub.
 Scrap OSF for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_osf.py -q params/query.yml -o data
+python scripts/scrap_osf.py --query params/query.yml --output data
 ```
 
 Scrap OSF with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_osf.py -q params/query_dev.yml -o test
+python scripts/scrap_osf.py --query params/query_dev.yml --output test
 ```
 
 The scraping takes some time (~ 25 min). Be patient.
