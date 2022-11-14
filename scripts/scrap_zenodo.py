@@ -431,10 +431,16 @@ if __name__ == "__main__":
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
 
-    # Remove datasets that contain zip files with non-MD related files
+    # Remove datasets that contain non-MD related files
+    # that come from zip files.
     # Find false-positive datasets
     FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
-    FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(files_export_path, FILE_TYPES_LST)
+    FILE_TYPES_LST.remove("zip")
+    FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
+        files_export_path,
+        datasets_export_path,
+        FILE_TYPES_LST
+    )
     # Clean files
     toolbox.remove_false_positive_datasets(files_export_path, FALSE_POSITIVE_DATASETS)
     toolbox.remove_false_positive_datasets(datasets_export_path, FALSE_POSITIVE_DATASETS)

@@ -223,71 +223,65 @@ def remove_excluded_files(files_df, exclusion_files, exclusion_paths):
     return files_df[~boolean_mask]
 
 
-def read_md_files(filename):
-    """Read MD files definition file.
-
-    Parameters
-    ----------
-    filename : str
-        Path to the MD files definition file.
-
-    Returns
-    -------
-    list
-        List of MD file types without zip.
-    """
-    with open(filename, "r") as filetypes_file:
-        data_loaded = yaml.safe_load(filetypes_file)
-    md_files = data_loaded["file_types"]
-    md_types = [extension["type"] for extension in md_files]
-    print(f"Found {len(md_types)} MD file types")
-    return md_types
-
-
-def find_false_positive_datasets(filename, md_file_types):
+def find_false_positive_datasets(files_filename, datasets_filename, md_file_types):
     """Find false positive datasets.
 
     False positive datasets are datasets that propably do not
     contain any molecular dynamics data.
-    
+
     Parameters
     ----------
-    filename : str
+    files_filename : str
         Path to the file which contains all files from a given repo.
+    datasets_filename : str
+        Path to the file which contains all datasets from a given repo.
     md_file_types: list
         List containing molecular dynamics file types.
 
     Returns
     -------
     list
-        Dictionary of false positive datasets
+        List of false positive dataset ids.
     """
-    df = pd.read_csv(filename, sep="\t")
+    files_df = pd.read_csv(files_filename, sep="\t")
+    datasets_df = pd.read_csv(datasets_filename, sep="\t")
+    df = pd.merge(
+        files_df, datasets_df,
+        how="left",
+        on=["dataset_id", "dataset_origin"],
+        validate="many_to_one"
+    )
     df["file_type"] = df["file_type"].astype(str)
     unique_file_types_per_dataset = (df
         .groupby("dataset_id")["file_type"]
         .agg(["count", "unique"])
-        .sort_values(by="count", ascending=False)
+        .rename(columns={"count": "total_files", "unique": "unique_file_types"})
+        .sort_values(by="total_files", ascending=False)
     )
     false_positives = []
-    for index in unique_file_types_per_dataset.index:
-        file_types = list(unique_file_types_per_dataset.loc[index, "unique"])
-        number_files = unique_file_types_per_dataset.loc[index, "count"]
+    for dataset_id in unique_file_types_per_dataset.index:
+        file_types = list(unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"])
+        number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
+        #dataset_url = df.loc[dataset_id, "dataset_url"]
+        dataset_url = ""
         # Datasets that only contain zip files might have not been properly
         # parsed by the scrapper or zip preview is not available.
         # In case of doubt, we keep these datasets.
         if file_types == ["zip"]:
-            print(f"Dataset {index} contains only zip files -> keep")
+            print(f"Dataset {dataset_id} contains only zip files -> we keep it!")
             continue
-        # For a fiven dataset, if there is no MD file types in the entire set 
-        # of the dataset file types, then we might have a false-positive dataset.
+        # For a given dataset, if there is no MD file types in the entire set
+        # of the dataset file types, then we probably have a false-positive dataset.
         # We print the total number of files in the dataset
         # and the first 20 file types for extra verification.
         if len(set(file_types) & set(md_file_types)) == 0:
-            print(f"Dataset {index} might be a false positive ({number_files} files)")
+            print(f"Dataset {dataset_id} ({dataset_url}) is probably a false positive")
+            print(f"Dataset {dataset_id} will be removed with its {number_files} files)")
+            print(f"List of the 20 first file types:")
             print(" ".join(file_types[:20]))
             print("---")
-            false_positives.append(index)
+            false_positives.append(dataset_id)
+    print(f"{len(false_positives)} datasets will be removed")
     return false_positives
 
 
@@ -297,9 +291,9 @@ def remove_false_positive_datasets(filename, dataset_ids_to_remove):
     Parameters
     ----------
     filename : str
-        Path to the data file
+        Path of the file to clean.
     dataset_ids_to_remove : list
-        List of dataset ids to remove
+        List of dataset ids to remove.
     """
     df = pd.read_csv(filename, sep="\t")
     records_count_old = df.shape[0]
