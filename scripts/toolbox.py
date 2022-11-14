@@ -252,7 +252,8 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
         validate="many_to_one"
     )
     df["file_type"] = df["file_type"].astype(str)
-    unique_file_types_per_dataset = (df
+    unique_file_types_per_dataset = (
+    df
         .groupby("dataset_id")["file_type"]
         .agg(["count", "unique"])
         .rename(columns={"count": "total_files", "unique": "unique_file_types"})
@@ -262,13 +263,18 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
     for dataset_id in unique_file_types_per_dataset.index:
         file_types = list(unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"])
         number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
-        #dataset_url = df.loc[dataset_id, "dataset_url"]
-        dataset_url = ""
+        dataset_url = (
+        df
+            .query(f"dataset_id == {dataset_id}")
+            .reset_index()
+            .iloc[0]["dataset_url"]
+        )
         # Datasets that only contain zip files might have not been properly
         # parsed by the scrapper or zip preview is not available.
         # In case of doubt, we keep these datasets.
         if file_types == ["zip"]:
             print(f"Dataset {dataset_id} contains only zip files -> we keep it!")
+            print("---")
             continue
         # For a given dataset, if there is no MD file types in the entire set
         # of the dataset file types, then we probably have a false-positive dataset.
@@ -301,5 +307,5 @@ def remove_false_positive_datasets(filename, dataset_ids_to_remove):
     df_clean = df[~df["dataset_id"].isin(dataset_ids_to_remove)]
     records_count_clean = df_clean.shape[0]
     print(f"Removing {records_count_old - records_count_clean} lines "
-          f"({records_count_old} -> {records_count_clean}) : {filename}")
+          f"({records_count_old} -> {records_count_clean}) in {filename}")
     df_clean.to_csv(filename, sep="\t", index=False)
