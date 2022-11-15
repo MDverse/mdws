@@ -12,8 +12,10 @@ import pandas as pd
 import yaml
 
 
-# Rewire the print function to logging.info
-print = logging.info
+# Rewire the print function to logging.info.
+# Only when the script is loaded as a module.
+if __name__ != "__main__":
+    print = logging.info
 
 
 warnings.filterwarnings(
@@ -286,7 +288,8 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
             print(" ".join(file_types[:20]))
             print("---")
             false_positives.append(dataset_id)
-    print(f"{len(false_positives)} datasets will be removed")
+    print(f"In total, {len(false_positives)} datasets will be removed")
+    print("---")
     return false_positives
 
 
