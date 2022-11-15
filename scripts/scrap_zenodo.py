@@ -435,6 +435,7 @@ if __name__ == "__main__":
     # that come from zip files.
     # Find false-positive datasets
     FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
+    # Zip is not a MD-specific file type.
     FILE_TYPES_LST.remove("zip")
     FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
         files_export_path,
