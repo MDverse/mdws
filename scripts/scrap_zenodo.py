@@ -359,7 +359,7 @@ if __name__ == "__main__":
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
         query_files = []
-        query = f'resource_type.type:"dataset" ' f'AND filetype:"{file_type["type"]}"'
+        query = f"""resource_type.type:"dataset" AND filetype:"{file_type['type']}" """
         if file_type["keywords"] == "md_keywords":
             query += QUERY_MD_KEYWORDS
         elif file_type["keywords"] == "generic_keywords":
