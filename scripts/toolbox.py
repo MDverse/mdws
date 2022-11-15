@@ -266,7 +266,6 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
         dataset_url = (
         df
             .query(f"dataset_id == {dataset_id}")
-            .reset_index()
             .iloc[0]["dataset_url"]
         )
         # Datasets that only contain zip files might have not been properly
@@ -283,7 +282,7 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
         if len(set(file_types) & set(md_file_types)) == 0:
             print(f"Dataset {dataset_id} ({dataset_url}) is probably a false positive")
             print(f"Dataset {dataset_id} will be removed with its {number_files} files)")
-            print(f"List of the 20 first file types:")
+            print(f"List of the first file types:")
             print(" ".join(file_types[:20]))
             print("---")
             false_positives.append(dataset_id)
