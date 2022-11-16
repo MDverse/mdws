@@ -13,10 +13,10 @@ import dotenv
 import pandas as pd
 import requests
 
-
 import toolbox
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
+
 
 def normalize_file_size(file_str):
     """Normalize file size in bytes.
@@ -82,7 +82,7 @@ def extract_data_from_zip_file(url, token):
         file_size_raw = file_info[idx + 1].strip()
         file_size = normalize_file_size(file_size_raw)
         file_dict = {
-            "file_name": file_name, 
+            "file_name": file_name,
             "file_size": file_size,
             "file_type": toolbox.extract_file_extension(file_name)
         }
@@ -308,7 +308,8 @@ if __name__ == "__main__":
     log_file = logging.FileHandler(f"{ARGS.output}/scrap_zenodo.log", mode="w")
     log_file.setLevel(logging.INFO)
     log_stream = logging.StreamHandler()
-    logging.basicConfig(handlers=[log_file, log_stream],
+    logging.basicConfig(
+        handlers=[log_file, log_stream],
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.DEBUG

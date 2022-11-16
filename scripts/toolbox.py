@@ -56,7 +56,7 @@ def get_scraper_cli_arguments():
 
 
 def read_query_file(query_file_path):
-    """Read the query definition file
+    """Read the query definition file.
 
     The query definition file is formatted in yaml.
 
@@ -110,7 +110,7 @@ def verify_output_directory(directory):
 
 
 def clean_text(string):
-    """Decodes from html and removes breaks
+    """Decode html and remove breaks.
 
     Arguments
     ---------
