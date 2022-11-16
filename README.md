@@ -62,7 +62,7 @@ python scripts/scrap_zenodo.py --query params/query.yml --output data
 Scrap Zenodo with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_zenodo.py --query params/query_dev.yml --output test
+python scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -81,7 +81,7 @@ python scripts/scrap_figshare.py --query params/query.yml --output data
 Scrap FigShare with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_figshare.py --query params/query_dev.yml --output test
+python scripts/scrap_figshare.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (complete query: 20 min-120 min). Be patient.
@@ -107,7 +107,7 @@ python scripts/scrap_osf.py --query params/query.yml --output data
 Scrap OSF with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_osf.py --query params/query_dev.yml --output test
+python scripts/scrap_osf.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (~ 25 min). Be patient.
