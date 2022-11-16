@@ -409,20 +409,21 @@ if __name__ == "__main__":
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
     # Save datasets dataframe to disk
-    datasets_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
-    datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
-    print(f"Results saved in {str(datasets_export_path)}")
+    DATASETS_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
+    datasets_df.to_csv(DATASETS_EXPORT_PATH, sep="\t", index=False)
+    print(f"Results saved in {str(DATASETS_EXPORT_PATH)}")
     # Save text datasets dataframe to disk
-    texts_export_path = pathlib.Path(ARGS.output) / "zenodo_datasets_text.tsv"
-    texts_df.to_csv(texts_export_path, sep="\t", index=False)
-    print(f"Results saved in {str(texts_export_path)}")
+    TEXTS_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_datasets_text.tsv"
+    texts_df.to_csv(TEXTS_EXPORT_PATH, sep="\t", index=False)
+    print(f"Results saved in {str(TEXTS_EXPORT_PATH)}")
     # Save files dataframe to disk
     files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
-    files_export_path = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
-    files_df.to_csv(files_export_path, sep="\t", index=False)
-    print(f"Results saved in {str(files_export_path)}")
+    FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
+    files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
+    print(f"Results saved in {str(FILES_EXPORT_PATH)}")
 
     # Scrap zip files content
+    print("-" * 30)
     zip_df = scrap_zip_content(files_df)
     # We don't remove duplicates here because
     # one zip file can contain several files with the same name
@@ -431,8 +432,8 @@ if __name__ == "__main__":
     print(f"Number of files found inside zip files: {zip_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
     files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
-    files_df.to_csv(files_export_path, sep="\t", index=False)
-    print(f"Results saved in {str(files_export_path)}")
+    files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
+    print(f"Results saved in {str(FILES_EXPORT_PATH)}")
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
@@ -441,11 +442,11 @@ if __name__ == "__main__":
     # Zip is not a MD-specific file type.
     FILE_TYPES_LST.remove("zip")
     FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
-        files_export_path,
-        datasets_export_path,
+        FILES_EXPORT_PATH,
+        DATASETS_EXPORT_PATH,
         FILE_TYPES_LST
     )
     # Clean files
-    toolbox.remove_false_positive_datasets(files_export_path, FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(datasets_export_path, FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(texts_export_path, FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, FALSE_POSITIVE_DATASETS)
