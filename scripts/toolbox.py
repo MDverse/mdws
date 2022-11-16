@@ -12,12 +12,6 @@ import pandas as pd
 import yaml
 
 
-# Rewire the print function to logging.info.
-# Only when the script is loaded as a module.
-if __name__ != "__main__":
-    print = logging.info
-
-
 warnings.filterwarnings(
     "ignore",
     message="The input looks more like a filename than markup",

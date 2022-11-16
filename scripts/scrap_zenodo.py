@@ -15,7 +15,8 @@ import requests
 
 
 import toolbox
-
+# Rewire the print function from the toolbox module to logging.info
+toolbox.print = logging.info
 
 def normalize_file_size(file_str):
     """Normalize file size in bytes.
