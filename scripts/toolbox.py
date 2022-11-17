@@ -201,6 +201,7 @@ def remove_excluded_files(files_df, exclusion_files, exclusion_paths):
     df_tmp["name"] = df_tmp["file_name"].apply(lambda x: x.split("/")[-1])
 
     boolean_mask = pd.Series(data=False, index=files_df.index)
+    print("-" * 30)
 
     for pattern in exclusion_paths:
         print(f"Selecting file paths containing: {pattern}")
@@ -216,6 +217,7 @@ def remove_excluded_files(files_df, exclusion_files, exclusion_paths):
 
     print(f"Removed {sum(boolean_mask)} excluded files")
     print(f"Remaining files: {sum(~boolean_mask)}")
+    print("-" * 30)
     return files_df[~boolean_mask]
 
 
