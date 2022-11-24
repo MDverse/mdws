@@ -91,9 +91,6 @@ def extract_data_from_figshare_zip_file(url):
             "file_size": np.nan,
             "file_type": toolbox.extract_file_extension(file_name),
         }
-        # Ignore files starting with a dot
-        if file_name.startswith("."):
-            continue
         file_list.append(file_dict)
 
     return file_list
