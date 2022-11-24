@@ -275,7 +275,7 @@ def extract_records(hit):
         "download_number": request_figshare_downloadstats_with_id(hit['id'])["totals"],
         "view_number": request_figshare_viewstats_with_id(hit['id'])["totals"],
         "license": hit["license"]["name"],
-        "dataset_url": hit["url"],
+        "dataset_url": hit["url_public_html"],
     }
     datasets.append(dataset_dict)
     text_dict = {
