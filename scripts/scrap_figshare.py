@@ -245,6 +245,8 @@ def scrap_figshare_zip_content(files_df):
 def extract_records(hit):
     """Extract information from the FigShare records.
 
+    Example of record: https://api.figshare.com/v2/articles/5840706
+
     Arguments
     ---------
     response_json: dict
