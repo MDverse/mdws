@@ -229,10 +229,10 @@ def scrap_figshare_zip_content(files_df):
             continue
         # Add common extra fields
         for idx in range(len(files_tmp)):
-            files_tmp[idx]["dataset_origin"] = zip_file.loc["dataset_origin"]
+            files_tmp[idx]["dataset_origin"] = zip_file["dataset_origin"]
             files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
             files_tmp[idx]["from_zip_file"] = True
-            files_tmp[idx]["origin_zip_file"] = zip_file.loc["file_name"]
+            files_tmp[idx]["origin_zip_file"] = zip_file["file_name"]
             files_tmp[idx]["file_url"] = ""
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
