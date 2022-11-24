@@ -214,7 +214,8 @@ def scrap_figshare_zip_content(files_df):
         # One can run 100 requests per 5 minutes (300 secondes).
         # To be careful, we wait 360 secondes every 80 requests.
         # To be careful, we wait 310 secondes every 100 requests.
-        SLEEP_TIME = 310
+        # Experimentally, we wait 60 secondes every 100 requests.
+        SLEEP_TIME = 60
         if zip_counter % 100 == 0:
             print(
                 f"Scraped {zip_counter} zip files "
