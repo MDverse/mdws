@@ -199,8 +199,10 @@ def scrap_zip_content(files_df):
     print("Number of zip files to scrap: " f"{zip_files_df.shape[0]}")
     # According to Zenodo documentation.
     # https://developers.zenodo.org/#rate-limiting
-    # One can run 60 or 100 requests per minute.
-    # To be careful, we wait 60 secondes every 60 requests.
+    # One can run 100 requests per minute with authentication.
+    # Since the API does not provide the content of zip files,
+    # we need to scrap the HTML preview.
+    # The global limit of 60 requests per minute applies.
     SLEEP_TIME = 60
     # Sleep once to reset the request counter.
     time.sleep(SLEEP_TIME)
@@ -224,10 +226,10 @@ def scrap_zip_content(files_df):
             continue
         # Add common extra fields
         for idx in range(len(files_tmp)):
-            files_tmp[idx]["dataset_origin"] = zip_file.loc["dataset_origin"]
+            files_tmp[idx]["dataset_origin"] = zip_file["dataset_origin"]
             files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
             files_tmp[idx]["from_zip_file"] = True
-            files_tmp[idx]["origin_zip_file"] = zip_file.loc["file_name"]
+            files_tmp[idx]["origin_zip_file"] = zip_file["file_name"]
             files_tmp[idx]["file_url"] = ""
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
@@ -365,6 +367,7 @@ if __name__ == "__main__":
     print("-" * 30)
     for file_type in FILE_TYPES:
         print(f"Looking for filetype: {file_type['type']}")
+        datasets_count_old = datasets_df.shape[0]
         query_records = []
         query_files = []
         query = f"""resource_type.type:"dataset" AND filetype:"{file_type['type']}" """
@@ -407,7 +410,7 @@ if __name__ == "__main__":
             if page * MAX_HITS_PER_PAGE >= MAX_HITS_PER_QUERY:
                 print("Max hits per query reached!")
                 break
-        print(f"Number of datasets found: {len(datasets_tmp)}")
+        print(f"Number of datasets found: {len(datasets_tmp)} ({datasets_df.shape[0] - datasets_count_old} new)")
         print(f"Number of files found: {len(files_tmp)}")
         print("-" * 30)
 
