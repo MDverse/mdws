@@ -85,7 +85,7 @@ def extract_data_from_figshare_zip_file(url):
     file_names = extract_files_from_response(response.json(), [])
     file_list = []
     for name in file_names:
-        file_name = name.strip(),
+        file_name = name.strip()
         file_dict = {
             "file_name": file_name,
             "file_size": np.nan,
