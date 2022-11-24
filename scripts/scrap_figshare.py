@@ -203,7 +203,7 @@ def scrap_figshare_zip_content(files_df):
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
     print(
-        "Number of zip files to scrap content from: "
+        "Number of zip files to scrap: "
         f"{zip_files_df.shape[0]}"
     )
     for zip_idx in zip_files_df.index:
@@ -213,8 +213,9 @@ def scrap_figshare_zip_content(files_df):
         # According to Figshare support
         # One can run 100 requests per 5 minutes (300 secondes).
         # To be careful, we wait 360 secondes every 80 requests.
-        SLEEP_TIME = 360
-        if zip_counter % 80 == 0:
+        # To be careful, we wait 310 secondes every 100 requests.
+        SLEEP_TIME = 310
+        if zip_counter % 100 == 0:
             print(
                 f"Scraped {zip_counter} zip files "
                 f"({zip_files_df.shape[0] - zip_counter} remaining)"
@@ -425,6 +426,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
     files_export_path = pathlib.Path(arg.output) / "figshare_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
+    print("-" * 30)
 
     if scrap_zip:
         # Scrap zip files content
