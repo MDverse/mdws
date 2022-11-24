@@ -270,7 +270,8 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
         # parsed by the scrapper or zip preview is not available.
         # In case of doubt, we keep these datasets.
         if file_types == ["zip"]:
-            print(f"Dataset {dataset_id} contains only zip files -> we keep it!")
+            print(f"Dataset {dataset_id} ({dataset_url})")
+            print("contains only zip files -> keep dataset")
             print("---")
             continue
         # For a given dataset, if there is no MD file types in the entire set
