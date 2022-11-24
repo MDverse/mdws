@@ -290,7 +290,7 @@ def extract_records(hit):
     }
     if "tags" in hit:
         text_dict["keywords"] = ";".join(
-            [str(toolbox.clean_text(keyword)) for keyword in hit["tags"]]
+            [toolbox.clean_text(keyword) for keyword in hit["tags"]]
         )
     texts.append(text_dict)
     for file_in in hit["files"]:
