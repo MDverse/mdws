@@ -439,6 +439,7 @@ if __name__ == "__main__":
     files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
     print(f"Results saved in {str(FILES_EXPORT_PATH)}")
+    print("-" * 30)
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.

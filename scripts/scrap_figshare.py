@@ -440,6 +440,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
         files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
         files_df.to_csv(files_export_path, sep="\t", index=False)
         print(f"Results saved in {str(files_export_path)}")
+        print("-" * 30)
     
     return files_export_path, datasets_export_path, texts_export_path
 
