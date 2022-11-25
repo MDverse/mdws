@@ -475,7 +475,7 @@ if __name__ == "__main__":
         FILE_TYPES_LST
     )
     # Clean files
-    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS)
 
