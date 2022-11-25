@@ -1,7 +1,7 @@
 """Scrap molecular dynamics datasets and files from OSF."""
 
-import argparse
 from datetime import datetime
+import logging
 import math
 import os
 import pathlib
@@ -18,6 +18,10 @@ try:
     import toolbox
 except ModuleNotFoundError:
     from . import toolbox
+
+
+# Rewire the print function from the toolbox module to logging.info
+toolbox.print = logging.info
 
 
 def read_osf_token():
@@ -79,14 +83,14 @@ def query_osf_api(
             # Count the number of times the OSF API is called
             query_osf_api.counter += 1
         except Exception as exc:
-            print(f"\nCannot establish connection to {url}")
+            print(f"Cannot establish connection to {url}")
             print(f"Exception type: {exc.__class__}")
             print(f"Exception message: {exc}\n")
             return {"error": {"detail": "Cannot established connection."}}
         if response.status_code == 200:
             break
         else:
-            print(f"\nError with URL: {url}")
+            print(f"Error with URL: {url}")
             print(f"Status code: {response.status_code}")
             print(f"Attempt {attempt}/{attempt_number}")
             if attempt < attempt_number:
@@ -94,7 +98,7 @@ def query_osf_api(
                 time.sleep(time_between_attempt)
             else:
                 print("Cannot access ressource. Aborting.")
-                print(f"Headers: {response.headers}\n")
+                print(f"Headers: {response.headers}")
                 return {"error": {"detail": "Status code is not 200."}}
         attempt += 1
     if print_status_on_success:
@@ -155,7 +159,8 @@ def search_datasets(
             query += query_md_keywords
         elif file_type["keywords"] == "generic_keywords":
             query += query_generic_keywords
-        print(f"Query:\n{query}")
+        print("Query:")
+        print(query)
         resp_json = query_osf_api(
             token=token,
             url="https://api.osf.io/v2/search/files/",
@@ -182,8 +187,9 @@ def search_datasets(
                     break
                 if file_info["relationships"]["target"]["data"]["type"] == "nodes":
                     datasets_tmp.add(file_info["relationships"]["target"]["data"]["id"])
+        datasets_count_old = len(datasets)
         datasets.update(datasets_tmp)
-        print(f"Found {len(datasets_tmp)} datasets (total unique: {len(datasets)})")
+        print(f"Number of datasets found: {len(datasets_tmp)} ({len(datasets) - datasets_count_old} new)")
     print("-" * 30)
     return datasets
 
@@ -423,12 +429,29 @@ def index_files_from_one_dataset(token, dataset_id, dataset_files_url):
                         file_dict["file_name"] = file_dict["file_name"][1:]
                     files_lst.append(file_dict)
             page += 1
-    print(f"\nFiles found in dataset {dataset_id}: {len(files_lst)}")
+    print(f"Files found in dataset {dataset_id}: {len(files_lst)}")
     return files_lst
 
 
 if __name__ == "__main__":
     ARGS = toolbox.get_scraper_cli_arguments()
+
+    # Create logger
+    log_file = logging.FileHandler(f"{ARGS.output}/scrap_osf.log", mode="w")
+    log_file.setLevel(logging.INFO)
+    log_stream = logging.StreamHandler()
+    logging.basicConfig(
+        handlers=[log_file, log_stream],
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG
+    )
+    # Rewire the print function to logging.info
+    print = logging.info
+
+    # Print script name and doctring
+    print(__file__)
+    print(__doc__)
 
     # Rest API call counter
     query_osf_api.counter = 0
@@ -444,7 +467,7 @@ if __name__ == "__main__":
         GENERIC_KEYWORDS,
         EXCLUDED_FILES,
         EXCLUDED_PATHS,
-    ) = toolbox.read_query_file(ARGS.query_file)
+    ) = toolbox.read_query_file(ARGS.query)
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
@@ -479,23 +502,40 @@ if __name__ == "__main__":
     texts_df = pd.DataFrame(texts_lst)
 
     # Save datasets dataframe to disk
-    datasets_export_path = pathlib.Path(ARGS.output) / "osf_datasets.tsv"
+    DATASETS_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_datasets.tsv"
     datasets_df.drop(columns="files_url").to_csv(
-        datasets_export_path, sep="\t", index=False
+        DATASETS_EXPORT_PATH, sep="\t", index=False
     )
-    print(f"Results saved in {str(datasets_export_path)}")
+    print(f"Results saved in {str(DATASETS_EXPORT_PATH)}")
+    
     # Save text datasets dataframe to disk
-    texts_export_path = pathlib.Path(ARGS.output) / "osf_datasets_text.tsv"
-    texts_df.to_csv(texts_export_path, sep="\t", index=False)
-    print(f"Results saved in {str(texts_export_path)}")
+    TEXTS_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_datasets_text.tsv"
+    texts_df.to_csv(TEXTS_EXPORT_PATH, sep="\t", index=False)
+    print(f"Results saved in {str(TEXTS_EXPORT_PATH)}")
 
     # Query files
     files_lst = index_files_from_all_datasets(OSF_TOKEN, datasets_df)
     files_df = pd.DataFrame(files_lst)
 
     # Save files dataframe to disk
-    files_export_path = pathlib.Path(ARGS.output) / "osf_files.tsv"
-    files_df.to_csv(files_export_path, sep="\t", index=False)
-    print(f"Results saved in {str(files_export_path)}")
+    FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_files.tsv"
+    files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
+    print(f"Results saved in {str(FILES_EXPORT_PATH)}")
 
     print(f"Total number of API calls: {query_osf_api.counter}")
+
+    # Remove datasets that contain non-MD related files
+    # that come from zip files.
+    # Find false-positive datasets
+    FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
+    # Zip is not a MD-specific file type.
+    FILE_TYPES_LST.remove("zip")
+    FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
+        FILES_EXPORT_PATH,
+        DATASETS_EXPORT_PATH,
+        FILE_TYPES_LST
+    )
+    # Clean files
+    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS)

@@ -20,6 +20,44 @@ warnings.filterwarnings(
 )
 
 
+def load_database(filename, database_type):
+    """Load datasets database.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the database CVS file.
+    database : str
+        Type of database ("datasets", "texts" or "files").
+
+    Returns
+    -------
+    pd.DataFrame
+        Datasets in a Pandas dataframe.
+    """
+    df = pd.DataFrame()
+    if database_type == "datasets":
+        df = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={"dataset_id": str}
+        )
+    elif database_type == "texts":
+        df = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={"dataset_id": str}
+        )
+    elif database_type == "files":
+        df = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={"dataset_id": str, "file_type": str,
+                   "file_md5": str, "file_url": str}
+        )
+    return df
+
+
 def get_scraper_cli_arguments():
     """Parse scraper scripts command line.
 
@@ -241,15 +279,14 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
     list
         List of false positive dataset ids.
     """
-    files_df = pd.read_csv(files_filename, sep="\t")
-    datasets_df = pd.read_csv(datasets_filename, sep="\t")
+    files_df = load_database(files_filename, "files")
+    datasets_df = load_database(datasets_filename, "datasets")
     df = pd.merge(
         files_df, datasets_df,
         how="left",
         on=["dataset_id", "dataset_origin"],
         validate="many_to_one"
     )
-    df["file_type"] = df["file_type"].astype(str)
     unique_file_types_per_dataset = (
     df
         .groupby("dataset_id")["file_type"]
@@ -263,7 +300,7 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
         number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
         dataset_url = (
         df
-            .query(f"dataset_id == {dataset_id}")
+            .query(f"dataset_id == '{dataset_id}'")
             .iloc[0]["dataset_url"]
         )
         # Datasets that only contain zip files might have not been properly
@@ -290,17 +327,19 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
     return false_positives
 
 
-def remove_false_positive_datasets(filename, dataset_ids_to_remove):
+def remove_false_positive_datasets(filename, database_type, dataset_ids_to_remove):
     """Remove false positive datasets from file.
 
     Parameters
     ----------
     filename : str
         Path of the file to clean.
+    database_type : str
+        Type of database ("datasets", "texts" or "files").
     dataset_ids_to_remove : list
         List of dataset ids to remove.
     """
-    df = pd.read_csv(filename, sep="\t")
+    df = load_database(filename, database_type)
     records_count_old = df.shape[0]
     # We keep rows NOT associated to false-positive dataset ids
     df_clean = df[~df["dataset_id"].isin(dataset_ids_to_remove)]
