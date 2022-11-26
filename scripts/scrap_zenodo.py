@@ -305,6 +305,13 @@ def extract_records(response_json):
                     "file_url": file_in["links"]["self"],
                     "origin_zip_file": "none",
                 }
+                # Some file types could be empty.
+                # See for instance file "lmp_mpi" in:
+                # https://zenodo.org/record/5797177
+                # https://zenodo.org/api/records/5797177
+                # Set these file types to "none".
+                if file_dict["file_type"] == "":
+                    file_dict["file_type"] = "none"
                 files.append(file_dict)
     return datasets, texts, files
 
