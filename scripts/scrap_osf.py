@@ -521,8 +521,8 @@ if __name__ == "__main__":
     FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_files.tsv"
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
     print(f"Results saved in {str(FILES_EXPORT_PATH)}")
-
     print(f"Total number of API calls: {query_osf_api.counter}")
+    print("-" * 30)
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
