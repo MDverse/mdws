@@ -65,7 +65,7 @@ Scrap Zenodo with a small query, for development or demo purpose:
 python scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
 ```
 
-The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
+The scraping takes some time (about an hour). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
 
 Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo_datasets_text.tsv` and `zenodo_files.tsv` :sparkles:
 
@@ -86,7 +86,7 @@ Scrap FigShare with a small query, for development or demo purpose:
 python scripts/scrap_figshare.py --query params/query_dev.yml --output tmp
 ```
 
-The scraping takes some time (complete query: 20 min-120 min). Be patient.
+The scraping takes some time (about 2 hours). Be patient.
 
 Eventually, the scraper will produce three files: `figshare_datasets.tsv`, `figshare_datasets_text.tsv` and `figshare_files.tsv` :sparkles: 
 
@@ -112,7 +112,7 @@ Scrap OSF with a small query, for development or demo purpose:
 python scripts/scrap_osf.py --query params/query_dev.yml --output tmp
 ```
 
-The scraping takes some time (~ 25 min). Be patient.
+The scraping takes some time (~ 30 min). Be patient.
 
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
 
