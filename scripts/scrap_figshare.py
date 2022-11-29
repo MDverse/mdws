@@ -1,6 +1,7 @@
 """Scrap molecular dynamics datasets and files from FigShare."""
 
 from datetime import datetime
+import logging
 import json
 import os
 import pathlib
@@ -14,6 +15,8 @@ import requests
 
 
 import toolbox
+# Rewire the print function from the toolbox module to logging.info
+toolbox.print = logging.info
 
 
 def extract_date(date_str):
@@ -36,7 +39,7 @@ def extract_date(date_str):
 
 
 def extract_files_from_response(json_dic, file_list):
-    """Go recursively through the json directory tree structure
+    """Walk recursively through the json directory tree structure.
 
     Parameters
     ----------
@@ -51,9 +54,9 @@ def extract_files_from_response(json_dic, file_list):
     list
         List of filenames extracted from zip preview.
     """
-    for value in json_dic['files']:
-        file_list.append(value['path'])
-    for dir_list in json_dic['dirs']:
+    for value in json_dic["files"]:
+        file_list.append(value["path"])
+    for dir_list in json_dic["dirs"]:
         file_list = extract_files_from_response(dir_list, file_list)
     return file_list
 
@@ -77,22 +80,20 @@ def extract_data_from_figshare_zip_file(url):
         print(f"Status code: {response.status_code}")
         print(response.headers)
         print(url)
-        return {}
-    file_list_json = response.json()
-    file_list = extract_files_from_response(file_list_json, [])
-    file_lst = []
-    for idx, file in enumerate(file_list):
-        file_name = file.strip()
-        file_size = np.nan
-        file_dict = {"file_name": file_name, "file_size": np.nan}
-        file_dict["file_type"] = "none"
-        if "." in file_name:
-            file_dict["file_type"] = file_name.split(".")[-1].lower()
-        # Ignore files starting with a dot
-        if file_name.startswith("."):
-            continue
-        file_lst.append(file_dict)
-    return file_lst
+        return []
+
+    file_names = extract_files_from_response(response.json(), [])
+    file_list = []
+    for name in file_names:
+        file_name = name.strip()
+        file_dict = {
+            "file_name": file_name,
+            "file_size": np.nan,
+            "file_type": toolbox.extract_file_extension(file_name),
+        }
+        file_list.append(file_dict)
+
+    return file_list
 
 
 def search_figshare_with_query(query, page=1, hits_per_page=1000):
@@ -188,36 +189,37 @@ def scrap_figshare_zip_content(files_df):
 
     Arguments
     ---------
-    files_df: dataframe
+    files_df: Pandas dataframe
         Dataframe with information about files.
 
     Returns
     -------
-    zip_df: dataframe
-        Dataframe with information about files in zip archive.
+    zip_df: Pandas dataframe
+        Dataframe with information about files found in zip archive.
     """
     files_in_zip_lst = []
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
     print(
-        "Number of zip files to scrap content from: "
+        "Number of zip files to scrap: "
         f"{zip_files_df.shape[0]}"
     )
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
-        file_id = zip_file['file_url'].split('/')[-1]
+        file_id = zip_file["file_url"].split("/")[-1]
         zip_counter += 1
+        # We cannot use the Figshare API to get the content of a zip file.
         # According to Figshare support
-        # One can run 100 requests per 5 minutes.
-        # To be careful, we wait 360 secondes every 80 requests.
-        sleep_time = 360
-        if zip_counter % 80 == 0:
+        # One can run 100 requests per 5 minutes (300 secondes).
+        # To be careful, we wait 310 secondes every 100 requests.
+        SLEEP_TIME = 310
+        if zip_counter % 100 == 0:
             print(
-                f"Scraped {zip_counter} zip files / "
-                f"{zip_files_df.shape[0]}\n"
-                f"Waiting for {sleep_time} seconds..."
+                f"Scraped {zip_counter} zip files "
+                f"({zip_files_df.shape[0] - zip_counter} remaining)"
             )
-            time.sleep(sleep_time)
+            print(f"Waiting for {SLEEP_TIME} seconds...")
+            time.sleep(SLEEP_TIME)
         URL = (
             f"https://figshare.com/ndownloader/files/{file_id}"
             f"/preview/{file_id}/structure.json"
@@ -227,10 +229,10 @@ def scrap_figshare_zip_content(files_df):
             continue
         # Add common extra fields
         for idx in range(len(files_tmp)):
-            files_tmp[idx]["dataset_origin"] = zip_file.loc["dataset_origin"]
+            files_tmp[idx]["dataset_origin"] = zip_file["dataset_origin"]
             files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
             files_tmp[idx]["from_zip_file"] = True
-            files_tmp[idx]["origin_zip_file"] = zip_file.loc["file_name"]
+            files_tmp[idx]["origin_zip_file"] = zip_file["file_name"]
             files_tmp[idx]["file_url"] = ""
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
@@ -240,6 +242,11 @@ def scrap_figshare_zip_content(files_df):
 
 def extract_records(hit):
     """Extract information from the FigShare records.
+
+    Example of record:
+    https://api.figshare.com/v2/articles/5840706
+    that corresponds to dataset:
+    https://figshare.com/articles/dataset/M1_gro/5840706
 
     Arguments
     ---------
@@ -271,7 +278,7 @@ def extract_records(hit):
         "download_number": request_figshare_downloadstats_with_id(hit['id'])["totals"],
         "view_number": request_figshare_viewstats_with_id(hit['id'])["totals"],
         "license": hit["license"]["name"],
-        "dataset_url": hit["url"],
+        "dataset_url": hit["url_public_html"],
     }
     datasets.append(dataset_dict)
     text_dict = {
@@ -284,7 +291,7 @@ def extract_records(hit):
     }
     if "tags" in hit:
         text_dict["keywords"] = ";".join(
-            [str(toolbox.clean_text(keyword)) for keyword in hit["tags"]]
+            [toolbox.clean_text(keyword) for keyword in hit["tags"]]
         )
     texts.append(text_dict)
     for file_in in hit["files"]:
@@ -308,104 +315,94 @@ def extract_records(hit):
 
 
 def main_scrap_figshare(arg, scrap_zip=False):
-    """
-    Main function called as default at the end.
-    """
+    """Scrap Figshare."""
     # Read parameter file
-    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(arg.query_file)
+    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(arg.query)
     # Query with keywords are build in the loop as Figshare has a char limit
 
     # Verify results output directory
     toolbox.verify_output_directory(arg.output)
 
     # The best strategy is to use paging.
-    MAX_HITS_PER_PAGE = 1000
+    MAX_HITS_PER_PAGE = 1_000
 
     datasets_df = pd.DataFrame()
     texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
     prev_datasets_count = 0
     prev_file_count = 0
+    print("-" * 30)
     for file_type in FILE_TYPES:
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
         query_files = []
         base_query = (
-            f':extension: {file_type["type"]}'
+            f":extension: {file_type['type']}"
         )
+        target_keywords = [""]
         if file_type["keywords"] == "md_keywords":
-            add_keywords = len(MD_KEYWORDS)
-            print(f"Additional keywords for query: {', '.join(MD_KEYWORDS)}")
+            target_keywords = MD_KEYWORDS
         elif file_type["keywords"] == "generic_keywords":
-            add_keywords = len(GENERIC_KEYWORDS)
-            print(f"Additional keywords for query: {', '.join(GENERIC_KEYWORDS)}")
-        else:
-            add_keywords = 1
+            target_keywords = GENERIC_KEYWORDS
         # Go through all keywords as query length for FigShare is limited
-        for keywordID in range(0,add_keywords):
-            if file_type["keywords"] == "md_keywords":
+        found_datasets = set()
+        for keyword in target_keywords:
+            if keyword:
                 query = (
-                    f"{base_query} AND (:title: '{MD_KEYWORDS[keywordID]}' "
-                    f"OR :description: '{MD_KEYWORDS[keywordID]}' OR :keyword: '{MD_KEYWORDS[keywordID]}')"
-                )
-            elif file_type["keywords"] == "generic_keywords":
-                query = (
-                    f"{base_query} AND (:title: '{GENERIC_KEYWORDS[keywordID]}' "
-                    f"OR :description: '{GENERIC_KEYWORDS[keywordID]}' OR :keyword: '{GENERIC_KEYWORDS[keywordID]}')"
+                    f"{base_query} AND (:title: '{keyword}' "
+                    f"OR :description: '{keyword}' OR :keyword: '{keyword}')"
                 )
             else:
                 query = base_query
-            # print(f"Query:\n{query}")
-            # First get the total number of hits for a given query.
-            resp_json = search_figshare_with_query(
-               query, hits_per_page=1
-            )
-            # Then, slice the query by page.
-            page=1
-            while page!=0:
-                # print(f"Page: {page}")
+            print("Query:")
+            print(f"{query}")
+            page = 1
+            found_datasets_per_keyword = []
+            while True:
                 resp_json = search_figshare_with_query(
                     query, page=page, hits_per_page=MAX_HITS_PER_PAGE
                 )
-                if len(resp_json)==0:
-                    # print("Max hits per query reached!")
-                    page = 0
-                else:
-                    page+=1
-                    # Go through all datasets
-                    # print(f"Number of datasets: {len(resp_json)}")
-                    resp_json = [json.loads(i) for i in set([json.dumps(i) for i in [dict(sorted(i.items())) for i in resp_json]])]
-                    for dataset in resp_json:
-                        dataset_id = dataset['id']
-                        if datasets_df.empty or not dataset_id in datasets_df['dataset_id']:
-                            resp_json_article = request_figshare_dataset_with_id(dataset_id)
-                            datasets_tmp, texts_tmp, files_tmp = extract_records(resp_json_article)
-                            # Merge datasets
-                            datasets_df_tmp = pd.DataFrame(datasets_tmp)
-                            datasets_df = pd.concat(
-                                [datasets_df, datasets_df_tmp], ignore_index=True
-                            )
-                            datasets_df.drop_duplicates(
-                                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
-                            # Merge texts
-                            texts_df_tmp = pd.DataFrame(texts_tmp)
-                            texts_df = pd.concat(
-                                [texts_df, texts_df_tmp], ignore_index=True
-                            )
-                            texts_df.drop_duplicates(
-                                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)                            
-                            # Merge files
-                            files_df_tmp = pd.DataFrame(files_tmp)
-                            files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
-                            files_df.drop_duplicates(
-                                subset=["dataset_id", "file_name", "file_md5"], keep="first", inplace=True
-                            )
+                if len(resp_json) == 0:
+                    break
+                # Extract datasets ids.
+                found_datasets_per_keyword += [hit["id"] for hit in resp_json]
+                page += 1
+            found_datasets.update(found_datasets_per_keyword)
+        # Extract info for all datasets.
+        datasets_lst = []
+        texts_lst = []
+        files_lst = []
+        datasets_count_old = datasets_df.shape[0]
+        for dataset_id in found_datasets:
+            resp_json_article = request_figshare_dataset_with_id(dataset_id)
+            dataset_info, text_info, file_info = extract_records(resp_json_article)
+            datasets_lst += dataset_info
+            texts_lst += text_info
+            files_lst += file_info
+            # Merge datasets
+            datasets_df_tmp = pd.DataFrame(datasets_lst)
+            datasets_df = pd.concat(
+                [datasets_df, datasets_df_tmp], ignore_index=True
+            )
+            datasets_df.drop_duplicates(
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
+            # Merge texts
+            texts_df_tmp = pd.DataFrame(texts_lst)
+            texts_df = pd.concat(
+                [texts_df, texts_df_tmp], ignore_index=True
+            )
+            texts_df.drop_duplicates(
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)                            
+            # Merge files
+            files_df_tmp = pd.DataFrame(files_lst)
+            files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
+            files_df.drop_duplicates(
+                subset=["dataset_id", "file_name", "file_md5"], keep="first", inplace=True
+            )
 
-        print(f"Number of datasets found: {len(datasets_df)-prev_datasets_count}")
-        print(f"Number of files found: {len(files_df)-prev_file_count}")
+        print(f"Number of datasets found: {len(datasets_lst)} ({datasets_df.shape[0] - datasets_count_old} new)")
+        print(f"Number of files found: {len(files_lst)}")
         print("-" * 30)
-        prev_datasets_count = len(datasets_df)
-        prev_file_count = len(files_df)
 
 
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
@@ -421,6 +418,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
     files_export_path = pathlib.Path(arg.output) / "figshare_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
     print(f"Results saved in {str(files_export_path)}")
+    print("-" * 30)
 
     if scrap_zip:
         # Scrap zip files content
@@ -434,12 +432,50 @@ def main_scrap_figshare(arg, scrap_zip=False):
         files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
         files_df.to_csv(files_export_path, sep="\t", index=False)
         print(f"Results saved in {str(files_export_path)}")
+        print("-" * 30)
+    
+    return files_export_path, datasets_export_path, texts_export_path
 
 
 if __name__ == "__main__":
     # Parse input arguments
-    arg = toolbox.get_scraper_cli_arguments()
+    ARGS = toolbox.get_scraper_cli_arguments()
     
-    # Call extract main scrap function
-    main_scrap_figshare(arg, scrap_zip=True)
+    # Create logger
+    log_file = logging.FileHandler(f"{ARGS.output}/scrap_figshare.log", mode="w")
+    log_file.setLevel(logging.INFO)
+    log_stream = logging.StreamHandler()
+    logging.basicConfig(
+        handlers=[log_file, log_stream],
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG
+    )
+    # Rewire the print function to logging.info
+    print = logging.info
+
+    # Print script name and doctring
+    print(__file__)
+    print(__doc__)
+
+    # Scrap Figshare
+    FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, TEXTS_EXPORT_PATH = main_scrap_figshare(ARGS, scrap_zip=True)
+
+	# Remove datasets that contain non-MD related files
+    # that come from zip files.
+    # Read parameter file.
+    FILE_TYPES, _, _, _, _ = toolbox.read_query_file(ARGS.query)
+    # Find false-positive datasets
+    FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
+    # Zip is not a MD-specific file type.
+    FILE_TYPES_LST.remove("zip")
+    FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
+        FILES_EXPORT_PATH,
+        DATASETS_EXPORT_PATH,
+        FILE_TYPES_LST
+    )
+    # Clean files
+    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS)
 

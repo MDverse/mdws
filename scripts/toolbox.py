@@ -2,6 +2,7 @@
 
 import argparse
 from datetime import datetime
+import logging
 import pathlib
 import re
 import warnings
@@ -19,6 +20,44 @@ warnings.filterwarnings(
 )
 
 
+def load_database(filename, database_type):
+    """Load datasets database.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the database CVS file.
+    database : str
+        Type of database ("datasets", "texts" or "files").
+
+    Returns
+    -------
+    pd.DataFrame
+        Datasets in a Pandas dataframe.
+    """
+    df = pd.DataFrame()
+    if database_type == "datasets":
+        df = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={"dataset_id": str}
+        )
+    elif database_type == "texts":
+        df = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={"dataset_id": str}
+        )
+    elif database_type == "files":
+        df = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={"dataset_id": str, "file_type": str,
+                   "file_md5": str, "file_url": str}
+        )
+    return df
+
+
 def get_scraper_cli_arguments():
     """Parse scraper scripts command line.
 
@@ -27,28 +66,35 @@ def get_scraper_cli_arguments():
     argparse.ArgumentParser()
         Object with options
     """
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-q",
-        "--query-file",
-        metavar="query_file",
+    parser = argparse.ArgumentParser(add_help=False)
+    required = parser.add_argument_group("required arguments")
+    optional = parser.add_argument_group("optional arguments")
+    required.add_argument(
+        "--query",
         type=str,
         help="Query file (YAML format)",
         required=True,
     )
-    parser.add_argument(
-        "-o",
+    required.add_argument(
         "--output",
         action="store",
         type=str,
         help="Path to save results",
         required=True,
     )
+    # Add help.
+    optional.add_argument(
+        "-h",
+        "--help",
+        action="help",
+        default=argparse.SUPPRESS,
+        help="Show this help message and exit.",
+    )
     return parser.parse_args()
 
 
 def read_query_file(query_file_path):
-    """Read the query definition file
+    """Read the query definition file.
 
     The query definition file is formatted in yaml.
 
@@ -102,7 +148,7 @@ def verify_output_directory(directory):
 
 
 def clean_text(string):
-    """Decodes from html and removes breaks
+    """Decode html and remove breaks.
 
     Arguments
     ---------
@@ -193,6 +239,7 @@ def remove_excluded_files(files_df, exclusion_files, exclusion_paths):
     df_tmp["name"] = df_tmp["file_name"].apply(lambda x: x.split("/")[-1])
 
     boolean_mask = pd.Series(data=False, index=files_df.index)
+    print("-" * 30)
 
     for pattern in exclusion_paths:
         print(f"Selecting file paths containing: {pattern}")
@@ -208,4 +255,95 @@ def remove_excluded_files(files_df, exclusion_files, exclusion_paths):
 
     print(f"Removed {sum(boolean_mask)} excluded files")
     print(f"Remaining files: {sum(~boolean_mask)}")
+    print("-" * 30)
     return files_df[~boolean_mask]
+
+
+def find_false_positive_datasets(files_filename, datasets_filename, md_file_types):
+    """Find false positive datasets.
+
+    False positive datasets are datasets that propably do not
+    contain any molecular dynamics data.
+
+    Parameters
+    ----------
+    files_filename : str
+        Path to the file which contains all files from a given repo.
+    datasets_filename : str
+        Path to the file which contains all datasets from a given repo.
+    md_file_types: list
+        List containing molecular dynamics file types.
+
+    Returns
+    -------
+    list
+        List of false positive dataset ids.
+    """
+    files_df = load_database(files_filename, "files")
+    datasets_df = load_database(datasets_filename, "datasets")
+    df = pd.merge(
+        files_df, datasets_df,
+        how="left",
+        on=["dataset_id", "dataset_origin"],
+        validate="many_to_one"
+    )
+    unique_file_types_per_dataset = (
+    df
+        .groupby("dataset_id")["file_type"]
+        .agg(["count", "unique"])
+        .rename(columns={"count": "total_files", "unique": "unique_file_types"})
+        .sort_values(by="total_files", ascending=False)
+    )
+    false_positives = []
+    for dataset_id in unique_file_types_per_dataset.index:
+        file_types = list(unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"])
+        number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
+        dataset_url = (
+        df
+            .query(f"dataset_id == '{dataset_id}'")
+            .iloc[0]["dataset_url"]
+        )
+        # Datasets that only contain zip files might have not been properly
+        # parsed by the scrapper or zip preview is not available.
+        # In case of doubt, we keep these datasets.
+        if file_types == ["zip"]:
+            print(f"Dataset {dataset_id} ({dataset_url})")
+            print("contains only zip files -> keep dataset")
+            print("---")
+            continue
+        # For a given dataset, if there is no MD file types in the entire set
+        # of the dataset file types, then we probably have a false-positive dataset.
+        # We print the total number of files in the dataset
+        # and the first 20 file types for extra verification.
+        if len(set(file_types) & set(md_file_types)) == 0:
+            print(f"Dataset {dataset_id} ({dataset_url}) is probably a false positive")
+            print(f"Dataset {dataset_id} will be removed with its {number_files} files)")
+            print(f"List of the first file types:")
+            print(" ".join(file_types[:20]))
+            print("---")
+            false_positives.append(dataset_id)
+    print(f"In total, {len(false_positives)} datasets will be removed")
+    print("---")
+    return false_positives
+
+
+def remove_false_positive_datasets(filename, database_type, dataset_ids_to_remove):
+    """Remove false positive datasets from file.
+
+    Parameters
+    ----------
+    filename : str
+        Path of the file to clean.
+    database_type : str
+        Type of database ("datasets", "texts" or "files").
+    dataset_ids_to_remove : list
+        List of dataset ids to remove.
+    """
+    df = load_database(filename, database_type)
+    records_count_old = df.shape[0]
+    # We keep rows NOT associated to false-positive dataset ids
+    df_clean = df[~df["dataset_id"].isin(dataset_ids_to_remove)]
+    records_count_clean = df_clean.shape[0]
+    print(f"Removing {records_count_old - records_count_clean} lines "
+          f"({records_count_old} -> {records_count_clean}) in {filename}")
+    df_clean.to_csv(filename, sep="\t", index=False)

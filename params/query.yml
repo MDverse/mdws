@@ -11,6 +11,7 @@ md_keywords:
 - gromos
 - namd
 - amber
+- desmond
 - amber96
 - amber99
 - amber14
@@ -30,6 +31,7 @@ generic_keywords:
 - md simulations
 - gromacs
 - namd
+- desmond
 - charmm27
 - charmm36
 
