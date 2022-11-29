@@ -67,7 +67,9 @@ python scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
 
 The scraping takes some time. A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
 
-Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo_datasets_text.tsv` and `zenodo_files.tsv` :sparkles: 
+Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo_datasets_text.tsv` and `zenodo_files.tsv` :sparkles:
+
+Note that "false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
 
 ## Scrap FigShare
@@ -113,26 +115,6 @@ python scripts/scrap_osf.py --query params/query_dev.yml --output tmp
 The scraping takes some time (~ 25 min). Be patient.
 
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
-
-
-## Post-processing data cleaning
-
-Due to the indexation of zip files, we might have collected some false-positive datasets, 
-i.e. datasets that contain zip files and matched our keywords but that eventually did not contain 
-any molecular dynamics files (after looking into the zip files). See [examples](docs/false_positives.md).
-
-We add a post-precessing step to remove those files:
-
-```bash
-python scripts/remove_false_positives.py --input data --repo zenodo --filetypes params/query.yml
-python scripts/remove_false_positives.py --input data --repo figshare --filetypes params/query.yml
-python scripts/remove_false_positives.py --input data --repo osf --filetypes params/query.yml
-```
-
-"cleaned" data files have now the extension `.clean.tsv`.
-
-A log file is also produced, explaining why a dataset has been removed. 
-One needs to carefully read this log file.
 
 ## Analyse data
 
