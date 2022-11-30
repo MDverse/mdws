@@ -223,7 +223,7 @@ if __name__ == "__main__":
         )
 
     # If includezipfiles option is triggered
-    if ARGS.includezipfiles:
+    if ARGS.withzipfiles:
         data_repo_name, target_df = select_files_to_download(ARGS.input, ARGS.type, withzipfiles=True)
         pbar = tqdm(
             target_df.index,
