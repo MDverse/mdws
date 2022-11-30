@@ -149,13 +149,13 @@ python scripts/download_files.py --input data/osf_files.tsv \
 --output data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
-Option `--withzipfiles` will also get files packaged in zip archives.
+Option `--withzipfiles` will also get files packaged in zip archives. Be aware, that the script will first download the entire zip archive and then extract the mdp and gro files.
 
 This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail for a couple of files. Re-rerun previous commands to resume the download. Files already retrieved will not be downloaded again.
 
-Expect about 15 GB of data without zip archives and 430 GB with zip archives.
+Expect about 15 GB of data without the `--withzipfiles` option and 430 GB with the `--withzipfiles` option.
 
-To count the number of files, could do use:
+To count the number of files, you could use:
 
 ```bash
 find data/downloads -name *.gro | wc -l
@@ -167,12 +167,15 @@ or
 find data/downloads -name *.mdp | wc -l
 ```
 
-Numbers are indicative only.
+Numbers are indicative only and may vary dependy on the time you run this command.
 
 ### Parse files
 
 ```bash
-python scripts/parse_mdp_files.py -i data/downloads -o data
-python scripts/parse_gro_files.py -i data/downloads -r params/residue_names.yml -o data
+python scripts/parse_mdp_files.py --input data/downloads --output data
+```
+
+```bash
+python scripts/parse_gro_files.py --input data/downloads --residues params/residue_names.yml --output data
 ```
 

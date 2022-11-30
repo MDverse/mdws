@@ -34,7 +34,6 @@ def get_cli_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i",
         "--input",
         action="store",
         type=str,
@@ -42,7 +41,6 @@ def get_cli_arguments():
         required=True,
     )
     parser.add_argument(
-        "-o",
         "--output",
         action="store",
         type=str,

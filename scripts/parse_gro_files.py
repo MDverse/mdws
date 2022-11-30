@@ -50,7 +50,6 @@ def get_cli_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i",
         "--input",
         action="store",
         type=str,
@@ -58,7 +57,6 @@ def get_cli_arguments():
         required=True,
     )
     parser.add_argument(
-        "-r",
         "--residues",
         action="store",
         type=str,
@@ -66,7 +64,6 @@ def get_cli_arguments():
         required=True,
     )
     parser.add_argument(
-        "-o",
         "--output",
         action="store",
         type=str,
@@ -108,9 +105,6 @@ def read_residue_file(residue_filename):
         water_ion_residues,
         glucid_residues,
     )
-
-
-
 
 
 def find_all_files(path, file_type):
@@ -215,18 +209,18 @@ def extract_info_from_gro(
 
 
 if __name__ == "__main__":
-    args = get_cli_arguments()
-    toolbox.verify_output_directory(args.output)
+    ARGS = get_cli_arguments()
+    toolbox.verify_output_directory(ARGS.output)
     (
         PROTEIN_RESIDUES,
         LIPID_RESIDUES,
         NUCLEIC_RESIDUES,
         WATER_ION_RESIDUES,
         GLUCID_RESIDUES,
-    ) = read_residue_file(args.residues)
+    ) = read_residue_file(ARGS.residues)
 
-    GRO_FILES_LST = find_all_files(args.input, FILE_TYPE)
-    print(f"Found {len(GRO_FILES_LST)} {FILE_TYPE} files in {args.input}")
+    GRO_FILES_LST = find_all_files(ARGS.input, FILE_TYPE)
+    print(f"Found {len(GRO_FILES_LST)} {FILE_TYPE} files in {ARGS.input}")
     GRO_FILE_NUMBER = len(GRO_FILES_LST)
 
     gro_info_lst = []
@@ -241,7 +235,7 @@ if __name__ == "__main__":
         # pbar.set_description(f"Reading {gro_file_name}", refresh=True)
         gro_info = extract_info_from_gro(
             gro_file_name,
-            args.input,
+            ARGS.input,
             PROTEIN_RESIDUES,
             LIPID_RESIDUES,
             NUCLEIC_RESIDUES,
@@ -253,7 +247,7 @@ if __name__ == "__main__":
         else:
             parsing_error_counter += 1
     gro_info_df = pd.DataFrame(gro_info_lst)
-    result_file_path = pathlib.Path(args.output) / "gromacs_gro_files_info.tsv"
+    result_file_path = pathlib.Path(ARGS.output) / "gromacs_gro_files_info.tsv"
     gro_info_df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Saved results in {str(result_file_path)}")
     print(f"Total number of gro files parsed: {gro_info_df.shape[0]}")
