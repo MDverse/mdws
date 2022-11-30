@@ -55,7 +55,7 @@ def get_cli_arguments():
         "--withzipfiles",
         action="store_true",
         help="Include files within zip files.",
-        default=False
+        default=False,
     )
     return parser.parse_args()
 
@@ -104,7 +104,8 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
         f"file_type in {file_types}"
     )
     if withzipfiles:
-        selected_zip_df = (files_df
+        selected_zip_df = (
+            files_df
             .query("from_zip_file == True")
             .query(f"file_type in {file_types}")
             .loc[:, ["dataset_id", "origin_zip_file"]]
@@ -115,14 +116,16 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
             files_df,
             selected_zip_df,
             how="inner",
-            left_on=["dataset_id", "file_name"], 
-            right_on=["dataset_id", "origin_zip_file"]
+            left_on=["dataset_id", "file_name"],
+            right_on=["dataset_id", "origin_zip_file"],
         )
     print(f"Select {selected_files_df.shape[0]} files")
     return repository_name, selected_files_df
 
 
-def download_file(url="", hash="", file_name="", path="", retry_if_failed=3, time_between_attempt=3):
+def download_file(
+    url="", hash="", file_name="", path="", retry_if_failed=3, time_between_attempt=3
+):
     """Download file.
 
     Parameters
@@ -219,12 +222,14 @@ if __name__ == "__main__":
             url=target_df.loc[idx, "file_url"],
             hash=target_df.loc[idx, "file_md5"],
             file_name=target_df.loc[idx, "file_name"],
-            path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
+            path=f"{ARGS.output}/{data_repo_name}/{dataset_id}",
         )
 
     # If includezipfiles option is triggered
     if ARGS.withzipfiles:
-        data_repo_name, target_df = select_files_to_download(ARGS.input, ARGS.type, withzipfiles=True)
+        data_repo_name, target_df = select_files_to_download(
+            ARGS.input, ARGS.type, withzipfiles=True
+        )
         pbar = tqdm(
             target_df.index,
             leave=True,
@@ -237,7 +242,7 @@ if __name__ == "__main__":
                 url=target_df.loc[idx, "file_url"],
                 hash=target_df.loc[idx, "file_md5"],
                 file_name=target_df.loc[idx, "file_name"],
-                path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
+                path=f"{ARGS.output}/{data_repo_name}/{dataset_id}",
             )
             # Extract zip content
             extract_zip_content(file_path, ARGS.type)
