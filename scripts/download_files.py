@@ -16,6 +16,8 @@ import pandas as pd
 import pooch
 from tqdm import tqdm
 
+import toolbox
+
 
 def get_cli_arguments():
     """Argument parser.
@@ -29,7 +31,6 @@ def get_cli_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-i",
         "--input",
         action="store",
         type=str,
@@ -37,7 +38,6 @@ def get_cli_arguments():
         required=True,
     )
     parser.add_argument(
-        "-o",
         "--output",
         action="store",
         type=str,
@@ -45,7 +45,6 @@ def get_cli_arguments():
         required=True,
     )
     parser.add_argument(
-        "-t",
         "--type",
         action="append",
         type=str,
@@ -53,8 +52,7 @@ def get_cli_arguments():
         required=True,
     )
     parser.add_argument(
-        "-z",
-        "--includezipfiles",
+        "--withzipfiles",
         action="store_true",
         help="Include files within zip files.",
         default=False
@@ -97,7 +95,7 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
     Pandas dataframe
         Select files dataframe
     """
-    files_df = pd.read_csv(filename, sep="\t")
+    files_df = toolbox.load_database(filename, "files")
     print(f"Found {files_df.shape[0]} files in {filename}")
     repository_name = files_df.iloc[0]["dataset_origin"]
     print(f"Data repository: {repository_name}")
@@ -114,9 +112,9 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
             .reset_index(drop=True)
         )
         selected_files_df = pd.merge(
-            files_df, 
-            selected_zip_df, 
-            how="inner", 
+            files_df,
+            selected_zip_df,
+            how="inner",
             left_on=["dataset_id", "file_name"], 
             right_on=["dataset_id", "origin_zip_file"]
         )
@@ -141,7 +139,7 @@ def download_file(url="", hash="", file_name="", path="", retry_if_failed=3, tim
         Number of time to retry download if download fails.
     time_between_attempt : int
         Number of seconds to wait between download attempt.
-    
+
     Returns
     -------
     pathlib.Path
@@ -218,9 +216,9 @@ if __name__ == "__main__":
     for idx in pbar:
         dataset_id = target_df.loc[idx, "dataset_id"]
         file_path = download_file(
-            url=target_df.loc[idx, "file_url"], 
-            hash=target_df.loc[idx, "file_md5"], 
-            file_name=target_df.loc[idx, "file_name"], 
+            url=target_df.loc[idx, "file_url"],
+            hash=target_df.loc[idx, "file_md5"],
+            file_name=target_df.loc[idx, "file_name"],
             path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
         )
 
@@ -236,9 +234,9 @@ if __name__ == "__main__":
             # Download zip file
             dataset_id = target_df.loc[idx, "dataset_id"]
             file_path = download_file(
-                url=target_df.loc[idx, "file_url"], 
-                hash=target_df.loc[idx, "file_md5"], 
-                file_name=target_df.loc[idx, "file_name"], 
+                url=target_df.loc[idx, "file_url"],
+                hash=target_df.loc[idx, "file_md5"],
+                file_name=target_df.loc[idx, "file_name"],
                 path=f"{ARGS.output}/{data_repo_name}/{dataset_id}"
             )
             # Extract zip content
