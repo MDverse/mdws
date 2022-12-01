@@ -170,5 +170,5 @@ This step will take a couple of seconds to run. Results will be saved in `data/g
 python scripts/parse_gro_files.py --input data/downloads --residues params/residue_names.yml --output data
 ```
 
-This step will take about xx hours to run. Results will be saved in `data/gromacs_gro_files_info.tsv`.
+This step will take about 4 hours to run. Results will be saved in `data/gromacs_gro_files_info.tsv`.
 
