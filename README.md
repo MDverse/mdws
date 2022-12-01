@@ -149,23 +149,11 @@ python scripts/download_files.py --input data/osf_files.tsv \
 --output data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
-Option `--withzipfiles` will also get files packaged in zip archives. Be aware, that the script will first download the entire zip archive and then extract the mdp and gro files.
+Option `--withzipfiles` will also get files packaged in zip archives. It means that the script will first download the entire zip archive and then extract the mdp and gro files.
 
 This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail for a couple of files. Re-rerun previous commands to resume the download. Files already retrieved will not be downloaded again.
 
-Expect about 15 GB of data without the `--withzipfiles` option and 430 GB with the `--withzipfiles` option.
-
-To count the number of files, you could use:
-
-```bash
-find data/downloads -name *.gro | wc -l
-```
-
-or
-
-```bash
-find data/downloads -name *.mdp | wc -l
-```
+Expect about 570 GB of data with the `--withzipfiles` option (~ 10600 gro files and 6000 mdp files)
 
 Numbers are indicative only and may vary dependy on the time you run this command.
 
@@ -175,7 +163,12 @@ Numbers are indicative only and may vary dependy on the time you run this comman
 python scripts/parse_mdp_files.py --input data/downloads --output data
 ```
 
+Results will be saved in `data/gromacs_mdp_files_info.tsv`.
+
+
 ```bash
 python scripts/parse_gro_files.py --input data/downloads --residues params/residue_names.yml --output data
 ```
+
+Results will be saved in `data/gromacs_gro_files_info.tsv`.
 
