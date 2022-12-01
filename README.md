@@ -116,18 +116,6 @@ The scraping takes some time (~ 30 min). Be patient.
 
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
 
-## Analyse data
-
-Run all Jupyter notebooks in batch mode:
-```
-jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/analyze_zenodo.ipynb
-jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/zenodo_stats.ipynb
-jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/search_MD_in_pubmed.ipynb
-jupyter nbconvert --to html  --execute --allow-errors --output-dir results notebooks/analyze_all2.ipynb
-cp notebooks/*.{svg,png} results/
-```
-
-
 ## Analyze Gromacs mdp and gro files
 
 ### Download files
