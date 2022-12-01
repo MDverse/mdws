@@ -163,12 +163,12 @@ Numbers are indicative only and may vary dependy on the time you run this comman
 python scripts/parse_mdp_files.py --input data/downloads --output data
 ```
 
-Results will be saved in `data/gromacs_mdp_files_info.tsv`.
+This step will take a couple of seconds to run. Results will be saved in `data/gromacs_mdp_files_info.tsv`.
 
 
 ```bash
 python scripts/parse_gro_files.py --input data/downloads --residues params/residue_names.yml --output data
 ```
 
-Results will be saved in `data/gromacs_gro_files_info.tsv`.
+This step will take about xx hours to run. Results will be saved in `data/gromacs_gro_files_info.tsv`.
 
