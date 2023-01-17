@@ -141,7 +141,11 @@ def request_figshare_dataset_with_id(datasetID):
     response = requests.get(
         f"https://api.figshare.com/v2/articles/{datasetID}"
     )
-    return json.loads(response.content)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
+    #return json.loads(response.content)
 
 
 def request_figshare_downloadstats_with_id(datasetID):
@@ -375,6 +379,8 @@ def main_scrap_figshare(arg, scrap_zip=False):
         datasets_count_old = datasets_df.shape[0]
         for dataset_id in found_datasets:
             resp_json_article = request_figshare_dataset_with_id(dataset_id)
+            if not resp_json_article:
+                continue
             dataset_info, text_info, file_info = extract_records(resp_json_article)
             datasets_lst += dataset_info
             texts_lst += text_info
