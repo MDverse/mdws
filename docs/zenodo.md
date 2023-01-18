@@ -77,8 +77,3 @@ Some zip file content are not accessible.
 Example dataset: [G-Protein Coupled Receptor-Ligand Dissociation Rates and Mechanisms from tauRAMD Simulations](https://zenodo.org/record/5151217)
 
 - preview not available for [Example_b2AR-alprenolol.zip](https://zenodo.org/record/5151217/preview/Example_b2AR-alprenolol.zip) probably because file is too large (5.4 GB)
-
-
-
-
-
