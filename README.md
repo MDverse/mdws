@@ -46,6 +46,8 @@ conda deactivate
 
 ## Scrap Zenodo
 
+Have a look to the notes regarding [Zenodo](docs/zenodo.md) and its API.
+
 Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
 and store it in the file `.env`:
 ```
@@ -69,10 +71,12 @@ The scraping takes some time (about an hour). A mechanism has been set up to avo
 
 Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo_datasets_text.tsv` and `zenodo_files.tsv` :sparkles:
 
-Note that "false positives](docs/false_positives.md)" have been removed in the scraping proccess.
+Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
 
 ## Scrap FigShare
+
+Have a look to the notes regarding [Figshare](docs/figshare.md) and its API.
 
 Scrap FigShare for MD-related datasets and files:
 
@@ -92,6 +96,8 @@ Eventually, the scraper will produce three files: `figshare_datasets.tsv`, `figs
 
 
 ## Scrap OSF
+
+Have a look to the notes regarding [OSF](docs/osf.md) and its API.
 
 Create a token here: <https://osf.io/settings/tokens> (select the `osf.full_read` scope)
 and store it in the file `.env`:
@@ -141,7 +147,7 @@ Option `--withzipfiles` will also get files packaged in zip archives. It means t
 
 This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail for a couple of files. Re-rerun previous commands to resume the download. Files already retrieved will not be downloaded again.
 
-Expect about 570 GB of data with the `--withzipfiles` option (~ 10600 gro files and 6000 mdp files)
+Expect about 640 GB of data with the `--withzipfiles` option (~ 10950 gro files and 11300 mdp files)
 
 Numbers are indicative only and may vary dependy on the time you run this command.
 
