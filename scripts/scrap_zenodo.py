@@ -8,13 +8,13 @@ import pathlib
 import sys
 import time
 
-
 from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
 import requests
 
 import toolbox
+
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
 
@@ -47,22 +47,50 @@ def normalize_file_size(file_str):
     return int(size_in_bytes)
 
 
-def extract_data_from_zip_file(url, token):
-    """Extract data from zip file preview.
+def get_files_structure_from_zip(ul):
+    """Get files structure from zip file preview.
+    
+    Recursion based on:
+    https://stackoverflow.com/questions/17850121/parsing-nested-html-list-with-beautifulsoup
 
     Parameters
     ----------
+    ul : bs4.element
+        HTML table containing the files structure.
+
+    Returns
+    -------
+    dict
+        Nested dictionary with files structure.
+    """
+    structure = {}
+    for li in ul.find_all("li", recursive=False):
+        key = next(li.stripped_strings)
+        ul = li.find("ul")
+        if ul:
+            structure[key] = get_files_structure_from_zip(ul)
+        elif li.find("span", attrs={"class": "pull-right"}):
+            structure[key] = li.find("span", attrs={"class": "pull-right"}).text
+        else:
+            structure[key] = None
+    return structure
+
+
+def extract_data_from_zip_file(url):
+    """Extract data from zip file preview.
+
+    Example: https://zenodo.org/record/4444751/preview/code.zip
+
     url : str
         URL of zip file preview
-    token : str
-        Token for Zenodo API
 
     Returns
     -------
     list
         List of dictionnaries with data extracted from zip preview.
     """
-    response = requests.get(url, params={"access_token": token})
+    print(f"Parsing {url}")
+    response = requests.get(url)
 
     if response.status_code != 200:
         print(f"Error with URL: {url}")
@@ -73,21 +101,23 @@ def extract_data_from_zip_file(url, token):
     if "Zipfile is not previewable" in response.text:
         print(f"No preview available for {url}")
         return []
-    table = soup.find("ul", attrs={"class": "tree list-unstyled"})
-    file_info = []
-    for row in table.findAll("span"):
-        file_info.append(row.text)
+
     file_lst = []
-    for idx in range(0, len(file_info), 2):
-        file_name = file_info[idx].strip()
-        file_size_raw = file_info[idx + 1].strip()
-        file_size = normalize_file_size(file_size_raw)
-        file_dict = {
-            "file_name": file_name,
-            "file_size": file_size,
-            "file_type": toolbox.extract_file_extension(file_name)
-        }
-        file_lst.append(file_dict)
+    table = soup.find("ul", attrs={"class": "tree list-unstyled"})
+    files_structure = get_files_structure_from_zip(table)
+    # Convert nested dictionnary files structure to a flat dictionnary.
+    df = pd.json_normalize(files_structure, sep="/")
+    files_dict = df.to_dict(orient="records")[0]
+    # Normalize file size.
+    for path, size in files_dict.items():
+        if size:
+            file_dict = {
+                "file_name": path,
+                "file_size": normalize_file_size(size),
+                "file_type": toolbox.extract_file_extension(path),
+            }
+            file_lst.append(file_dict)
+    print(f"Found {len(file_lst)} files.")
     return file_lst
 
 
@@ -200,7 +230,7 @@ def scrap_zip_content(files_df):
     # According to Zenodo documentation.
     # https://developers.zenodo.org/#rate-limiting
     # One can run 100 requests per minute with authentication.
-    # Since the API does not provide the content of zip files,
+    # Because Zenodo API does not provide the content of zip files,
     # we need to scrap the HTML preview.
     # The global limit of 60 requests per minute applies.
     SLEEP_TIME = 60
@@ -221,7 +251,7 @@ def scrap_zip_content(files_df):
             f"/preview/{zip_file.loc['file_name']}"
         )
         # print(zip_counter, URL)
-        files_tmp = extract_data_from_zip_file(URL, ZENODO_TOKEN)
+        files_tmp = extract_data_from_zip_file(URL)
         if files_tmp == []:
             continue
         # Add common extra fields
@@ -327,7 +357,7 @@ if __name__ == "__main__":
         handlers=[log_file, log_stream],
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG
+        level=logging.DEBUG,
     )
     # Rewire the print function to logging.info
     print = logging.info
@@ -417,7 +447,9 @@ if __name__ == "__main__":
             if page * MAX_HITS_PER_PAGE >= MAX_HITS_PER_QUERY:
                 print("Max hits per query reached!")
                 break
-        print(f"Number of datasets found: {len(datasets_tmp)} ({datasets_df.shape[0] - datasets_count_old} new)")
+        print(
+            f"Number of datasets found: {len(datasets_tmp)} ({datasets_df.shape[0] - datasets_count_old} new)"
+        )
         print(f"Number of files found: {len(files_tmp)}")
         print("-" * 30)
 
@@ -458,11 +490,15 @@ if __name__ == "__main__":
     # Zip is not a MD-specific file type.
     FILE_TYPES_LST.remove("zip")
     FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
-        FILES_EXPORT_PATH,
-        DATASETS_EXPORT_PATH,
-        FILE_TYPES_LST
+        FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, FILE_TYPES_LST
     )
     # Clean files
-    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS)
+    toolbox.remove_false_positive_datasets(
+        FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS
+    )
+    toolbox.remove_false_positive_datasets(
+        DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS
+    )
+    toolbox.remove_false_positive_datasets(
+        TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS
+    )
