@@ -127,6 +127,21 @@ def read_query_file(query_file_path):
     return file_types, md_keywords, generic_keywords, exclusion_files, exclusion_paths
 
 
+def verify_file_exists(filename):
+    """Verify file exists.
+
+    Parameters
+    ----------
+    filename : str
+        Name of file to verify existence
+    """
+    file_in = pathlib.Path(filename)
+    if not file_in.exists():
+        raise FileNotFoundError(f"File {filename} not found")
+    if not file_in.is_file():
+        raise FileNotFoundError(f"File {filename} is not a file")
+
+
 def verify_output_directory(directory):
     """Verify output directory exists.
 

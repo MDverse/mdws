@@ -48,7 +48,7 @@ def get_cli_arguments():
         "--type",
         action="append",
         type=str,
-        help="File extensions to to download.",
+        help="File extensions to download.",
         required=True,
     )
     parser.add_argument(
@@ -58,21 +58,6 @@ def get_cli_arguments():
         default=False,
     )
     return parser.parse_args()
-
-
-def verify_file_exists(filename):
-    """Verify file exists.
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to verify existence
-    """
-    file_in = pathlib.Path(filename)
-    if not file_in.exists():
-        raise FileNotFoundError(f"File {filename} not found")
-    if not file_in.is_file():
-        raise FileNotFoundError(f"File {filename} is not a file")
 
 
 def select_files_to_download(filename, file_types, withzipfiles=False):
@@ -198,7 +183,7 @@ if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
     # Verify input files exist
-    verify_file_exists(ARGS.input)
+    toolbox.verify_file_exists(ARGS.input)
 
     # Create output dir
     pathlib.Path(ARGS.output).mkdir(parents=True, exist_ok=True)
