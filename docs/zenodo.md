@@ -68,11 +68,12 @@ Example dataset: [All-atom molecular dynamics simulations of SARS-CoV-2 envelope
 
 Some zip file content are really dense, with a directory-like organization.
 
-Example dataset: [Input files and scripts for Hamiltonian replica-exchange molecular dynamics simulations of intrinsically disordered proteins using a software GROMACS patched with PLUMED](https://zenodo.org/record/4319228)
+Examples:
 
-- preview for [hremd-idp.zip](https://zenodo.org/record/4319228/preview/hremd-idp.zip)
+- In the dataset "[Input files and scripts for Hamiltonian replica-exchange molecular dynamics simulations of intrinsically disordered proteins using a software GROMACS patched with PLUMED](https://zenodo.org/record/4319228)", a preview of the file `hremd-idp.zip` is available [here](https://zenodo.org/record/4319228/preview/hremd-idp.zip).
+- In the dataset "[2DUV Machine Learning Protocol Code](https://zenodo.org/record/4444751/)", a preview of the file `code.zip` is available [here](https://zenodo.org/record/4444751/preview/code.zip).
 
-Some zip file content are not accessible.
+Sometimes, zip file contents are not accessible.
 
 Example dataset: [G-Protein Coupled Receptor-Ligand Dissociation Rates and Mechanisms from tauRAMD Simulations](https://zenodo.org/record/5151217)
 
