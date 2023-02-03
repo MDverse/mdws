@@ -56,13 +56,25 @@ lipid:
 - CER16
 - PSM
 - PLA
-- PGR
 - DPP
 - OPC
 - SDS
-- PA
-- PC
-- OL
+- LAL  # LIPID21 Lauroyl (12:0) https://ambermd.org/AmberModels_lipids.php
+- MY   # LIPID21 Myristoyl (14:0) https://ambermd.org/AmberModels_lipids.php
+- PA   # LIPID21 Palmitoyl (16:0) https://ambermd.org/AmberModels_lipids.php
+- SA   # LIPID21 Sphingosine (16:1) https://ambermd.org/AmberModels_lipids.php
+- OL   # LIPID21 Oleoyl (18:1 n-9) https://ambermd.org/AmberModels_lipids.php
+- ST   # LIPID21 Stearoyl (18:0) https://ambermd.org/AmberModels_lipids.php
+- AR   # LIPID21 Arachidonoyl (20:4) https://ambermd.org/AmberModels_lipids.php
+- DHA  # LIPID21 Docosahexaenoyl (22:6) https://ambermd.org/AmberModels_lipids.php
+- PC   # LIPID21 Phosphatidylcholine https://ambermd.org/AmberModels_lipids.php
+- PE   # LIPID21 Phosphatidylethanolamine https://ambermd.org/AmberModels_lipids.php
+- PS   # LIPID21 Phosphatidylserine https://ambermd.org/AmberModels_lipids.php
+- PGR  # LIPID21 Phosphatidylglyceroli R- https://ambermd.org/AmberModels_lipids.php
+- PGS  # LIPID21 Phosphatidylglyceroli S- https://ambermd.org/AmberModels_lipids.php
+- PH   # LIPID21 Phosphaditic acid https://ambermd.org/AmberModels_lipids.php
+- SPM  # LIPID21 Sphingomyelin https://ambermd.org/AmberModels_lipids.php
+- CHL  # LIPID21 Cholesterol https://ambermd.org/AmberModels_lipids.php
 
 nucleic:
 - RA5
