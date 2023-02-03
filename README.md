@@ -161,7 +161,9 @@ This step will take a couple of seconds to run. Results will be saved in `data/g
 
 
 ```bash
-python scripts/parse_gro_files.py --input data/downloads --residues params/residue_names.yml --output data
+python scripts/parse_gro_files.py \
+--input data/zenodo_files.tsv --input data/figshare_files.tsv --input data/osf_files.tsv \
+--storage data/downloads --residues params/residue_names.yml --output data
 ```
 
 This step will take about 4 hours to run. Results will be saved in `data/gromacs_gro_files_info.tsv`.
