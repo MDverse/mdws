@@ -239,7 +239,7 @@ if __name__ == "__main__":
         )
         df = pd.concat([df, files], ignore_index=True)
 
-    df = df.query("file_type == 'gro'").sample(50)
+    df = df.query("file_type == 'gro'")
     df["atom_number"] = np.nan
     df["has_protein"] = False
     df["has_nucleic"] = False
