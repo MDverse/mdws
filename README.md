@@ -154,7 +154,9 @@ Numbers are indicative only and may vary dependy on the time you run this comman
 ### Parse files
 
 ```bash
-python scripts/parse_mdp_files.py --input data/downloads --output data
+python scripts/parse_mdp_files.py \
+--input data/zenodo_files.tsv --input data/figshare_files.tsv --input data/osf_files.tsv \
+--storage data/downloads --output data
 ```
 
 This step will take a couple of seconds to run. Results will be saved in `data/gromacs_mdp_files_info.tsv`.

@@ -11,8 +11,10 @@ import pathlib
 import re
 
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
+import toolbox
 
 REGEX_DT = re.compile("^\s*dt\s*=\s*([.\d]+)", re.IGNORECASE)
 REGEX_NSTEPS = re.compile("^\s*nsteps\s*=\s*([\d]+)", re.IGNORECASE)
@@ -35,9 +37,17 @@ def get_cli_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input",
+        action="extend",
+        type=str,
+        nargs="+",
+        help="Path to find gro files.",
+        required=True,
+    )
+    parser.add_argument(
+        "--storage",
         action="store",
         type=str,
-        help="Path to find mdp files",
+        help="Path in which gro files are stored.",
         required=True,
     )
     parser.add_argument(
@@ -50,54 +60,13 @@ def get_cli_arguments():
     return parser.parse_args()
 
 
-def verify_output_directory(directory):
-    """Verify output directory exists.
-
-    Create it if necessary.
-
-    Parameters
-    ----------
-    directory : str
-        Path to directory to store results
-    """
-    directory_path = pathlib.Path(directory)
-    if directory_path.is_file():
-        raise FileNotFoundError(f"{directory} is an existing file.")
-    if directory_path.is_dir():
-        print(f"Output directory {directory} already exists.")
-    else:
-        directory_path.mkdir(parents=True, exist_ok=True)
-        print(f"Created output directory {directory}")
-
-
-def find_all_files(path, file_type):
-    """Find recursively all files with a given extension within a path.
-
-    Parameters
-    ----------
-    path : str
-        Path to find files
-    file_type : str
-        Target file extension
-
-    Returns
-    -------
-    List of pathlib.Path
-        List of files.
-    """
-    files = list(pathlib.Path(path).glob(f"**/*.{file_type}"))
-    return files
-
-
-def extract_info_from_mdp(mdp_file_path, target_path):
+def extract_info_from_mdp(mdp_file_path):
     """Extract information from Gromacs mdp file.
 
     Parameters
     ----------
     mdp_file_path : str
         Path to mdp file
-    target_path : str
-        Path to the directory to find mdp files
 
     Returns
     -------
@@ -105,63 +74,124 @@ def extract_info_from_mdp(mdp_file_path, target_path):
         Dictionnary of extracted informations
     """
     info = {
-        "dataset_origin": None,
-        "dataset_id": None,
-        "dt": None,
-        "nsteps": None,
-        "temperature": None,
-        "barostat": None,
+        "dt": np.nan,
+        "nsteps": np.nan,
+        "temperature": np.nan,
         "thermostat": None,
-        "filename": None,
+        "barostat": None,
+        "is_error": False,
     }
-    info["dataset_origin"], info["dataset_id"], info["filename"] = str(
-        mdp_file_path.relative_to(target_path)
-    ).split("/", maxsplit=2)
-    #print(f"Reading {str(mdp_file_path)}")
-    with open(mdp_file_path, "r") as mdp_file:
-        for line in mdp_file:
-            # dt
-            catch_dt = REGEX_DT.search(line)
-            if catch_dt:
-                info["dt"] = float(catch_dt.group(1))
-            # nsteps
-            catch_nsteps = REGEX_NSTEPS.search(line)
-            if catch_nsteps:
-                info["nsteps"] = int(catch_nsteps.group(1))
-            catch_temp = REGEX_TEMP.search(line)
-            # temperature
-            if catch_temp:
-                info["temperature"] = float(catch_temp.group(2))
-            # tcoupl
-            catch_thermostat = REGEX_THERMOSTAT.search(line)
-            if catch_thermostat:
-                info["thermostat"] = catch_thermostat.group(1)
-            # pcoupl
-            catch_barostat = REGEX_BAROSTAT.search(line)
-            if catch_barostat:
-                info["barostat"] = catch_barostat.group(1)
+    try:
+        with open(mdp_file_path, "r") as mdp_file:
+            for line in mdp_file:
+                # dt
+                catch_dt = REGEX_DT.search(line)
+                if catch_dt:
+                    info["dt"] = float(catch_dt.group(1))
+                # nsteps
+                catch_nsteps = REGEX_NSTEPS.search(line)
+                if catch_nsteps:
+                    info["nsteps"] = int(catch_nsteps.group(1))
+                catch_temp = REGEX_TEMP.search(line)
+                # temperature
+                if catch_temp:
+                    info["temperature"] = float(catch_temp.group(2))
+                # thermostat
+                catch_thermostat = REGEX_THERMOSTAT.search(line)
+                if catch_thermostat:
+                    info["thermostat"] = catch_thermostat.group(1)
+                # barostat
+                catch_barostat = REGEX_BAROSTAT.search(line)
+                if catch_barostat:
+                    info["barostat"] = catch_barostat.group(1)
+    except (FileNotFoundError, UnicodeDecodeError, EOFError, OSError):
+        print(f"\nCannot read: {mdp_file_path}")
+        info["is_error"] = True
     return info
 
 
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
-    verify_output_directory(ARGS.output)
 
-    MDP_FILES_LST = find_all_files(ARGS.input, FILE_TYPE)
-    print(f"Found {len(MDP_FILES_LST)} {FILE_TYPE} files in {ARGS.input}")
+    # Check input files
+    for filename in ARGS.input:
+        toolbox.verify_file_exists(filename)
+    # check files path
+    if not pathlib.Path(ARGS.storage).exists():
+        raise FileNotFoundError(f"Directory {ARGS.storage} not found.")
+    else:
+        print(f"Found {ARGS.storage} folder.")
+    # Check output directory
+    toolbox.verify_output_directory(ARGS.output)
 
-    mdp_info_lst = []
+    # Create a dataframe with all files found in data repositories.
+    df = pd.DataFrame()
+    for filename in ARGS.input:
+        files = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={
+                "dataset_id": str,
+                "file_type": str,
+                "file_md5": str,
+                "file_url": str,
+            },
+        )
+        df = pd.concat([df, files], ignore_index=True)
+
+    df = df.query("file_type == 'mdp'")
+    df["dt"] = np.nan
+    df["nsteps"] = np.nan
+    df["temperature"] = np.nan
+    df["thermostat"] = None
+    df["barostat"] = None
+    print(f"Found {len(df)} files in inputs.")
+
+    parsing_error_index = []
     pbar = tqdm(
-        MDP_FILES_LST,
+        df.iterrows(),
+        total=len(df),
         leave=True,
         bar_format="{l_bar}{n_fmt}/{total_fmt} [{elapsed}<{remaining}]{postfix}",
     )
-    for mdp_file_name in pbar:
+    for index, row in pbar:
+        mdp_file_name = (
+            pathlib.Path(ARGS.storage)
+            / row["dataset_origin"]
+            / row["dataset_id"]
+            / row["file_name"]
+        )
         pbar.set_postfix({"file": str(mdp_file_name)})
-        mdp_info = extract_info_from_mdp(mdp_file_name, ARGS.input)
-        mdp_info_lst.append(mdp_info)
-    mdp_info_df = pd.DataFrame(mdp_info_lst)
+        mdp_info = extract_info_from_mdp(mdp_file_name)
+        # Keep track of files with error.
+        if mdp_info["is_error"]:
+            parsing_error_index.append(index)
+        del mdp_info["is_error"]
+        # Update dataframe with gro file info.
+        for key in mdp_info:
+            df.at[index, key] = mdp_info[key]
+
+    # Remove files with parsing error.
+    df = df.drop(index=parsing_error_index)
+
+    # Remove unecessary columns.
+    df = df.drop(
+        columns=[
+            "file_type",
+            "file_size",
+            "file_md5",
+            "from_zip_file",
+            "origin_zip_file",
+            "file_url",
+        ]
+    )
+
+    # Export results.
     result_file_path = pathlib.Path(ARGS.output) / "gromacs_mdp_files_info.tsv"
-    mdp_info_df.to_csv(result_file_path, sep="\t", index=False)
-    print(f"Saved results in {str(result_file_path)}")
-    print(f"Total number of mdp files parsed: {mdp_info_df.shape[0]}")
+    df.to_csv(result_file_path, sep="\t", index=False)
+    print(f"Results saved in {str(result_file_path)}")
+    print(f"Total number of mdp files parsed: {len(df)}")
+    print(
+        f"Number of mdp files skipped due to parsing error: "
+        f"{len(parsing_error_index)}"
+    )
