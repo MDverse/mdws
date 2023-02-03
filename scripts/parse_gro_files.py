@@ -36,9 +36,6 @@ warnings.filterwarnings(
 )
 
 
-FILE_TYPE = "gro"
-
-
 def get_cli_arguments():
     """Argument parser.
 
@@ -114,25 +111,6 @@ def read_residue_file(residue_filename):
         water_ion_residues,
         glucid_residues,
     )
-
-
-def find_all_files(path, file_type):
-    """Find recursively all files with a given extension within a path.
-
-    Parameters
-    ----------
-    path : str
-        Path to find files
-    file_type : str
-        Target file extension
-
-    Returns
-    -------
-    List of pathlib.Path
-        List of files.
-    """
-    file_lst = list(pathlib.Path(path).glob(f"**/*.{file_type}"))
-    return file_lst
 
 
 def extract_info_from_gro(
@@ -303,5 +281,6 @@ if __name__ == "__main__":
     print(f"Results saved in {str(result_file_path)}")
     print(f"Total number of gro files parsed: {len(df)}")
     print(
-        f"Number of gro files skipped due to parsing error: {len(parsing_error_index)}"
+        f"Number of gro files skipped due to parsing error: "
+        f"{len(parsing_error_index)}"
     )
