@@ -12,6 +12,7 @@ import warnings
 
 import MDAnalysis as mda
 import pandas as pd
+import numpy as np
 import tqdm
 import yaml
 
@@ -51,23 +52,31 @@ def get_cli_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input",
+        action="extend",
+        type=str,
+        nargs="+",
+        help="Path to find gro files.",
+        required=True,
+    )
+    parser.add_argument(
+        "--storage",
         action="store",
         type=str,
-        help="Path to find gro files",
+        help="Path in which gro files are stored.",
         required=True,
     )
     parser.add_argument(
         "--residues",
         action="store",
         type=str,
-        help="Yaml file with residue definition",
+        help="Yaml file with residue definition.",
         required=True,
     )
     parser.add_argument(
         "--output",
         action="store",
         type=str,
-        help="Path to save results",
+        help="Path to save results.",
         required=True,
     )
     return parser.parse_args()
@@ -91,7 +100,7 @@ def read_residue_file(residue_filename):
         List of nucleic acid residues
     """
     with open(residue_filename, "r") as residue_file:
-        print(f"Reading residue definition fom: {residue_filename}")
+        print(f"Reading residue definition from: {residue_filename}")
         data_loaded = yaml.safe_load(residue_file)
     protein_residues = data_loaded["protein"]
     lipid_residues = data_loaded["lipid"]
@@ -128,7 +137,6 @@ def find_all_files(path, file_type):
 
 def extract_info_from_gro(
     gro_file_path="",
-    target_path="",
     protein_residues=[],
     lipid_residues=[],
     nucleic_residues=[],
@@ -141,8 +149,6 @@ def extract_info_from_gro(
     ----------
     gro_file_path : str
         Path to gro file
-    target_path : str
-        Path to the directory to find gro files
     protein_residues : list
         List of protein residues
     lipid_residues : list
@@ -160,27 +166,14 @@ def extract_info_from_gro(
         Dictionnary of extracted informations
     """
     info = {
-        "dataset_origin": None,
-        "dataset_id": None,
         "atom_number": None,
         "has_protein": False,
         "has_nucleic": False,
         "has_lipid": False,
         "has_water_ion": False,
         "has_glucid": False,
-        "filename": None,
+        "is_error": False,
     }
-    # Extract repository name, dataset id and file name from file path
-    # For instance, extract:
-    # dataset_origin: zenodo
-    # dataset_id: 3862992
-    # filename: mdia2-30-r1.gro
-    # from
-    # gro_file_path: data/downloads/zenodo/3862992/mdia2-30-r1.gro
-    # target_path: data/downloads
-    info["dataset_origin"], info["dataset_id"], info["filename"] = str(
-        gro_file_path.relative_to(target_path)
-    ).split("/", maxsplit=2)
     try:
         universe = mda.Universe(gro_file_path)
         info["atom_number"] = len(universe.atoms)
@@ -204,13 +197,25 @@ def extract_info_from_gro(
                 # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
     except (ValueError, UnicodeDecodeError, EOFError, OSError, UnboundLocalError):
         print(f"\nCannot read: {gro_file_path}")
-        info["dataset_origin"] = "error"
+        info["is_error"] = True
     return info
 
 
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
+
+    # Check input files
+    for filename in ARGS.input:
+        toolbox.verify_file_exists(filename)
+    # check files path
+    if not pathlib.Path(ARGS.storage).exists():
+        raise FileNotFoundError(f"Directory {ARGS.storage} not found.")
+    else:
+        print(f"Found {ARGS.storage} folder.")
+    # Check output directory
     toolbox.verify_output_directory(ARGS.output)
+
+    # Read residue definition file.
     (
         PROTEIN_RESIDUES,
         LIPID_RESIDUES,
@@ -219,36 +224,84 @@ if __name__ == "__main__":
         GLUCID_RESIDUES,
     ) = read_residue_file(ARGS.residues)
 
-    GRO_FILES_LST = find_all_files(ARGS.input, FILE_TYPE)
-    print(f"Found {len(GRO_FILES_LST)} {FILE_TYPE} files in {ARGS.input}")
-    GRO_FILE_NUMBER = len(GRO_FILES_LST)
+    # Create a dataframe with all files found in data repositories.
+    df = pd.DataFrame()
+    for filename in ARGS.input:
+        files = pd.read_csv(
+            filename,
+            sep="\t",
+            dtype={
+                "dataset_id": str,
+                "file_type": str,
+                "file_md5": str,
+                "file_url": str,
+            },
+        )
+        df = pd.concat([df, files], ignore_index=True)
+
+    df = df.query("file_type == 'gro'").sample(50)
+    df["atom_number"] = np.nan
+    df["has_protein"] = False
+    df["has_nucleic"] = False
+    df["has_lipid"] = False
+    df["has_glucid"] = False
+    df["has_water_ion"] = False
+
+    print(f"Found {len(df)} gro files in inputs.")
 
     gro_info_lst = []
-    parsing_error_counter = 0
+    parsing_error_index = []
     pbar = tqdm.tqdm(
-        GRO_FILES_LST,
+        df.iterrows(),
+        total=len(df),
         leave=True,
         bar_format="{l_bar}{n_fmt}/{total_fmt} [{elapsed}<{remaining}]{postfix}",
     )
-    for gro_file_name in pbar:
+    for index, row in pbar:
+        gro_file_name = (
+            pathlib.Path(ARGS.storage)
+            / row["dataset_origin"]
+            / row["dataset_id"]
+            / row["file_name"]
+        )
         pbar.set_postfix({"file": str(gro_file_name)})
         # pbar.set_description(f"Reading {gro_file_name}", refresh=True)
         gro_info = extract_info_from_gro(
             gro_file_name,
-            ARGS.input,
             PROTEIN_RESIDUES,
             LIPID_RESIDUES,
             NUCLEIC_RESIDUES,
             WATER_ION_RESIDUES,
             GLUCID_RESIDUES,
         )
-        if gro_info["dataset_origin"] != "error":
-            gro_info_lst.append(gro_info)
-        else:
-            parsing_error_counter += 1
-    gro_info_df = pd.DataFrame(gro_info_lst)
+        # Keep track of files with error.
+        if gro_info["is_error"]:
+            parsing_error_index.append(index)
+        del gro_info["is_error"]
+        # Update dataframe with gro file info.
+        for key in gro_info:
+            df.at[index, key] = gro_info[key]
+
+    # Remove files with parsing error.
+    df = df.drop(index=parsing_error_index)
+
+    # Remove unecessary columns.
+    df = df.drop(
+        columns=[
+            "file_type",
+            "file_size",
+            "file_md5",
+            "from_zip_file",
+            "origin_zip_file",
+            "file_url",
+        ]
+    )
+
+    # Export results.
     result_file_path = pathlib.Path(ARGS.output) / "gromacs_gro_files_info.tsv"
-    gro_info_df.to_csv(result_file_path, sep="\t", index=False)
-    print(f"Saved results in {str(result_file_path)}")
-    print(f"Total number of gro files parsed: {gro_info_df.shape[0]}")
-    print(f"Number of gro files skipped due to parsing error: {parsing_error_counter}")
+    df.to_csv(result_file_path, sep="\t", index=False)
+    print(f"Results saved in {str(result_file_path)}")
+    print(f"Total number of gro files parsed: {len(df)}")
+    print(
+        f"Number of gro files skipped due to parsing error: {len(parsing_error_index)}"
+    )
