@@ -147,7 +147,7 @@ Option `--withzipfiles` will also get files packaged in zip archives. It means t
 
 This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail for a couple of files. Re-rerun previous commands to resume the download. Files already retrieved will not be downloaded again.
 
-Expect about 640 GB of data with the `--withzipfiles` option (~ 10950 gro files and 11300 mdp files)
+Expect about 640 GB of data with the `--withzipfiles` option (~ 8800 gro files and 9500 mdp files)
 
 Numbers are indicative only and may vary dependy on the time you run this command.
 
