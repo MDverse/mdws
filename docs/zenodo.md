@@ -64,7 +64,7 @@ Example dataset: [All-atom molecular dynamics simulations of SARS-CoV-2 envelope
 - preview for [NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip](https://zenodo.org/record/4743386/preview/NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip)
 - preview for [NoPTM-4_POPC_CHARMM36m_0.1x3mks.zip](https://zenodo.org/record/4743386/preview/NoPTM-4_POPC_CHARMM36m_0.1x3mks.zip)
 
-#### Issues with zip file content
+### Zip files with directory-like organization
 
 Some zip file content are really dense, with a directory-like organization.
 
@@ -72,6 +72,10 @@ Examples:
 
 - In the dataset "[Input files and scripts for Hamiltonian replica-exchange molecular dynamics simulations of intrinsically disordered proteins using a software GROMACS patched with PLUMED](https://zenodo.org/record/4319228)", a preview of the file `hremd-idp.zip` is available [here](https://zenodo.org/record/4319228/preview/hremd-idp.zip).
 - In the dataset "[2DUV Machine Learning Protocol Code](https://zenodo.org/record/4444751/)", a preview of the file `code.zip` is available [here](https://zenodo.org/record/4444751/preview/code.zip).
+
+These complexe zip files are handled by the current implementation of the Zenodo crawler.
+
+#### Issues with zip file content
 
 Sometimes, zip file contents are not accessible.
 
