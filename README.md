@@ -170,3 +170,13 @@ python scripts/parse_gro_files.py \
 
 This step will take about 4 hours to run. Results will be saved in `data/gromacs_gro_files_info.tsv`.
 
+
+## Run all script
+
+You can run all commands above with the `run_all.sh` script:
+
+```bash
+bash run_all.sh
+```
+
+Be sure, you have have enhough time, bandwidth and disk space to run this command.
