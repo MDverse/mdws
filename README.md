@@ -130,17 +130,17 @@ To download Gromacs mdp and gro files, use the following commands:
 
 ```bash
 python scripts/download_files.py --input data/zenodo_files.tsv \
---output data/downloads/ --type mdp --type gro --withzipfiles
+--storage data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
 ```bash
 python scripts/download_files.py --input data/figshare_files.tsv \
---output data/downloads/ --type mdp --type gro --withzipfiles
+--storage data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
 ```bash
 python scripts/download_files.py --input data/osf_files.tsv \
---output data/downloads/ --type mdp --type gro --withzipfiles
+--storage data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
 Option `--withzipfiles` will also get files packaged in zip archives. It means that the script will first download the entire zip archive and then extract the mdp and gro files.

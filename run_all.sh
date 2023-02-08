@@ -20,20 +20,22 @@ echo "SCRAPING OSF"
 
 python scripts/scrap_osf.py --query params/query.yml --output data
 
+
 echo "DOWNLOADING GROMACS .MDP and .GRO FILES FROM ZENODO"
 
 python scripts/download_files.py --input data/zenodo_files.tsv \
---output data/downloads/ --type mdp --type gro --withzipfiles
+--storage data/downloads/ --type mdp --type gro --withzipfiles
 
 echo "DOWNLOADING GROMACS .MDP and .GRO FILES FROM FIGSHARE"
 
 python scripts/download_files.py --input data/figshare_files.tsv \
---output data/downloads/ --type mdp --type gro --withzipfiles
+--storage data/downloads/ --type mdp --type gro --withzipfiles
 
 echo "DOWNLOADING GROMACS .MDP and .GRO FILES FROM ZENODO"
 
 python scripts/download_files.py --input data/osf_files.tsv \
---output data/downloads/ --type mdp --type gro --withzipfiles
+--storage data/downloads/ --type mdp --type gro --withzipfiles
+
 
 echo "PARSING GROMACS .MDP FILES"
 
