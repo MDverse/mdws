@@ -89,17 +89,16 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
     selected_files_df = pd.DataFrame()
     if not withzipfiles:
         # Download files not inside zip files.
-        selected_files_df = (
-            files_df
-            .query("from_zip_file == False")
-            .query(f"file_type in {file_types}")
+        selected_files_df = files_df.query("from_zip_file == False").query(
+            f"file_type in {file_types}"
         )
-        print(f"Selected {len(selected_files_df)} files to download (NOT FROM zip files)")
+        print(
+            f"Selected {len(selected_files_df)} files to download (NOT FROM zip files)"
+        )
     else:
         # Download files inside zip files.
         selected_zip_df = (
-            files_df
-            .query("from_zip_file == True")
+            files_df.query("from_zip_file == True")
             .query(f"file_type in {file_types}")
             .loc[:, ["dataset_id", "origin_zip_file"]]
             .drop_duplicates()
@@ -193,7 +192,9 @@ if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
     # Create logger
-    log_file = logging.FileHandler(f"{ARGS.input.replace('.tsv', '_download.log')}", mode="w")
+    log_file = logging.FileHandler(
+        f"{ARGS.input.replace('.tsv', '_download.log')}", mode="w"
+    )
     log_file.setLevel(logging.INFO)
     log_stream = logging.StreamHandler()
     logging.basicConfig(
@@ -241,9 +242,7 @@ if __name__ == "__main__":
 
     # If includezipfiles option is triggered
     if ARGS.withzipfiles:
-        target_df = select_files_to_download(
-            ARGS.input, ARGS.type, withzipfiles=True
-        )
+        target_df = select_files_to_download(ARGS.input, ARGS.type, withzipfiles=True)
         pbar = tqdm(
             target_df.index,
             leave=True,
