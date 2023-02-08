@@ -158,7 +158,8 @@ def download_file(
             print(f"Exception message: {exc}\n")
             time.sleep(time_between_attempt)
         else:
-            print(f"Successfully downloaded: {path}/{file_name} [{pathlib.Path(file_path).stat().st_size:,} bytes]")
+            print(f"Downloaded: {path}/{file_name}")
+            print(f"File size: {pathlib.Path(file_path).stat().st_size:,} bytes")
             break
     return pathlib.Path(file_path)
 
