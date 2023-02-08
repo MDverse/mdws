@@ -94,7 +94,7 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
             .query("from_zip_file == False")
             .query(f"file_type in {file_types}")
         )
-        print(f"Select {len(selected_files_df)} files to download (NOT FROM zip files)")
+        print(f"Selected {len(selected_files_df)} files to download (NOT FROM zip files)")
     else:
         # Download files inside zip files.
         selected_zip_df = (
@@ -112,7 +112,7 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
             left_on=["dataset_id", "file_name"],
             right_on=["dataset_id", "origin_zip_file"],
         )
-        print(f"Select {len(selected_files_df)} files to download (INSIDE zip files)")
+        print(f"Selected {len(selected_files_df)} files to download (INSIDE zip files)")
     return selected_files_df
 
 
@@ -139,7 +139,7 @@ def download_file(
     Returns
     -------
     pathlib.Path
-        Full path of downloaded file.
+        Absolute path of the downloaded file.
     """
     file_path = ""
     for attempt in range(retry_if_failed):
@@ -169,7 +169,7 @@ def extract_zip_content(file_path, selected_types):
     Parameters
     ----------
     file_path : pathlib.Path
-        Path of zip file.
+        Absolute path of the zip file.
     selected_types : list of str
         List of selected file types.
     """
