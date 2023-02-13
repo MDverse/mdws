@@ -120,7 +120,13 @@ def select_files_to_download(filename, file_types, zipfiles="no"):
             how="inner",
             left_on=["dataset_id", "file_name"],
             right_on=["dataset_id", "origin_zip_file"],
+            suffixes=('', '_remove')
         )
+        # Remove duplicate columns.
+        selected_files_df = selected_files_df.drop([col for col in selected_files_df.columns if col.endswith("_remove")], axis="columns")
+        print(files_df.columns)
+        print(selected_zip_df.columns)
+        print(selected_files_df.columns)
         print(f"Selected {len(selected_files_df)} files to download (INSIDE zip files)")
     return selected_files_df
 
@@ -190,10 +196,10 @@ def extract_zip_content(files_lst, file_path):
             #         continue
             #     for file_type in selected_types:
             #         if file_name.endswith(file_type):
-            #             print(f"Extracting {file_name} from {file_path}")
+            #             print(f"Extracting: {file_name}")
             #             zip_file.extract(file_name, path=file_path.parent)
             for file_name in files_lst:
-                print(f"Extracting {file_name} from {file_path}")
+                print(f"Extracting: {file_name}")
                 zip_file.extract(file_name, path=file_path.parent)
     except Exception as exc:
         print(f"Cannot open zip archive: {file_path}")
@@ -278,7 +284,7 @@ if __name__ == "__main__":
                 .query("dataset_id == @dataset_id")
                 .query("origin_zip_file == @file_name")
                 .loc[:, "file_name"]
-                .to_list()
+                .tolist()
             )
             print(tmp_target_files)
             # Extract zip content
