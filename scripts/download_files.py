@@ -276,7 +276,7 @@ if __name__ == "__main__":
                 .query("dataset_origin == @dataset_origin")
                 .query("dataset_id == @dataset_id")
                 .query("origin_zip_file == @file_name")
-                .loc[, "file_name"]
+                .loc[:, "file_name"]
                 .to_list()
             )
             print(tmp_target_files)
