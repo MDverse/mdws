@@ -96,7 +96,7 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
             f"Selected {len(selected_files_df)} files to download (NOT FROM zip files)"
         )
     else:
-        # Download files inside zip files.
+        # Download zip files that contains files of interest.
         selected_zip_df = (
             files_df.query("from_zip_file == True")
             .query(f"file_type in {file_types}")
@@ -104,6 +104,7 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
             .drop_duplicates()
             .reset_index(drop=True)
         )
+        print(f"Found {len(selected_zip_df)} zip files with intesting content to download")
         selected_files_df = pd.merge(
             files_df,
             selected_zip_df,
@@ -222,7 +223,7 @@ if __name__ == "__main__":
 
     # Select files
     target_df = select_files_to_download(ARGS.input, ARGS.type)
-
+    target_df = pd.DataFrame()
     # Download files
     pbar = tqdm(
         target_df.index,
