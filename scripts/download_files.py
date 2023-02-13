@@ -238,7 +238,6 @@ if __name__ == "__main__":
 
     # Select files
     target_files_df = select_files_to_download(ARGS.input, ARGS.type)
-    target_files_df = pd.DataFrame()
     # Download files
     pbar = tqdm(
         target_files_df.index,
