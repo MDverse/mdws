@@ -193,6 +193,7 @@ def extract_zip_content(files_lst, file_path):
             #             print(f"Extracting {file_name} from {file_path}")
             #             zip_file.extract(file_name, path=file_path.parent)
             for file_name in files_lst:
+                print(f"Extracting {file_name} from {file_path}")
                 zip_file.extract(file_name, path=file_path.parent)
     except Exception as exc:
         print(f"Cannot open zip archive: {file_path}")
@@ -281,4 +282,4 @@ if __name__ == "__main__":
             )
             print(tmp_target_files)
             # Extract zip content
-            extract_zip_content(tmp_target_files, file_name, file_path)
+            extract_zip_content(tmp_target_files, file_path)
