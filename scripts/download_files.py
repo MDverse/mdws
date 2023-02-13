@@ -65,7 +65,7 @@ def get_cli_arguments():
     return parser.parse_args()
 
 
-def select_files_to_download(filename, file_types, withzipfiles=False):
+def select_files_to_download(filename, file_types, zipfiles="no"):
     """Load and merge datasets and files.
 
     Parameters
@@ -74,9 +74,12 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
         Name of file that contains file list
     file_types : list
         File extensions to download
-    withzipfiles : boolean
-        Include zip files.
-        Default: False
+    zipfiles : str
+        Manage zip files.
+        "no": list files of interest not in zip files.
+        "yes": list files of interest inside zip files.
+        "zip": list zip files that contain files of interest.
+        Default: no
 
     Returns
     -------
@@ -87,16 +90,22 @@ def select_files_to_download(filename, file_types, withzipfiles=False):
     print(f"Found {len(files_df)} files in {filename}")
 
     selected_files_df = pd.DataFrame()
-    if not withzipfiles:
-        # Download files not inside zip files.
+    # List files of interest not in zip files.
+    if zipfiles == "no":
         selected_files_df = files_df.query("from_zip_file == False").query(
             f"file_type in {file_types}"
         )
         print(
             f"Selected {len(selected_files_df)} files to download (NOT FROM zip files)"
         )
-    else:
-        # Download zip files that contains files of interest.
+    # List files of interest inside zip files.
+    if zipfiles == "yes":
+    selected_files_df = (
+            files_df.query("from_zip_file == True")
+            .query(f"file_type in {file_types}")
+        )
+    # List zip files that contain files of interest.
+    if zipfiles == "zip":
         selected_zip_df = (
             files_df.query("from_zip_file == True")
             .query(f"file_type in {file_types}")
@@ -164,7 +173,7 @@ def download_file(
     return pathlib.Path(file_path)
 
 
-def extract_zip_content(file_path, selected_types):
+def extract_zip_content(files_lst, file_path):
     """Extract selected files from zip archive.
 
     Parameters
@@ -176,13 +185,15 @@ def extract_zip_content(file_path, selected_types):
     """
     try:
         with ZipFile(file_path, "r") as zip_file:
-            for file_name in zip_file.namelist():
-                if file_name.startswith("__MACOSX"):
-                    continue
-                for file_type in selected_types:
-                    if file_name.endswith(file_type):
-                        print(f"Extracting {file_name} from {file_path}")
-                        zip_file.extract(file_name, path=file_path.parent)
+            # for file_name in zip_file.namelist():
+            #     if file_name.startswith("__MACOSX"):
+            #         continue
+            #     for file_type in selected_types:
+            #         if file_name.endswith(file_type):
+            #             print(f"Extracting {file_name} from {file_path}")
+            #             zip_file.extract(file_name, path=file_path.parent)
+            for file_name in files_lst:
+                zip_file.extract(file_name, path=file_path.parent)
     except Exception as exc:
         print(f"Cannot open zip archive: {file_path}")
         print(f"Exception type: {exc.__class__}")
@@ -222,42 +233,52 @@ if __name__ == "__main__":
         print(f"- {file_type}")
 
     # Select files
-    target_df = select_files_to_download(ARGS.input, ARGS.type)
-    target_df = pd.DataFrame()
+    target_files_df = select_files_to_download(ARGS.input, ARGS.type)
+    target_files_df = pd.DataFrame()
     # Download files
     pbar = tqdm(
-        target_df.index,
+        target_files_df.index,
         leave=True,
         bar_format="--- {l_bar}{n_fmt}/{total_fmt} --- ",
     )
     for idx in pbar:
-        dataset_origin = target_df.loc[idx, "dataset_origin"]
-        dataset_id = target_df.loc[idx, "dataset_id"]
-        repo_name = target_df.loc[idx, "dataset_origin"]
+        dataset_origin = target_files_df.loc[idx, "dataset_origin"]
+        dataset_id = target_files_df.loc[idx, "dataset_id"]
+        repo_name = target_files_df.loc[idx, "dataset_origin"]
         file_path = download_file(
-            url=target_df.loc[idx, "file_url"],
-            hash=target_df.loc[idx, "file_md5"],
-            file_name=target_df.loc[idx, "file_name"],
+            url=target_files_df.loc[idx, "file_url"],
+            hash=target_files_df.loc[idx, "file_md5"],
+            file_name=target_files_df.loc[idx, "file_name"],
             path=pathlib.Path(ARGS.storage) / dataset_origin / dataset_id,
         )
 
     # If includezipfiles option is triggered
     if ARGS.withzipfiles:
-        target_df = select_files_to_download(ARGS.input, ARGS.type, withzipfiles=True)
+        target_files_df = select_files_to_download(ARGS.input, ARGS.type, zipfiles="yes")
+        target_zip_df = select_files_to_download(ARGS.input, ARGS.type, zipfiles="zip")
         pbar = tqdm(
-            target_df.index,
+            target_zip_df.index,
             leave=True,
             bar_format="--- {l_bar}{n_fmt}/{total_fmt} --- ",
         )
         for idx in pbar:
             # Download zip file
-            dataset_origin = target_df.loc[idx, "dataset_origin"]
-            dataset_id = target_df.loc[idx, "dataset_id"]
+            dataset_origin = target_zip_df.loc[idx, "dataset_origin"]
+            dataset_id = target_zip_df.loc[idx, "dataset_id"]
+            file_name = target_zip_df.loc[idx, "file_name"]
             file_path = download_file(
-                url=target_df.loc[idx, "file_url"],
-                hash=target_df.loc[idx, "file_md5"],
-                file_name=target_df.loc[idx, "file_name"],
+                url=target_zip_df.loc[idx, "file_url"],
+                hash=target_zip_df.loc[idx, "file_md5"],
+                file_name=file_name,
                 path=pathlib.Path(ARGS.storage) / dataset_origin / dataset_id,
             )
+            tmp_target_files = (target_files_df
+                .query("dataset_origin == @dataset_origin")
+                .query("dataset_id == @dataset_id")
+                .query("origin_zip_file == @file_name")
+                .loc[, "file_name"]
+                .to_list()
+            )
+            print(tmp_target_files)
             # Extract zip content
-            extract_zip_content(file_path, ARGS.type)
+            extract_zip_content(tmp_target_files, file_name, file_path)
