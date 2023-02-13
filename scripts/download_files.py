@@ -100,9 +100,8 @@ def select_files_to_download(filename, file_types, zipfiles="no"):
         )
     # List files of interest inside zip files.
     if zipfiles == "yes":
-        selected_files_df = (
-            files_df.query("from_zip_file == True")
-            .query(f"file_type in {file_types}")
+        selected_files_df = files_df.query("from_zip_file == True").query(
+            f"file_type in {file_types}"
         )
     # List zip files that contain files of interest.
     if zipfiles == "zip":
@@ -113,17 +112,22 @@ def select_files_to_download(filename, file_types, zipfiles="no"):
             .drop_duplicates()
             .reset_index(drop=True)
         )
-        print(f"Found {len(selected_zip_df)} zip files with intesting content to download")
+        print(
+            f"Found {len(selected_zip_df)} zip files with intesting content to download"
+        )
         selected_files_df = pd.merge(
             files_df,
             selected_zip_df,
             how="inner",
             left_on=["dataset_id", "file_name"],
             right_on=["dataset_id", "origin_zip_file"],
-            suffixes=('', '_remove')
+            suffixes=("", "_remove"),
         )
         # Remove duplicate columns.
-        selected_files_df = selected_files_df.drop([col for col in selected_files_df.columns if col.endswith("_remove")], axis="columns")
+        selected_files_df = selected_files_df.drop(
+            [col for col in selected_files_df.columns if col.endswith("_remove")],
+            axis="columns",
+        )
         print(files_df.columns)
         print(selected_zip_df.columns)
         print(selected_files_df.columns)
@@ -184,20 +188,13 @@ def extract_zip_content(files_lst, file_path):
 
     Parameters
     ----------
+    files_list : list of str
+        Liste of files to extract from zip archive.
     file_path : pathlib.Path
         Absolute path of the zip file.
-    selected_types : list of str
-        List of selected file types.
     """
     try:
         with ZipFile(file_path, "r") as zip_file:
-            # for file_name in zip_file.namelist():
-            #     if file_name.startswith("__MACOSX"):
-            #         continue
-            #     for file_type in selected_types:
-            #         if file_name.endswith(file_type):
-            #             print(f"Extracting: {file_name}")
-            #             zip_file.extract(file_name, path=file_path.parent)
             for file_name in files_lst:
                 print(f"Extracting: {file_name}")
                 zip_file.extract(file_name, path=file_path.parent)
@@ -261,7 +258,9 @@ if __name__ == "__main__":
 
     # If includezipfiles option is triggered
     if ARGS.withzipfiles:
-        target_files_df = select_files_to_download(ARGS.input, ARGS.type, zipfiles="yes")
+        target_files_df = select_files_to_download(
+            ARGS.input, ARGS.type, zipfiles="yes"
+        )
         target_zip_df = select_files_to_download(ARGS.input, ARGS.type, zipfiles="zip")
         pbar = tqdm(
             target_zip_df.index,
@@ -279,13 +278,12 @@ if __name__ == "__main__":
                 file_name=file_name,
                 path=pathlib.Path(ARGS.storage) / dataset_origin / dataset_id,
             )
-            tmp_target_files = (target_files_df
-                .query("dataset_origin == @dataset_origin")
+            tmp_target_files = (
+                target_files_df.query("dataset_origin == @dataset_origin")
                 .query("dataset_id == @dataset_id")
                 .query("origin_zip_file == @file_name")
                 .loc[:, "file_name"]
                 .tolist()
             )
-            print(tmp_target_files)
             # Extract zip content
             extract_zip_content(tmp_target_files, file_path)
