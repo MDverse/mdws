@@ -100,7 +100,7 @@ def select_files_to_download(filename, file_types, zipfiles="no"):
         )
     # List files of interest inside zip files.
     if zipfiles == "yes":
-    selected_files_df = (
+        selected_files_df = (
             files_df.query("from_zip_file == True")
             .query(f"file_type in {file_types}")
         )
