@@ -200,7 +200,7 @@ if __name__ == "__main__":
     result_file_path = pathlib.Path(ARGS.output) / "gromacs_mdp_files_info.tsv"
     df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Results saved in {str(result_file_path)}")
-    print(f"Total number of mdp files parsed: {len(df)}")
+    print(f"Number of mdp files parsed: {len(df)}")
     print(
         f"Number of mdp files skipped due to parsing error: "
         f"{len(parsing_error_index)}"
