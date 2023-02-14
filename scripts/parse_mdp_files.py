@@ -16,11 +16,15 @@ from tqdm import tqdm
 
 import toolbox
 
+# Regular expressions to extract information from mdp file.
+# \s matchs any whitespace character (newline, tab, space, etc.)
+# \w matchs any alphanumeric character (a-z, A-Z, 0-9, _)
 REGEX_DT = re.compile("^\s*dt\s*=\s*([.\d]+)", re.IGNORECASE)
 REGEX_NSTEPS = re.compile("^\s*nsteps\s*=\s*([\d]+)", re.IGNORECASE)
 REGEX_TEMP = re.compile("^\s*(ref-t|ref_t)\s*=\s*([.\d]+)", re.IGNORECASE)
 REGEX_THERMOSTAT = re.compile("^\s*tcoupl\s*=\s*([-\w]+)", re.IGNORECASE)
 REGEX_BAROSTAT = re.compile("^\s*pcoupl\s*=\s*([-\w]+)", re.IGNORECASE)
+REGEX_INTEGRATOR = re.compile("^\s*integrator\s*=\s*([-\w]+)", re.IGNORECASE)
 FILE_TYPE = "mdp"
 
 
@@ -79,6 +83,7 @@ def extract_info_from_mdp(mdp_file_path):
         "temperature": np.nan,
         "thermostat": None,
         "barostat": None,
+        "integrator": None,
         "is_error": False,
     }
     try:
@@ -104,6 +109,10 @@ def extract_info_from_mdp(mdp_file_path):
                 catch_barostat = REGEX_BAROSTAT.search(line)
                 if catch_barostat:
                     info["barostat"] = catch_barostat.group(1)
+                # integrator
+                catch_integrator = REGEX_INTEGRATOR.search(line)
+                if catch_integrator:
+                    info["integrator"] = catch_integrator.group(1)
     except (FileNotFoundError, UnicodeDecodeError, EOFError, OSError):
         print(f"\nCannot read: {mdp_file_path}")
         info["is_error"] = True
@@ -145,6 +154,7 @@ if __name__ == "__main__":
     df["temperature"] = np.nan
     df["thermostat"] = None
     df["barostat"] = None
+    df["integrator"] = None
     print(f"Found {len(df)} files in inputs.")
 
     parsing_error_index = []
