@@ -1,12 +1,7 @@
-md_keywords:
+keywords:
 - molecular dynamics
-- molecular dynamic
-- molecular-dynamics
-- molecular-dynamic
 - md trajectory
-- md trajectories
 - md simulation
-- md simulations
 - gromacs
 - gromos
 - namd
@@ -16,20 +11,15 @@ md_keywords:
 - charmm36
 - martini
 
-generic_keywords:
-- molecular dynamics
-- md simulation
-- gromacs
-
 file_types:
 - type: gro
   keywords: none
 - type: mdp
-  keywords: md_keywords
+  keywords: keywords
 - type: itp
-  keywords: md_keywords
+  keywords: keywords
 - type: zip
-  keywords: generic_keywords
+  keywords: keywords
 
 excluded_files_starting_with:
 - "."

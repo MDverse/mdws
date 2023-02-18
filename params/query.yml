@@ -1,4 +1,4 @@
-md_keywords:
+keywords:
 - molecular dynamics
 - molecular dynamic
 - molecular-dynamics
@@ -20,21 +20,6 @@ md_keywords:
 - charmm36
 - martini
 
-generic_keywords:
-- molecular dynamics
-- molecular dynamic
-- molecular-dynamics
-- molecular-dynamic
-- md trajectory
-- md trajectories
-- md simulation
-- md simulations
-- gromacs
-- namd
-- desmond
-- charmm27
-- charmm36
-
 file_types:
 # GROMACS
 - type: tpr
@@ -42,13 +27,11 @@ file_types:
 - type: gro
   keywords: none
 - type: mdp
-  keywords: md_keywords
+  keywords: keywords
 - type: itp
-  keywords: md_keywords
+  keywords: keywords
 - type: ndx
   keywords: none
-- type: top
-  keywords: md_keywords
 - type: xtc
   keywords: none
 - type: trr
@@ -57,25 +40,25 @@ file_types:
   keywords: none
 - type: cpt
   keywords: none
-# NAMD
+# NAMD / CHARMM
 - type: psf
-  keywords: md_keywords
+  keywords: keywords
 - type: inp
-  keywords: md_keywords
+  keywords: keywords
 - type: prm
-  keywords: md_keywords
+  keywords: keywords
 - type: crd
   keywords: none
 - type: namd
   keywords: none
 - type: dcd
-  keywords: md_keywords
+  keywords: keywords
 - type: coor
-  keywords: md_keywords
+  keywords: keywords
 - type: vel
-  keywords: md_keywords
+  keywords: keywords
 - type: xsc
-  keywords: md_keywords
+  keywords: keywords
 # AMBER
 - type: prmtop
   keywords: none
@@ -84,28 +67,25 @@ file_types:
 - type: leap
   keywords: none
 - type: parm7
-  keywords: md_keywords
+  keywords: keywords
 - type: frcmod
-  keywords: md_keywords
+  keywords: keywords
 - type: inpcrd
-  keywords: md_keywords
+  keywords: keywords
 - type: mdcrd
-  keywords: md_keywords
-- type: nc
-  keywords: md_keywords
+  keywords: keywords
 - type: ncdf
-  keywords: md_keywords
+  keywords: keywords
 - type: trj
-  keywords: md_keywords
+  keywords: keywords
 # DESMOND
 - type: cms
-  keywords: md_keywords
+  keywords: keywords
 - type: dtr
-  keywords: md_keywords
+  keywords: keywords
 # ZIP FILES
 - type: zip
-  engine: unknown
-  keywords: generic_keywords
+  keywords: keywords
 
 excluded_files_starting_with:
 - "."

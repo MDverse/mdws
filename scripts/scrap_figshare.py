@@ -3,9 +3,7 @@
 from datetime import datetime
 import logging
 import json
-import os
 import pathlib
-import re
 import time
 
 
@@ -321,8 +319,8 @@ def extract_records(hit):
 def main_scrap_figshare(arg, scrap_zip=False):
     """Scrap Figshare."""
     # Read parameter file
-    FILE_TYPES, MD_KEYWORDS, GENERIC_KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(arg.query)
-    # Query with keywords are build in the loop as Figshare has a char limit
+    FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(arg.query)
+    # Query with keywords are build in the loop as Figshare has a character limit in query
 
     # Verify results output directory
     toolbox.verify_output_directory(arg.output)
@@ -344,10 +342,8 @@ def main_scrap_figshare(arg, scrap_zip=False):
             f":extension: {file_type['type']}"
         )
         target_keywords = [""]
-        if file_type["keywords"] == "md_keywords":
-            target_keywords = MD_KEYWORDS
-        elif file_type["keywords"] == "generic_keywords":
-            target_keywords = GENERIC_KEYWORDS
+        if file_type["keywords"] == "keywords":
+            target_keywords = KEYWORDS
         # Go through all keywords as query length for FigShare is limited
         found_datasets = set()
         for keyword in target_keywords:

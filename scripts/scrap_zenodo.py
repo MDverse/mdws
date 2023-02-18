@@ -92,17 +92,27 @@ def extract_data_from_zip_file(url):
     print(f"Parsing {url}")
     response = requests.get(url)
 
-    if response.status_code != 200:
-        print(f"Error with URL: {url}")
-        print(f"Status code: {response.status_code}")
-        print(response.headers)
-        return []
+    file_lst = []
+    attempt_max = 5
+    time_between_attempts = 10
+
+    for attempt_id in range(1, attempt_max+1):
+        if response.status_code != 200:
+            print(f"Attempt: {attempt_id}/{attempt_max}")
+            print(f"Error with URL: {url}")
+            print(f"Status code: {response.status_code}")
+            print(response.headers)
+            print(f"Waiting {time_between_attempts} seconds before retrying...")
+            time.sleep(time_between_attempts)
+        else:
+            break
+        return file_lst
+
     soup = BeautifulSoup(response.content, "html5lib")
     if "Zipfile is not previewable" in response.text:
         print(f"No preview available for {url}")
-        return []
+        return file_lst
 
-    file_lst = []
     table = soup.find("ul", attrs={"class": "tree list-unstyled"})
     files_structure = get_files_structure_from_zip(table)
     # Convert nested dictionnary files structure to a flat dictionnary.
@@ -233,7 +243,7 @@ def scrap_zip_content(files_df):
     # Because Zenodo API does not provide the content of zip files,
     # we need to scrap the HTML preview.
     # The global limit of 60 requests per minute applies.
-    SLEEP_TIME = 60
+    SLEEP_TIME = 90
     # Sleep once to reset the request counter.
     time.sleep(SLEEP_TIME)
     for zip_idx in zip_files_df.index:

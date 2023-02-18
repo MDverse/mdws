@@ -107,10 +107,8 @@ def read_query_file(query_file_path):
     -------
     file_types : dict
         Dictionary with type, engine and keywords to use.
-    md_keywords : list
+    keywords : list
         Keywords related to molecular dynamics.
-    generic_keywords : list
-        Generic keywords for zip archives.
     exclusion_files : list
         Patterns for files exclusion.
     exclusion_paths : list
@@ -119,12 +117,11 @@ def read_query_file(query_file_path):
     with open(query_file_path, "r") as param_file:
         print(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
-    md_keywords = data_loaded["md_keywords"]
-    generic_keywords = data_loaded["generic_keywords"]
+    keywords = data_loaded["keywords"]
     file_types = data_loaded["file_types"]
     exclusion_files = data_loaded["excluded_files_starting_with"]
     exclusion_paths = data_loaded["excluded_paths_containing"]
-    return file_types, md_keywords, generic_keywords, exclusion_files, exclusion_paths
+    return file_types, keywords, exclusion_files, exclusion_paths
 
 
 def verify_file_exists(filename):

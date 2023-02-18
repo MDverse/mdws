@@ -7,8 +7,6 @@ import os
 import pathlib
 import time
 
-
-from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
 import tqdm
@@ -123,7 +121,7 @@ def test_osf_connection(token):
 
 
 def search_datasets(
-    token, file_types, query_md_keywords, query_generic_keywords, excluded_files, excluded_paths
+    token, file_types, query_keywords, excluded_files, excluded_paths
 ):
     """Search datasets relevant to file types and keywords.
 
@@ -135,10 +133,8 @@ def search_datasets(
         Token for OSF API
     file_types : dict
         Dictionnary with file type definitions.
-    query_md_keywords : str
+    query_keywords : str
         Query string for MD specific keywords.
-    query_generic_keywords : str
-        Query string for MD keywords.
     excluded_files : list
         Patterns for file exclusion.
     excluded_paths : list
@@ -155,10 +151,8 @@ def search_datasets(
         print(f"Looking for filetype: {file_type['type']}")
         datasets_tmp = set()
         query = file_type["type"]
-        if file_type["keywords"] == "md_keywords":
-            query += query_md_keywords
-        elif file_type["keywords"] == "generic_keywords":
-            query += query_generic_keywords
+        if file_type["keywords"] == "keywords":
+            query += query_keywords
         print("Query:")
         print(query)
         resp_json = query_osf_api(
@@ -463,16 +457,14 @@ if __name__ == "__main__":
     # Read parameter file
     (
         FILE_TYPES,
-        MD_KEYWORDS,
-        GENERIC_KEYWORDS,
+        KEYWORDS,
         EXCLUDED_FILES,
         EXCLUDED_PATHS,
     ) = toolbox.read_query_file(ARGS.query)
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
-    QUERY_MD_KEYWORDS = ' AND ("' + '" OR "'.join(MD_KEYWORDS) + '")'
-    QUERY_GENERIC_KEYWORDS = ' AND ("' + '" OR "'.join(GENERIC_KEYWORDS) + '")'
+    QUERY_KEYWORDS = ' AND ("' + '" OR "'.join(KEYWORDS) + '")'
 
     # Verify output directory exists
     toolbox.verify_output_directory(ARGS.output)
@@ -481,8 +473,7 @@ if __name__ == "__main__":
     dataset_ids = search_datasets(
         OSF_TOKEN,
         FILE_TYPES,
-        QUERY_MD_KEYWORDS,
-        QUERY_GENERIC_KEYWORDS,
+        QUERY_KEYWORDS,
         EXCLUDED_FILES,
         EXCLUDED_PATHS,
     )
