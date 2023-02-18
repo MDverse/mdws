@@ -386,16 +386,14 @@ if __name__ == "__main__":
     # Read parameter file
     (
         FILE_TYPES,
-        MD_KEYWORDS,
-        GENERIC_KEYWORDS,
+        KEYWORDS,
         EXCLUDED_FILES,
-        EXCLUDED_PATHS,
+        EXCLUDED_PATHS
     ) = toolbox.read_query_file(ARGS.query)
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
-    QUERY_MD_KEYWORDS = ' AND ("' + '" OR "'.join(MD_KEYWORDS) + '")'
-    QUERY_GENERIC_KEYWORDS = ' AND ("' + '" OR "'.join(GENERIC_KEYWORDS) + '")'
+    QUERY_KEYWORDS = ' AND ("' + '" OR "'.join(KEYWORDS) + '")'
 
     # Verify output directory exists
     toolbox.verify_output_directory(ARGS.output)
@@ -418,10 +416,8 @@ if __name__ == "__main__":
         query_records = []
         query_files = []
         query = f"""resource_type.type:"dataset" AND filetype:"{file_type['type']}" """
-        if file_type["keywords"] == "md_keywords":
-            query += QUERY_MD_KEYWORDS
-        elif file_type["keywords"] == "generic_keywords":
-            query += QUERY_GENERIC_KEYWORDS
+        if file_type["keywords"] == "keywords":
+            query += QUERY_KEYWORDS
         print("Query:")
         print(f"{query}")
         # First get the total number of hits for a given query.
