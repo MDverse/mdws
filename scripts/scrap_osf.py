@@ -12,11 +12,8 @@ import pandas as pd
 import tqdm
 import requests
 
-try:
-    import toolbox
-except ModuleNotFoundError:
-    from . import toolbox
 
+import toolbox
 
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
