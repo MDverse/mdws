@@ -108,11 +108,11 @@ def extract_data_from_zip_file(url):
             break
         return file_lst
 
-    soup = BeautifulSoup(response.content, "html5lib")
     if "Zipfile is not previewable" in response.text:
         print(f"No preview available for {url}")
         return file_lst
 
+    soup = BeautifulSoup(response.content, "html5lib")
     table = soup.find("ul", attrs={"class": "tree list-unstyled"})
     files_structure = get_files_structure_from_zip(table)
     # Convert nested dictionnary files structure to a flat dictionnary.
