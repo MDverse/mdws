@@ -22,6 +22,9 @@ dependencies:
     - html5lib
     - lxml
     - biopython
+    # export to Parquet format
+    - pyarrow
+    - parquet-tools
     # download data files
     - pooch>=1.6
     - tqdm
