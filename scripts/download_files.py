@@ -10,6 +10,7 @@ It also uses a local cache and downloads data once.
 import argparse
 import logging
 import pathlib
+import sys
 import time
 from zipfile import ZipFile
 
@@ -115,6 +116,10 @@ def select_files_to_download(filename, file_types, zipfiles="no"):
         print(
             f"Found {len(selected_zip_df)} zip files with intesting content to download"
         )
+        if len(selected_zip_df) == 0:
+            print("No zip files to download")
+            print("Exiting")
+            sys.exit(0)
         selected_files_df = pd.merge(
             files_df,
             selected_zip_df,
