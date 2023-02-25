@@ -31,7 +31,7 @@ echo "DOWNLOADING GROMACS .MDP and .GRO FILES FROM FIGSHARE"
 python scripts/download_files.py --input data/figshare_files.tsv \
 --storage data/downloads/ --type mdp --type gro --withzipfiles
 
-echo "DOWNLOADING GROMACS .MDP and .GRO FILES FROM ZENODO"
+echo "DOWNLOADING GROMACS .MDP and .GRO FILES FROM OSF"
 
 python scripts/download_files.py --input data/osf_files.tsv \
 --storage data/downloads/ --type mdp --type gro --withzipfiles
