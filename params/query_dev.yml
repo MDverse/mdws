@@ -1,11 +1,7 @@
 keywords:
 - molecular dynamics
-- md trajectory
-- md simulation
 - gromacs
 - amber96
-- charmm36
-- martini
 
 file_types:
 - type: gro
