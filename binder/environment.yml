@@ -35,6 +35,7 @@ dependencies:
     - pycodestyle
     - pydocstyle
     - black
+    - ruff
     - pip:
         - upsetplot     # https://upsetplot.readthedocs.io/en/stable/index.html
         - pysankeybeta  # https://github.com/pierre-sassoulas/pySankey
