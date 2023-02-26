@@ -117,9 +117,7 @@ def test_osf_connection(token):
     )
 
 
-def search_datasets(
-    token, file_types, query_keywords, excluded_files, excluded_paths
-):
+def search_datasets(token, file_types, query_keywords, excluded_files, excluded_paths):
     """Search datasets relevant to file types and keywords.
 
     API endpoint: https://api.osf.io/v2/search/files/
@@ -180,7 +178,9 @@ def search_datasets(
                     datasets_tmp.add(file_info["relationships"]["target"]["data"]["id"])
         datasets_count_old = len(datasets)
         datasets.update(datasets_tmp)
-        print(f"Number of datasets found: {len(datasets_tmp)} ({len(datasets) - datasets_count_old} new)")
+        print(
+            f"Number of datasets found: {len(datasets_tmp)} ({len(datasets) - datasets_count_old} new)"
+        )
     print("-" * 30)
     return datasets
 
@@ -408,14 +408,16 @@ def index_files_from_one_dataset(token, dataset_id, dataset_files_url):
                         "file_type": toolbox.extract_file_extension(
                             files["attributes"]["name"]
                         ),
-                        "file_size": files["attributes"]["size"],  # File size in bytes.
+                        "file_size": files["attributes"][
+                            "size"
+                        ],  # File size is in bytes.
                         "file_md5": files["attributes"]["extra"]["hashes"]["md5"],
                         "from_zip_file": False,
                         "file_name": files["attributes"]["materialized_path"],
                         "file_url": files["links"]["download"],
                         "origin_zip_file": "none",
                     }
-                    # Remove / at beginning of file path
+                    # Remove / at beginning of file path.
                     if file_dict["file_name"].startswith("/"):
                         file_dict["file_name"] = file_dict["file_name"][1:]
                     files_lst.append(file_dict)
@@ -435,23 +437,23 @@ if __name__ == "__main__":
         handlers=[log_file, log_stream],
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG
+        level=logging.DEBUG,
     )
-    # Rewire the print function to logging.info
+    # Rewire the print function to logging.info.
     print = logging.info
 
-    # Print script name and doctring
+    # Print script name and doctring.
     print(__file__)
     print(__doc__)
 
-    # Rest API call counter
+    # Rest API call counter.
     query_osf_api.counter = 0
 
-    # Read OSF token
+    # Read OSF token.
     OSF_TOKEN = read_osf_token()
     test_osf_connection(OSF_TOKEN)
 
-    # Read parameter file
+    # Read parameter file.
     (
         FILE_TYPES,
         KEYWORDS,
@@ -463,10 +465,10 @@ if __name__ == "__main__":
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
     QUERY_KEYWORDS = ' AND ("' + '" OR "'.join(KEYWORDS) + '")'
 
-    # Verify output directory exists
+    # Verify output directory exists.
     toolbox.verify_output_directory(ARGS.output)
 
-    # Search datasets
+    # Search datasets.
     dataset_ids = search_datasets(
         OSF_TOKEN,
         FILE_TYPES,
@@ -480,32 +482,32 @@ if __name__ == "__main__":
 
     # In OSF, datasets are represented as "nodes"
     # some nodes have "children" and "parent" that are worth collecting
-    # We run it twice to be as exhaustive as possible
+    # We run it twice to be as exhaustive as possible.
     dataset_ids = add_children_parent_datasets(OSF_TOKEN, dataset_ids)
     dataset_ids = add_children_parent_datasets(OSF_TOKEN, dataset_ids)
 
-    # Query datasets (called "nodes" in OSF)
+    # Query datasets (called "nodes" in OSF).
     datasets_lst, texts_lst = query_datasets(OSF_TOKEN, dataset_ids)
     datasets_df = pd.DataFrame(datasets_lst)
     texts_df = pd.DataFrame(texts_lst)
 
-    # Save datasets dataframe to disk
+    # Save datasets dataframe to disk.
     DATASETS_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_datasets.tsv"
     datasets_df.drop(columns="files_url").to_csv(
         DATASETS_EXPORT_PATH, sep="\t", index=False
     )
     print(f"Results saved in {str(DATASETS_EXPORT_PATH)}")
-    
-    # Save text datasets dataframe to disk
+
+    # Save text datasets dataframe to disk.
     TEXTS_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_datasets_text.tsv"
     texts_df.to_csv(TEXTS_EXPORT_PATH, sep="\t", index=False)
     print(f"Results saved in {str(TEXTS_EXPORT_PATH)}")
 
-    # Query files
+    # Query files.
     files_lst = index_files_from_all_datasets(OSF_TOKEN, datasets_df)
     files_df = pd.DataFrame(files_lst)
 
-    # Save files dataframe to disk
+    # Save files dataframe to disk.
     FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_files.tsv"
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
     print(f"Results saved in {str(FILES_EXPORT_PATH)}")
@@ -514,16 +516,21 @@ if __name__ == "__main__":
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
-    # Find false-positive datasets
+    # List file types from the query parameter file.
     FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
     # Zip is not a MD-specific file type.
     FILE_TYPES_LST.remove("zip")
+    # Find false-positive datasets.
     FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
-        FILES_EXPORT_PATH,
-        DATASETS_EXPORT_PATH,
-        FILE_TYPES_LST
+        FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, FILE_TYPES_LST
     )
-    # Clean files
-    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS)
+    # Clean files.
+    toolbox.remove_false_positive_datasets(
+        FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS
+    )
+    toolbox.remove_false_positive_datasets(
+        DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS
+    )
+    toolbox.remove_false_positive_datasets(
+        TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS
+    )

@@ -49,7 +49,7 @@ def normalize_file_size(file_str):
 
 def get_files_structure_from_zip(ul):
     """Get files structure from zip file preview.
-    
+
     Recursion based on:
     https://stackoverflow.com/questions/17850121/parsing-nested-html-list-with-beautifulsoup
 
@@ -96,7 +96,7 @@ def extract_data_from_zip_file(url):
     attempt_max = 5
     time_between_attempts = 10
 
-    for attempt_id in range(1, attempt_max+1):
+    for attempt_id in range(1, attempt_max + 1):
         if response.status_code != 200:
             print(f"Attempt: {attempt_id}/{attempt_max}")
             print(f"Error with URL: {url}")
@@ -384,12 +384,9 @@ if __name__ == "__main__":
     test_zenodo_connection(ZENODO_TOKEN)
 
     # Read parameter file
-    (
-        FILE_TYPES,
-        KEYWORDS,
-        EXCLUDED_FILES,
-        EXCLUDED_PATHS
-    ) = toolbox.read_query_file(ARGS.query)
+    (FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS) = toolbox.read_query_file(
+        ARGS.query
+    )
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
@@ -475,7 +472,7 @@ if __name__ == "__main__":
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
     print(f"Results saved in {str(FILES_EXPORT_PATH)}")
 
-    # Scrap zip files content
+    # Scrap zip files content.
     print("-" * 30)
     zip_df = scrap_zip_content(files_df)
     # We don't remove duplicates here because
@@ -491,14 +488,15 @@ if __name__ == "__main__":
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
-    # Find false-positive datasets
+    # List file types from the query parameter file.
     FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
     # Zip is not a MD-specific file type.
     FILE_TYPES_LST.remove("zip")
+    # Find false-positive datasets.
     FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
         FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, FILE_TYPES_LST
     )
-    # Clean files
+    # Clean files.
     toolbox.remove_false_positive_datasets(
         FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS
     )
