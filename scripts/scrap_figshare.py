@@ -13,6 +13,7 @@ import requests
 
 
 import toolbox
+
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
 
@@ -43,7 +44,7 @@ def extract_files_from_response(json_dic, file_list):
     ----------
     json_dic : dict
         json dictionary of zip file preview
-    
+
     file_list : list
         list with filenames
 
@@ -111,11 +112,11 @@ def search_figshare_with_query(query, page=1, hits_per_page=1000):
     dict
         Figshare response as a JSON object.
     """
-    HEADERS = {'content-type': 'application/json'}
+    HEADERS = {"content-type": "application/json"}
     response = requests.post(
         "https://api.figshare.com/v2/articles/search",
         data=f'\u007b"search_for": "{query}", "page_size":{hits_per_page}, "item_type":3, "page":{page}\u007d',
-        headers=HEADERS
+        headers=HEADERS,
     )
     if response.status_code == 200:
         return response.json()
@@ -136,14 +137,12 @@ def request_figshare_dataset_with_id(datasetID):
     dict
         FigShare response as a JSON object.
     """
-    response = requests.get(
-        f"https://api.figshare.com/v2/articles/{datasetID}"
-    )
+    response = requests.get(f"https://api.figshare.com/v2/articles/{datasetID}")
     if response.status_code == 200:
         return response.json()
     else:
         return None
-    #return json.loads(response.content)
+    # return json.loads(response.content)
 
 
 def request_figshare_downloadstats_with_id(datasetID):
@@ -202,10 +201,7 @@ def scrap_figshare_zip_content(files_df):
     files_in_zip_lst = []
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
-    print(
-        "Number of zip files to scrap: "
-        f"{zip_files_df.shape[0]}"
-    )
+    print("Number of zip files to scrap: " f"{zip_files_df.shape[0]}")
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         file_id = zip_file["file_url"].split("/")[-1]
@@ -277,8 +273,8 @@ def extract_records(hit):
         "date_last_modified": extract_date(hit["modified_date"][:-1]),
         "date_fetched": datetime.now().isoformat(timespec="seconds"),
         "file_number": len(hit["files"]),
-        "download_number": request_figshare_downloadstats_with_id(hit['id'])["totals"],
-        "view_number": request_figshare_viewstats_with_id(hit['id'])["totals"],
+        "download_number": request_figshare_downloadstats_with_id(hit["id"])["totals"],
+        "view_number": request_figshare_viewstats_with_id(hit["id"])["totals"],
         "license": hit["license"]["name"],
         "dataset_url": hit["url_public_html"],
     }
@@ -289,7 +285,7 @@ def extract_records(hit):
         "title": toolbox.clean_text(hit["title"]),
         "author": toolbox.clean_text(hit["authors"][0]["full_name"]),
         "keywords": "",
-        "description": toolbox.clean_text(hit["description"])
+        "description": toolbox.clean_text(hit["description"]),
     }
     if "tags" in hit:
         text_dict["keywords"] = ";".join(
@@ -297,10 +293,10 @@ def extract_records(hit):
         )
     texts.append(text_dict)
     for file_in in hit["files"]:
-        if len(file_in["name"].split('.'))==1:
+        if len(file_in["name"].split(".")) == 1:
             filetype = "none"
         else:
-            filetype = file_in["name"].split('.')[-1].lower()
+            filetype = file_in["name"].split(".")[-1].lower()
         file_dict = {
             "dataset_origin": dataset_dict["dataset_origin"],
             "dataset_id": dataset_dict["dataset_id"],
@@ -319,7 +315,9 @@ def extract_records(hit):
 def main_scrap_figshare(arg, scrap_zip=False):
     """Scrap Figshare."""
     # Read parameter file
-    FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(arg.query)
+    FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(
+        arg.query
+    )
     # Query with keywords are build in the loop as Figshare has a character limit in query
 
     # Verify results output directory
@@ -338,9 +336,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
         print(f"Looking for filetype: {file_type['type']}")
         query_records = []
         query_files = []
-        base_query = (
-            f":extension: {file_type['type']}"
-        )
+        base_query = f":extension: {file_type['type']}"
         target_keywords = [""]
         if file_type["keywords"] == "keywords":
             target_keywords = KEYWORDS
@@ -383,29 +379,30 @@ def main_scrap_figshare(arg, scrap_zip=False):
             files_lst += file_info
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_lst)
-            datasets_df = pd.concat(
-                [datasets_df, datasets_df_tmp], ignore_index=True
-            )
+            datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
             datasets_df.drop_duplicates(
-                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
+            )
             # Merge texts
             texts_df_tmp = pd.DataFrame(texts_lst)
-            texts_df = pd.concat(
-                [texts_df, texts_df_tmp], ignore_index=True
-            )
+            texts_df = pd.concat([texts_df, texts_df_tmp], ignore_index=True)
             texts_df.drop_duplicates(
-                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True)                            
+                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
+            )
             # Merge files
             files_df_tmp = pd.DataFrame(files_lst)
             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
             files_df.drop_duplicates(
-                subset=["dataset_id", "file_name", "file_md5"], keep="first", inplace=True
+                subset=["dataset_id", "file_name", "file_md5"],
+                keep="first",
+                inplace=True,
             )
 
-        print(f"Number of datasets found: {len(datasets_lst)} ({datasets_df.shape[0] - datasets_count_old} new)")
+        print(
+            f"Number of datasets found: {len(datasets_lst)} ({datasets_df.shape[0] - datasets_count_old} new)"
+        )
         print(f"Number of files found: {len(files_lst)}")
         print("-" * 30)
-
 
     print(f"Total number of datasets found: {datasets_df.shape[0]}")
     print(f"Total number of files found: {files_df.shape[0]}")
@@ -431,18 +428,20 @@ def main_scrap_figshare(arg, scrap_zip=False):
         files_df = pd.concat([files_df, zip_df], ignore_index=True)
         print(f"Number of files found inside zip files: {zip_df.shape[0]}")
         print(f"Total number of files found: {files_df.shape[0]}")
-        files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
+        files_df = toolbox.remove_excluded_files(
+            files_df, EXCLUDED_FILES, EXCLUDED_PATHS
+        )
         files_df.to_csv(files_export_path, sep="\t", index=False)
         print(f"Results saved in {str(files_export_path)}")
         print("-" * 30)
-    
+
     return files_export_path, datasets_export_path, texts_export_path
 
 
 if __name__ == "__main__":
     # Parse input arguments
     ARGS = toolbox.get_scraper_cli_arguments()
-    
+
     # Create logger
     log_file = logging.FileHandler(f"{ARGS.output}/scrap_figshare.log", mode="w")
     log_file.setLevel(logging.INFO)
@@ -451,7 +450,7 @@ if __name__ == "__main__":
         handlers=[log_file, log_stream],
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG
+        level=logging.DEBUG,
     )
     # Rewire the print function to logging.info
     print = logging.info
@@ -461,23 +460,29 @@ if __name__ == "__main__":
     print(__doc__)
 
     # Scrap Figshare
-    FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, TEXTS_EXPORT_PATH = main_scrap_figshare(ARGS, scrap_zip=True)
+    FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, TEXTS_EXPORT_PATH = main_scrap_figshare(
+        ARGS, scrap_zip=True
+    )
 
-	# Remove datasets that contain non-MD related files
+    # Remove datasets that contain non-MD related files
     # that come from zip files.
     # Read parameter file.
-    FILE_TYPES, _, _, _, _ = toolbox.read_query_file(ARGS.query)
-    # Find false-positive datasets
+    FILE_TYPES, _, _, _ = toolbox.read_query_file(ARGS.query)
+    # List file types from the query parameter file.
     FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
     # Zip is not a MD-specific file type.
     FILE_TYPES_LST.remove("zip")
+    # Find false-positive datasets.
     FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
-        FILES_EXPORT_PATH,
-        DATASETS_EXPORT_PATH,
-        FILE_TYPES_LST
+        FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, FILE_TYPES_LST
     )
-    # Clean files
-    toolbox.remove_false_positive_datasets(FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS)
-    toolbox.remove_false_positive_datasets(TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS)
-
+    # Clean files.
+    toolbox.remove_false_positive_datasets(
+        FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS
+    )
+    toolbox.remove_false_positive_datasets(
+        DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS
+    )
+    toolbox.remove_false_positive_datasets(
+        TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS
+    )
