@@ -329,13 +329,9 @@ def main_scrap_figshare(arg, scrap_zip=False):
     datasets_df = pd.DataFrame()
     texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
-    prev_datasets_count = 0
-    prev_file_count = 0
     print("-" * 30)
     for file_type in FILE_TYPES:
         print(f"Looking for filetype: {file_type['type']}")
-        query_records = []
-        query_files = []
         base_query = f":extension: {file_type['type']}"
         target_keywords = [""]
         if file_type["keywords"] == "keywords":
@@ -377,19 +373,19 @@ def main_scrap_figshare(arg, scrap_zip=False):
             datasets_lst += dataset_info
             texts_lst += text_info
             files_lst += file_info
-            # Merge datasets
+            # Merge datasets.
             datasets_df_tmp = pd.DataFrame(datasets_lst)
             datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
             datasets_df.drop_duplicates(
                 subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
             )
-            # Merge texts
+            # Merge texts.
             texts_df_tmp = pd.DataFrame(texts_lst)
             texts_df = pd.concat([texts_df, texts_df_tmp], ignore_index=True)
             texts_df.drop_duplicates(
                 subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
             )
-            # Merge files
+            # Merge files.
             files_df_tmp = pd.DataFrame(files_lst)
             files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
             files_df.drop_duplicates(
@@ -420,7 +416,7 @@ def main_scrap_figshare(arg, scrap_zip=False):
     print("-" * 30)
 
     if scrap_zip:
-        # Scrap zip files content
+        # Scrap zip files content.
         zip_df = scrap_figshare_zip_content(files_df)
         # We don't remove duplicates here because
         # one zip file can contain several files with the same name
@@ -439,10 +435,10 @@ def main_scrap_figshare(arg, scrap_zip=False):
 
 
 if __name__ == "__main__":
-    # Parse input arguments
+    # Parse input arguments.
     ARGS = toolbox.get_scraper_cli_arguments()
 
-    # Create logger
+    # Create logger.
     log_file = logging.FileHandler(f"{ARGS.output}/scrap_figshare.log", mode="w")
     log_file.setLevel(logging.INFO)
     log_stream = logging.StreamHandler()
@@ -452,10 +448,10 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.DEBUG,
     )
-    # Rewire the print function to logging.info
+    # Rewire the print function to logging.info.
     print = logging.info
 
-    # Print script name and doctring
+    # Print script name and doctring.
     print(__file__)
     print(__doc__)
 
