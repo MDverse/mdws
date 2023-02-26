@@ -8,8 +8,9 @@ notebooks/*.png
 notebooks/*.svg
 results/
 
-# dev / test files
+# dev / tmp files
 dev*
+tmp*
 
 # credential file
 .env
