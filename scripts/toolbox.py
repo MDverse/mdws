@@ -2,7 +2,6 @@
 
 import argparse
 from datetime import datetime
-import logging
 import pathlib
 import re
 import warnings
@@ -37,23 +36,19 @@ def load_database(filename, database_type):
     """
     df = pd.DataFrame()
     if database_type == "datasets":
-        df = pd.read_csv(
-            filename,
-            sep="\t",
-            dtype={"dataset_id": str}
-        )
+        df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
     elif database_type == "texts":
-        df = pd.read_csv(
-            filename,
-            sep="\t",
-            dtype={"dataset_id": str}
-        )
+        df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
     elif database_type == "files":
         df = pd.read_csv(
             filename,
             sep="\t",
-            dtype={"dataset_id": str, "file_type": str,
-                   "file_md5": str, "file_url": str}
+            dtype={
+                "dataset_id": str,
+                "file_type": str,
+                "file_md5": str,
+                "file_url": str,
+            },
         )
     return df
 
@@ -296,28 +291,26 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
     # Merge datasets and files dataframes to get dataset url
     # together with file types.
     df = pd.merge(
-        files_df, datasets_df,
+        files_df,
+        datasets_df,
         how="left",
         on=["dataset_id", "dataset_origin"],
-        validate="many_to_one"
+        validate="many_to_one",
     )
     # Get total number of files and unique file types per dataset.
     unique_file_types_per_dataset = (
-    df
-        .groupby("dataset_id")["file_type"]
+        df.groupby("dataset_id")["file_type"]
         .agg(["count", "unique"])
         .rename(columns={"count": "total_files", "unique": "unique_file_types"})
         .sort_values(by="total_files", ascending=False)
     )
     false_positives = []
     for dataset_id in unique_file_types_per_dataset.index:
-        file_types = list(unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"])
-        number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
-        dataset_url = (
-        df
-            .query(f"dataset_id == '{dataset_id}'")
-            .iloc[0]["dataset_url"]
+        file_types = list(
+            unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"]
         )
+        number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
+        dataset_url = df.query(f"dataset_id == '{dataset_id}'").iloc[0]["dataset_url"]
         # Datasets that only contain zip files might have not been properly
         # parsed by the scrapper or zip preview was not available.
         # We remove these datasets.
@@ -333,8 +326,10 @@ def find_false_positive_datasets(files_filename, datasets_filename, md_file_type
         # and the first 20 file types for extra verification.
         if len(set(file_types) & set(md_file_types)) == 0:
             print(f"Dataset {dataset_id} ({dataset_url}) is probably a false positive")
-            print(f"Dataset {dataset_id} will be removed with its {number_files} files)")
-            print(f"List of the first file types:")
+            print(
+                f"Dataset {dataset_id} will be removed with its {number_files} files)"
+            )
+            print("List of the first file types:")
             print(" ".join(file_types[:20]))
             print("---")
             false_positives.append(dataset_id)
@@ -360,6 +355,8 @@ def remove_false_positive_datasets(filename, database_type, dataset_ids_to_remov
     # We keep rows NOT associated to false-positive dataset ids
     df_clean = df[~df["dataset_id"].isin(dataset_ids_to_remove)]
     records_count_clean = len(df_clean)
-    print(f"Removing {records_count_old - records_count_clean} lines "
-          f"({records_count_old} -> {records_count_clean}) in {filename}")
+    print(
+        f"Removing {records_count_old - records_count_clean} lines "
+        f"({records_count_old} -> {records_count_clean}) in {filename}"
+    )
     df_clean.to_csv(filename, sep="\t", index=False)
