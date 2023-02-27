@@ -169,3 +169,5 @@ if __name__ == "__main__":
     df.to_parquet(output_name)
     print(f"Wrote {output_name}")
     compare_types(df, output_name)
+
+
