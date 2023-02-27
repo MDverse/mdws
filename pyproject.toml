@@ -1,0 +1,4 @@
+[tool.ruff]
+
+# Same as Black.
+line-length = 88
