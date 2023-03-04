@@ -28,17 +28,22 @@ REGEX_INTEGRATOR = re.compile("^\s*integrator\s*=\s*([-\w]+)", re.IGNORECASE)
 FILE_TYPE = "mdp"
 
 # Normalized thermostat and barostat names
+# https://manual.gromacs.org/documentation/current/user-guide/mdp-options.html#temperature-coupling
 THERMOSTATS = {
+    "no": "no",
     "berendsen": "Berendsen",
     "nosehoover": "Nose-Hoover",
+    "andersen": "Andersen",
+    "andersenmassive": "Andersen-massive",
     "vrescale": "V-rescale",
-    "no": "No temperature",
 }
+# https://manual.gromacs.org/documentation/current/user-guide/mdp-options.html#pressure-coupling
 BAROSTATS = {
-    "no": "No pressure",
+    "no": "no",
     "berendsen": "Berendsen",
     "crescale": "C-rescale",
     "parrinellorahman": "Parrinello-Rahman",
+    "mttk": "MTTK",
 }
 
 
@@ -133,7 +138,7 @@ def extract_info_from_mdp(mdp_file_path):
     return info
 
 
-def normalize_thermostat_barostat(value, normalized_values, default_value="undefined"):
+def normalize_thermostat_barostat(value, normalized_values):
     """Normalize thermostat parameter.
 
     Parameters
@@ -142,8 +147,6 @@ def normalize_thermostat_barostat(value, normalized_values, default_value="undef
         Thermostat or barostat parameter.
     normalized_values : dict
         Dictionnary of normalized values.
-    default_value : str, optional
-        Default value to return if value is not found in normalized_values.
 
     Returns
     -------
@@ -151,10 +154,10 @@ def normalize_thermostat_barostat(value, normalized_values, default_value="undef
         Normalized thermostat or barostat parameter.
     """
     if type(value) is not str:
-        output = default_value
+        output = "undefined"
     else:
         output = value.lower().replace("-", "").replace("_", "")
-        output = normalized_values.get(output, default_value)
+        output = normalized_values.get(output, "unknown")
     return output
 
 
