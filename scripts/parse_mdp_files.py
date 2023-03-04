@@ -27,6 +27,20 @@ REGEX_BAROSTAT = re.compile("^\s*pcoupl\s*=\s*([-\w]+)", re.IGNORECASE)
 REGEX_INTEGRATOR = re.compile("^\s*integrator\s*=\s*([-\w]+)", re.IGNORECASE)
 FILE_TYPE = "mdp"
 
+# Normalized thermostat and barostat names
+THERMOSTATS = {
+    "berendsen": "Berendsen",
+    "nosehoover": "Nose-Hoover",
+    "vrescale": "V-rescale",
+    "no": "No temperature",
+}
+BAROSTATS = {
+    "no": "No pressure",
+    "berendsen": "Berendsen",
+    "crescale": "C-rescale",
+    "parrinellorahman": "Parrinello-Rahman",
+}
+
 
 def get_cli_arguments():
     """Argument parser.
@@ -119,6 +133,31 @@ def extract_info_from_mdp(mdp_file_path):
     return info
 
 
+def normalize_thermostat_barostat(value, normalized_values, default_value="undefined"):
+    """Normalize thermostat parameter.
+
+    Parameters
+    ----------
+    value : str
+        Thermostat or barostat parameter.
+    normalized_values : dict
+        Dictionnary of normalized values.
+    default_value : str, optional
+        Default value to return if value is not found in normalized_values.
+
+    Returns
+    -------
+    str
+        Normalized thermostat or barostat parameter.
+    """
+    if type(value) is not str:
+        output = default_value
+    else:
+        output = value.lower().replace("-", "").replace("_", "")
+        output = normalized_values.get(output, default_value)
+    return output
+
+
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
@@ -194,6 +233,18 @@ if __name__ == "__main__":
             "origin_zip_file",
             "file_url",
         ]
+    )
+
+    # Normalize thermostat values.
+    print("Normalizing thermostat values...")
+    df["thermostat"] = df["thermostat"].apply(
+        lambda x: normalize_thermostat_barostat(x, THERMOSTATS)
+    )
+
+    # Normalize barostat values.
+    print("Normalizing barostat values...")
+    df["barostat"] = df["barostat"].apply(
+        lambda x: normalize_thermostat_barostat(x, BAROSTATS)
     )
 
     # Export results.
