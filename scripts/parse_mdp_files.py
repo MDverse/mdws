@@ -163,7 +163,7 @@ def normalize_thermostat_barostat(value, normalized_values):
         return value_undefined
     output = value.lower().replace("-", "").replace("_", "")
     output = normalized_values.get(output, value_unknown)
-    if value == value_unknown:
+    if output == value_unknown:
         print(f"Unknown thermostat/barostat value: {value}")
         print(f"Value set to '{value_unknown}'")
     return output
