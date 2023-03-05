@@ -25,6 +25,8 @@ protein:
 lipid:
 - POPC
 - DPPC
+- SDPC
+- SDPE
 - DLPC
 - DIPC
 - DMPC
@@ -159,7 +161,10 @@ water_ion:
 - WF     # Martini water antifreeze
 - K
 - CL
+- CA
 - NA
+- SOD    # NA+ ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
+- CLA    # CL- ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 
 glucid:
 - 0ZB
