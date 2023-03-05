@@ -10,6 +10,7 @@ import argparse
 import logging
 import pathlib
 import re
+import sys
 
 import pandas as pd
 import numpy as np
@@ -142,31 +143,55 @@ def extract_info_from_mdp(mdp_file_path):
     return info
 
 
-def normalize_thermostat_barostat(value, normalized_values):
-    """Normalize thermostat parameter.
+def normalize_thermostat_barostat(
+    dataframe=pd.DataFrame(),
+    column_to_normalize="thermostat",
+    value_undefined="undefined",
+    value_unknown="unknown"
+    ):
+    """Normalize thermostat and barostat parameter.
 
     Parameters
     ----------
-    value : str
-        Thermostat or barostat parameter.
-    normalized_values : dict
-        Dictionnary of normalized values.
+    dataframe : pd.DataFrame
+        Pandas dataframe with data to normalize.
+    column_to_normalize : str
+        Column to normalize in the dataframe.
+        Either 'thermostat' or 'barostat'.
+    value_undefined : str, optional
+        Value to return if value is not a string, by default "undefined".
+    value_unknown : str, optional
+        Value to return if value is not in normalized_values, by default "unknown".
 
     Returns
     -------
-    str
-        Normalized thermostat or barostat parameter.
+    pd.DataFrame
+        Pandas dataframe with normalized thermostat or barostat.
     """
-    value_undefined = "undefined"
-    value_unknown = "unknown"
-    if type(value) is not str:
-        return value_undefined
-    output = value.lower().replace("-", "").replace("_", "")
-    output = normalized_values.get(output, value_unknown)
-    if output == value_unknown:
-        print(f"Unknown thermostat/barostat value: {value}")
-        print(f"Value set to '{value_unknown}'")
-    return output
+    if column_to_normalize not in ["thermostat", "barostat"]:
+        print("Column value should be 'thermostat' or 'barostat'")
+        sys.exit(1)
+    print(f"Normalizing {column_to_normalize} values...")
+    REFERENCE = dict()
+    if column_to_normalize == "thermostat":
+        REFERENCE = THERMOSTATS
+    else:
+        REFERENCE = BAROSTATS
+    for index, row in dataframe.iterrows():
+        normalized_value = ""
+        value = row[column_to_normalize]
+        if type(value) is not str:
+            normalized_value = value_undefined
+        else:
+            value_tmp = value.lower().replace("-", "").replace("_", "")
+            normalized_value = REFERENCE.get(value_tmp, value_unknown)
+        df.at[index, column_to_normalize] = normalized_value
+        if normalized_value == value_unknown:
+            print(f"In {row['dataset_origin']} / {row['dataset_id']}")
+            print(f"file {row['file_name']}")
+            print(f"has an unknown {column_to_normalize} value: {value}")
+            print(f"Value set to '{value_unknown}'")
+    return df
 
 
 if __name__ == "__main__":
@@ -266,15 +291,15 @@ if __name__ == "__main__":
     )
 
     # Normalize thermostat values.
-    print("Normalizing thermostat values...")
-    df["thermostat"] = df["thermostat"].apply(
-        lambda x: normalize_thermostat_barostat(x, THERMOSTATS)
+    df = normalize_thermostat_barostat(
+        dataframe=df,
+        column_to_normalize="thermostat",
     )
 
     # Normalize barostat values.
-    print("Normalizing barostat values...")
-    df["barostat"] = df["barostat"].apply(
-        lambda x: normalize_thermostat_barostat(x, BAROSTATS)
+    df = normalize_thermostat_barostat(
+        dataframe=df,
+        column_to_normalize="barostat",
     )
 
     # Export results.
