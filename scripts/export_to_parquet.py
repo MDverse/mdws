@@ -1,5 +1,6 @@
 """Convert datasets to parquet format."""
 
+import logging
 
 import numpy as np
 import pandas as pd
@@ -29,7 +30,7 @@ def compute_global_statistics(df):
     )
     dataset_agg.loc["total"] = dataset_agg.sum(numeric_only=True)
     pd.set_option("display.precision", 0)
-    print(dataset_agg)
+    print("\n"+dataset_agg.to_string()+"\n")
 
 
 def compare_types(pandas_df, parquet_file):
@@ -49,17 +50,36 @@ def compare_types(pandas_df, parquet_file):
     pandas_types = pd.DataFrame(
         {"column_name": pandas_df.dtypes.index, "pandas_type": pandas_df.dtypes.values}
     )
-    merge_types = pd.merge(
+    merged_types = pd.merge(
         pandas_types,
         parquet_types,
         how="inner",
         on="column_name",
         validate="one_to_one",
     )
-    print(merge_types)
+    print("\n"+merged_types.to_string()+"\n")
 
 
 if __name__ == "__main__":
+    # Create logger
+    log_file = logging.FileHandler(
+        "data/export_to_parquet.log", mode="w"
+    )
+    log_file.setLevel(logging.INFO)
+    log_stream = logging.StreamHandler()
+    logging.basicConfig(
+        handlers=[log_file, log_stream],
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG,
+    )
+    # Rewire the print function to logging.info
+    print = logging.info
+
+    # Print script name and doctring
+    print(__file__)
+    print(__doc__.split("\n")[0])
+
     # Merge all datasets and convert to parquet
     datasets_df = pd.DataFrame()
     for repository in ["zenodo", "figshare", "osf"]:
@@ -119,12 +139,12 @@ if __name__ == "__main__":
 
     print("Statistics from TSV files:")
     compute_global_statistics(tsv_df)
-    print()
+    print("")
     print("Statistics from Parquet files:")
     compute_global_statistics(parquet_df)
 
     # Convert Gromacs gro files info to parquet
-    name = "data/gromacs_gro_files_info.tsv"
+    name = "data/gromacs_gro_files.tsv"
     df = pd.read_csv(
         name,
         sep="\t",
@@ -140,15 +160,15 @@ if __name__ == "__main__":
             "has_water_ion": bool,
         },
     )
-    print()
+    print("")
     print(f"Found {len(df)} files in {name}.")
-    output_name = "data/gromacs_gro_files.parquet"
+    output_name = name.replace(".tsv", ".parquet")
     df.to_parquet(output_name)
     print(f"Wrote {output_name}")
     compare_types(df, output_name)
 
     # Convert Gromacs mdp files info to parquet
-    name = "data/gromacs_mdp_files_info.tsv"
+    name = "data/gromacs_mdp_files.tsv"
     df = pd.read_csv(
         name,
         sep="\t",
@@ -163,9 +183,9 @@ if __name__ == "__main__":
             "barostat": str,
         },
     )
-    print()
+    print("")
     print(f"Found {len(df)} files in {name}.")
-    output_name = "data/gromacs_mdp_files.parquet"
+    output_name = name.replace(".tsv", ".parquet")
     df.to_parquet(output_name)
     print(f"Wrote {output_name}")
     compare_types(df, output_name)
