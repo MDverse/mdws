@@ -41,6 +41,18 @@ lipid:
 - SOPE
 - SPCE
 - POPS
+- POGS   # https://limonada.univ-reims.fr/lipids/lisp05010004/
+- POSM   # https://limonada.univ-reims.fr/lipids/lmsp03010040/
+- PODG   # https://limonada.univ-reims.fr/lipids/lmgl02010006/
+- POCE   # https://limonada.univ-reims.fr/lipids/lisp02010007/
+- OIPC   # https://limonada.univ-reims.fr/lipids/lmgp01010895/
+- DPCE   # https://limonada.univ-reims.fr/lipids/lisp02010001/
+- POG3   # https://limonada.univ-reims.fr/lipids/lisp06010012/
+- PNG1   # https://limonada.univ-reims.fr/lipids/lisp06010003/
+- PNG3   # https://limonada.univ-reims.fr/lipids/lisp06010007/
+- PAPS   # https://limonada.univ-reims.fr/lipids/lmgp03010038/
+- PUPE   # https://limonada.univ-reims.fr/lipids/lmgp02010095/
+- PUPI   # https://limonada.univ-reims.fr/lipids/lmgp06010011/
 - PSUA
 - PEUA
 - PCUA
@@ -163,6 +175,7 @@ water_ion:
 - CL
 - CA
 - NA
+- MG
 - SOD    # NA+ ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - CLA    # CL- ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - ION
