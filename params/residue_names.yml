@@ -165,6 +165,7 @@ water_ion:
 - NA
 - SOD    # NA+ ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - CLA    # CL- ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
+- ION
 
 glucid:
 - 0ZB
