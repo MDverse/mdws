@@ -229,7 +229,7 @@ if __name__ == "__main__":
 
     # Print script name and doctring
     print(__file__)
-    print(__doc__)
+    print(__doc__.split("\n")[0])
 
     # Verify input files exist
     toolbox.verify_file_exists(ARGS.input)
