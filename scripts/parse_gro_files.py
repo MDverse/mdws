@@ -5,8 +5,8 @@ https://manual.gromacs.org/5.1.1/user-guide/file-formats.html#gro
 """
 
 import argparse
+import logging
 import pathlib
-from unicodedata import unidata_version
 import warnings
 
 
@@ -19,8 +19,11 @@ import yaml
 
 import toolbox
 
+# Rewire the print function from the toolbox module to logging.info
+toolbox.print = logging.info
 
-# Ignore warnings that have no consequence here: cannot guess atom mass and missing velocities
+# Ignore warnings that have no consequence here:
+# cannot guess atom mass and missing velocities.
 warnings.filterwarnings(
     "ignore",
     message="Failed to guess the mass for the following atom types:",
@@ -189,6 +192,25 @@ def extract_info_from_gro(
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
+    # Create logger.
+    log_file = logging.FileHandler(
+        pathlib.Path(ARGS.output) / "gromacs_gro_files.log", mode="w"
+    )
+    log_file.setLevel(logging.INFO)
+    log_stream = logging.StreamHandler()
+    logging.basicConfig(
+        handlers=[log_file, log_stream],
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO,
+    )
+    # Rewire the print function to logging.info
+    print = logging.info
+
+    # Print script name and the first line of the doctring.
+    print(__file__)
+    print(__doc__.split("\n")[0])
+
     # Check input files
     for filename in ARGS.input:
         toolbox.verify_file_exists(filename)
@@ -283,7 +305,7 @@ if __name__ == "__main__":
     )
 
     # Export results.
-    result_file_path = pathlib.Path(ARGS.output) / "gromacs_gro_files_info.tsv"
+    result_file_path = pathlib.Path(ARGS.output) / "gromacs_gro_files.tsv"
     df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Results saved in {str(result_file_path)}")
     print(f"Total number of gro files parsed: {len(df)}")
