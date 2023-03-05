@@ -7,6 +7,7 @@ https://manual.gromacs.org/5.1.1/user-guide/file-formats.html#mdp
 """
 
 import argparse
+import logging
 import pathlib
 import re
 
@@ -15,6 +16,9 @@ import numpy as np
 from tqdm import tqdm
 
 import toolbox
+
+# Rewire the print function from the toolbox module to logging.info
+toolbox.print = logging.info
 
 # Regular expressions to extract information from mdp file.
 # \s matchs any whitespace character (newline, tab, space, etc.)
@@ -133,7 +137,7 @@ def extract_info_from_mdp(mdp_file_path):
                 if catch_integrator:
                     info["integrator"] = catch_integrator.group(1)
     except (FileNotFoundError, UnicodeDecodeError, EOFError, OSError):
-        print(f"\nCannot read: {mdp_file_path}")
+        print(f"Cannot read: {mdp_file_path}")
         info["is_error"] = True
     return info
 
@@ -153,18 +157,41 @@ def normalize_thermostat_barostat(value, normalized_values):
     str
         Normalized thermostat or barostat parameter.
     """
+    value_undefined = "undefined"
+    value_unknown = "unknown"
     if type(value) is not str:
-        output = "undefined"
-    else:
-        output = value.lower().replace("-", "").replace("_", "")
-        output = normalized_values.get(output, "unknown")
+        return value_undefined
+    output = value.lower().replace("-", "").replace("_", "")
+    output = normalized_values.get(output, value_unknown)
+    if value == value_unknown:
+        print(f"Unknown thermostat/barostat value: {value}")
+        print(f"Value set to '{value_unknown}'")
     return output
 
 
 if __name__ == "__main__":
     ARGS = get_cli_arguments()
 
-    # Check input files
+    # Create logger.
+    log_file = logging.FileHandler(
+        pathlib.Path(ARGS.output) / "gromacs_mdp_files.log", mode="w"
+    )
+    log_file.setLevel(logging.INFO)
+    log_stream = logging.StreamHandler()
+    logging.basicConfig(
+        handlers=[log_file, log_stream],
+        format="%(asctime)s %(levelname)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG,
+    )
+    # Rewire the print function to logging.info
+    print = logging.info
+
+    # Print script name and the first line of the doctring.
+    print(__file__)
+    print(__doc__.split("\n")[0])
+
+    # Check input files.
     for filename in ARGS.input:
         toolbox.verify_file_exists(filename)
     # check files path
@@ -172,7 +199,7 @@ if __name__ == "__main__":
         raise FileNotFoundError(f"Directory {ARGS.storage} not found.")
     else:
         print(f"Found {ARGS.storage} folder.")
-    # Check output directory
+    # Check output directory.
     toolbox.verify_output_directory(ARGS.output)
 
     # Create a dataframe with all files found in data repositories.
@@ -251,7 +278,7 @@ if __name__ == "__main__":
     )
 
     # Export results.
-    result_file_path = pathlib.Path(ARGS.output) / "gromacs_mdp_files_info.tsv"
+    result_file_path = pathlib.Path(ARGS.output) / "gromacs_mdp_files.tsv"
     df.to_csv(result_file_path, sep="\t", index=False)
     print(f"Results saved in {str(result_file_path)}")
     print(f"Number of mdp files parsed: {len(df)}")
