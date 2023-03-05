@@ -174,8 +174,8 @@ def extract_info_from_gro(
             elif residue_name in ["WAL"]:
                 pass
             else:
-                pass
-                # print(f"Unknown residue: {residue_name} / {str(gro_file_path)}")
+                print(f"In file: {str(gro_file_path)}")
+                print(f"Found unknown residue: {residue_name}")
     except (
         IndexError,
         ValueError,
