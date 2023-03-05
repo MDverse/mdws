@@ -43,10 +43,17 @@ python scripts/parse_mdp_files.py \
 --input data/zenodo_files.tsv --input data/figshare_files.tsv --input data/osf_files.tsv \
 --storage data/downloads --output data
 
+
 echo "PARSING GROMACS .GRO FILES"
 
 python scripts/parse_gro_files.py \
 --input data/zenodo_files.tsv --input data/figshare_files.tsv --input data/osf_files.tsv \
 --storage data/downloads --residues params/residue_names.yml --output data
+
+
+echo "EXPORTING TO PARQUET"
+
+python scripts/export_to_parquet.py
+
 
 echo "ALL JOBS DONE!"
