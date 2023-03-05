@@ -187,10 +187,10 @@ def normalize_thermostat_barostat(
             normalized_value = REFERENCE.get(value_tmp, value_unknown)
         df.at[index, column_to_normalize] = normalized_value
         if normalized_value == value_unknown:
-            print(f"In {row['dataset_origin']} / {row['dataset_id']}")
-            print(f"file {row['file_name']}")
+            print(f"In: {row['dataset_origin']} / {row['dataset_id']}")
+            print(f"file: {row['file_name']}")
             print(f"has an unknown {column_to_normalize} value: {value}")
-            print(f"Value set to '{value_unknown}'")
+            print(f"Value set to: '{value_unknown}'")
     return df
 
 
