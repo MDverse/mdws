@@ -21,6 +21,28 @@ protein:
 - TRP
 - TYR
 - VAL
+- ACE   # N-terminal acetyl group
+- NME   # C-terminal amide group
+- sG    # Glycine / SIRAH force field
+- sA    # Alanine / SIRAH force field
+- sV    # Valine / SIRAH force field
+- sL    # Leucine / SIRAH force field
+- sI    # Isoleucine / SIRAH force field
+- sP    # Proline / SIRAH force field
+- sF    # Phenylalanine / SIRAH force field
+- sW    # Tryptophan / SIRAH force field
+- sD    # Aspartic acid / SIRAH force field
+- sK    # Lysine / SIRAH force field
+- sR    # Arginine / SIRAH force field
+- sC    # Cysteine / SIRAH force field
+- sM    # Methionine / SIRAH force field
+- sS    # Serine / SIRAH force field
+- sT    # Threonine / SIRAH force field
+- sN    # Asparagine / SIRAH force field
+- sQ    # Glutamine / SIRAH force field
+- sHe   # Histidine / SIRAH force field
+- sY    # Tyrosine / SIRAH force field
+- sE    # Glutamic acid / SIRAH force field
 
 lipid:
 - POPC
@@ -53,6 +75,12 @@ lipid:
 - PAPS   # https://limonada.univ-reims.fr/lipids/lmgp03010038/
 - PUPE   # https://limonada.univ-reims.fr/lipids/lmgp02010095/
 - PUPI   # https://limonada.univ-reims.fr/lipids/lmgp06010011/
+- SAPS   # https://limonada.univ-reims.fr/lipids/lmgp03010039/
+- PAPC   # https://limonada.univ-reims.fr/lipids/ligp01010001/
+- PIPC   # https://limonada.univ-reims.fr/lipids/lmgp01010594/
+- PLPC
+- PVPE
+- PVPG   
 - PSUA
 - PEUA
 - PCUA
@@ -165,20 +193,40 @@ nucleic:
 - 5BU
 - 4SU
 - 6MA
+- 6AH    # N6-methyladenosine. Exemple in https://zenodo.org/record/6498021 (A1.zip 1M_A1_anti_fitAB/lam0/confout.gro)
+- DAX   # Adenine / SIRAH force field
+- DGX   # Guanine / SIRAH force field
+- DTX   # Thymine / SIRAH force field
+- DCX   # Cytosine / SIRAH force field
 
 water_ion:
 - SOL
 - TIP3
 - W      # Martini water
 - WF     # Martini water antifreeze
+- WAT
 - K
+- Cl
 - CL
+- Cl-
+- CL-
 - CA
+- Na
 - NA
+- Na+
+- NA+
 - MG
-- SOD    # NA+ ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
-- CLA    # CL- ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
+- SOD   # Sodium ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
+- CLA   # Chloride ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - ION
+- NaW   # Sodium ion / SIRAH force field
+- KW    # Potassium ion / SIRAH force field
+- ClW   # Chloride ion / SIRAH force field
+- CaX   # Calcium ion / SIRAH force field
+- MgX   # Magnesium ion / SIRAH force field
+- ZnX   # Zinc ion / SIRAH force field
+- WT4   # Water model / SIRAH force field
+- WLS   # Water model (55 water molecules) / SIRAH force field
 
 glucid:
 - 0ZB
