@@ -45,8 +45,8 @@ protein:
 - sE    # Glutamic acid / SIRAH force field
 
 lipid:
-- POPC
-- DPPC
+- POPC  # 1-palmitoyl-2-oleoyl-sn-glycero-3-phosphocholine
+- DPPC  # 1,2-dipalmitoyl-sn-glycero-3-phosphocholin
 - SDPC
 - SDPE
 - DLPC
@@ -54,7 +54,7 @@ lipid:
 - DMPC
 - DSPC
 - SOPC
-- POPE
+- POPE  # 1-palmitoyl-2-oleoyl-sn-glycero-3-phosphoethanolamin
 - DPPE
 - DLPE
 - DIPE
@@ -80,13 +80,15 @@ lipid:
 - PIPC   # https://limonada.univ-reims.fr/lipids/lmgp01010594/
 - PLPC
 - PVPE
-- PVPG   
+- PVPG   # 1-palmitoyl-2-vacenoyl-phosphatidyl-glycerol
+- PVCL2  # 1,10-palmitoyl-2,20-vacenoyl cardiolipin
 - PSUA
 - PEUA
+- PPPE   # 1-palmitoyl-2-palmitoleoyl-phosphatidylethanolamine
 - PCUA
 - PZPC
 - DEPC
-- DOPC
+- DOPC   # 1,2-dioleoyl-sn-glycero-3-phosphocholine
 - DOPS
 - DAPC
 - DDPC
@@ -95,6 +97,7 @@ lipid:
 - POPG
 - CHOL
 - CHL1
+- CLs   # cardiolipins
 - CER16
 - PSM
 - PLA
