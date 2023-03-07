@@ -227,7 +227,41 @@ nucleic:
 glucid:
 - 0ZB
 - 3YB
+- 4YB
+- UYB
 - 4ZB
+- 0GB
+- 4GB
+- 0MA
+- 2MA
+- 3MA
+- 3MB
+- VMB
+- 0LB
+- 1LB
+- 2LB
+- 3LB
+- 4LB
+- 6LB
+- ZLB
+- YLB
+- XLB
+- WLB
+- VLB
+- ULB
+- TLB
+- SLB
+- RLB
+- QLB
+- PLB
+- 0MU
+- 1MU
+- 2MU
+- 3MU
+- 4MU
+- 0SA
+- 0FA
+- 3VA
 
 water_ion:
 - SOL
