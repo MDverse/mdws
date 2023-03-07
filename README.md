@@ -151,7 +151,7 @@ Expect about 640 GB of data with the `--withzipfiles` option (~ 8800 gro files a
 
 Numbers are indicative only and may vary dependy on the time you run this command.
 
-### Parse files
+### Parse .mdp files
 
 ```bash
 python scripts/parse_mdp_files.py \
@@ -161,6 +161,9 @@ python scripts/parse_mdp_files.py \
 
 This step will take a couple of seconds to run. Results will be saved in `data/gromacs_mdp_files_info.tsv`.
 
+### Parse .gro files
+
+A rought molecular composition is infered from the file `params/residue_name.yml` that contains a partial list of residues names organized in categories *protein*, *lipid*, *nucleic*, *glucid* and *water & ion*.
 
 ```bash
 python scripts/parse_gro_files.py \

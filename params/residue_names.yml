@@ -199,6 +199,11 @@ nucleic:
 - DTX   # Thymine / SIRAH force field
 - DCX   # Cytosine / SIRAH force field
 
+glucid:
+- 0ZB
+- 3YB
+- 4ZB
+
 water_ion:
 - SOL
 - TIP3
@@ -228,7 +233,4 @@ water_ion:
 - WT4   # Water model / SIRAH force field
 - WLS   # Water model (55 water molecules) / SIRAH force field
 
-glucid:
-- 0ZB
-- 3YB
-- 4ZB
+
