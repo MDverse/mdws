@@ -170,7 +170,7 @@ python scripts/parse_gro_files.py \
 
 This step will take about 4 hours to run. Results will be saved in `data/gromacs_gro_files_info.tsv`.
 
-### Export to  Parquet
+### Export to Parquet
 
 Parquet format is a column-based storage format that is supported by many data analysis tools.
 It's an efficient data format for large datasets.
