@@ -51,18 +51,21 @@ lipid:
 - SDPE
 - DLPC
 - DIPC
+- DUPC  # 1,2-di-docosahexaenoyl-sn-glycero-3-phosphocholine
 - DMPC
 - DSPC
 - SOPC
 - POPE  # 1-palmitoyl-2-oleoyl-sn-glycero-3-phosphoethanolamin
+- PPCS
 - DPPE
 - DLPE
 - DIPE
 - DMPE
 - DSPE
 - SOPE
+- SOPS   # 1-stearoyl-2-oleoyl-sn-glycero-3-phosphatidylserine
 - SPCE
-- POPS
+- POPS   # 1-palmitoyl-2-oleoyl-sn-glycero-3-phosphatidylserine
 - POGS   # https://limonada.univ-reims.fr/lipids/lisp05010004/
 - POSM   # https://limonada.univ-reims.fr/lipids/lmsp03010040/
 - PODG   # https://limonada.univ-reims.fr/lipids/lmgl02010006/
@@ -78,6 +81,16 @@ lipid:
 - SAPS   # https://limonada.univ-reims.fr/lipids/lmgp03010039/
 - PAPC   # https://limonada.univ-reims.fr/lipids/ligp01010001/
 - PIPC   # https://limonada.univ-reims.fr/lipids/lmgp01010594/
+- PIPI
+- PIDG
+- PIPE
+- PIPS
+- PAPI
+- POPI
+- POPA
+- PIPA
+- PAPA
+- PUPA
 - PLPC
 - PVPE
 - PVPG   # 1-palmitoyl-2-vacenoyl-phosphatidyl-glycerol
@@ -95,7 +108,16 @@ lipid:
 - DOPE
 - DSUA
 - POPG
-- CHOL
+- DBSM  # Martini
+- DXSM  # Martini
+- BNSM  # Martini
+- DPSM  # Martini
+- PGSM  # Martini
+- PNSM  # Martini
+- SM16  # N-palmitoyl-D-erythro-sphingosyl-phosphatidylcholine
+- SM18  # N-stearoyl-D-erythro-sphingosyl-phosphorylcholine
+- SM24  # N-lignoceroyl-D-erythro-sphingosyl-phosphatidylcholine
+- CHOL  # cholesterol
 - CHL1
 - CLs   # cardiolipins
 - CER16
