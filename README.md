@@ -149,7 +149,7 @@ This step will take a couple of hours to complete. Depending on the stability of
 
 Expect about 640 GB of data with the `--withzipfiles` option (~ 8800 gro files and 9500 mdp files)
 
-Numbers are indicative only and may vary dependy on the time you run this command.
+Numbers are indicative only and may vary depend on the time you run this command (databases tend to get bigger and bigger).
 
 ### Parse .mdp files
 
