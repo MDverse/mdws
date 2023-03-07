@@ -107,6 +107,11 @@ def read_residue_file(residue_filename):
     nucleic_residues = data_loaded["nucleic"]
     water_ion_residues = data_loaded["water_ion"]
     glucid_residues = data_loaded["glucid"]
+    print(f"Found {len(protein_residues)} residues for 'protein'")
+    print(f"Found {len(lipid_residues)} residues for 'lipid'")
+    print(f"Found {len(nucleic_residues)} residues for 'nucleic acid'")
+    print(f"Found {len(water_ion_residues)} residues for 'water & ion'")
+    print(f"Found {len(glucid_residues)} residues for 'glucid'")
     return (
         protein_residues,
         lipid_residues,
