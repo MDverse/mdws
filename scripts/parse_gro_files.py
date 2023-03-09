@@ -5,6 +5,7 @@ https://manual.gromacs.org/5.1.1/user-guide/file-formats.html#gro
 """
 
 import argparse
+import itertools
 import logging
 import pathlib
 import warnings
@@ -92,59 +93,43 @@ def read_residue_file(residue_filename):
 
     Returns
     -------
-    protein_residues : list
-        List of protein residues
-    lipid_residues : list
-        List of lipid residues
-    nucleic_residues : lst
-        List of nucleic acid residues
+    dict
+        Dictionnary with set of residues by type (protein, lipid...)
     """
     with open(residue_filename, "r") as residue_file:
         print(f"Reading residue definition from: {residue_filename}")
         data_loaded = yaml.safe_load(residue_file)
-    protein_residues = data_loaded["protein"]
-    lipid_residues = data_loaded["lipid"]
-    nucleic_residues = data_loaded["nucleic"]
-    water_ion_residues = data_loaded["water_ion"]
-    glucid_residues = data_loaded["glucid"]
-    print(f"Found {len(protein_residues)} residues for 'protein'")
-    print(f"Found {len(lipid_residues)} residues for 'lipid'")
-    print(f"Found {len(nucleic_residues)} residues for 'nucleic acid'")
-    print(f"Found {len(water_ion_residues)} residues for 'water & ion'")
-    print(f"Found {len(glucid_residues)} residues for 'glucid'")
-    return (
-        protein_residues,
-        lipid_residues,
-        nucleic_residues,
-        water_ion_residues,
-        glucid_residues,
-    )
+    residues = {
+        "protein": set(data_loaded["protein"]),
+        "lipid": set(data_loaded["lipid"]),
+        "nucleic": set(data_loaded["nucleic"]),
+        "water_ion": set(data_loaded["water_ion"]),
+        "glucid": set(data_loaded["glucid"]),
+    }
+    # Print number of residues for each type.
+    for residue_type in residues:
+        print(f"Found {len(residues[residue_type])} residues for '{residue_type}'")
+    # Remove duplicates between residue types.
+    for residue_type_1, residue_type_2 in itertools.combinations(residues, 2):
+        common_residues = residues[residue_type_1] & residues[residue_type_2]
+        for res in common_residues:
+            print(f"residue {res}: found in both '{residue_type_1}' and '{residue_type_2}'")
+            print(f"residue {res}: removed from list '{residue_type_1}'")
+            residues[residue_type_1].remove(res)
+            print(f"residue {res}: removed from list '{residue_type_2}'")
+            residues[residue_type_2].remove(res)
+    return residues
 
 
-def extract_info_from_gro(
-    gro_file_path="",
-    protein_residues=[],
-    lipid_residues=[],
-    nucleic_residues=[],
-    water_ion_residues=[],
-    glucid_residues=[],
-):
+def extract_info_from_gro(gro_file_path="", residues={}):
     """Extract information from Gromacs mdp file.
 
     Parameters
     ----------
     gro_file_path : str
         Path to gro file
-    protein_residues : list
-        List of protein residues
-    lipid_residues : list
-        List of lipid residues
-    nucleic_residues : lst
-        List of nucleic acid residues
-    water_ion_residues : lst
-        List of water and ions
-    glucid_residues : lst
-        List of glucid residues
+    residues : dict
+        Dictionnary with set of residues by type (protein, lipid...)
 
     Returns
     -------
@@ -165,22 +150,18 @@ def extract_info_from_gro(
         info["atom_number"] = len(universe.atoms)
         residue_names = set(universe.residues.resnames)
         for residue_name in residue_names:
-            if residue_name in protein_residues:
-                info["has_protein"] = True
-            elif residue_name in lipid_residues:
-                info["has_lipid"] = True
-            elif residue_name in nucleic_residues:
-                info["has_nucleic"] = True
-            elif residue_name in water_ion_residues:
-                info["has_water_ion"] = True
-            elif residue_name in glucid_residues:
-                info["has_glucid"] = True
-            # WALL particles
-            elif residue_name in ["WAL"]:
-                pass
-            else:
-                print(f"In file: {str(gro_file_path)}")
-                print(f"Found unknown residue: {residue_name}")
+            residue_not_found = True
+            for residue_type in residues:
+                if residue_name in residues[residue_type]:
+                    info[f"has_{residue_type}"] = True
+                    residue_not_found = False
+            if residue_not_found:
+                # WALL particles
+                if residue_name in ["WAL"]:
+                    pass
+                else:
+                    print(f"In file: {str(gro_file_path)}")
+                    print(f"Found unknown residue: {residue_name}")
     except (
         IndexError,
         ValueError,
@@ -228,13 +209,7 @@ if __name__ == "__main__":
     toolbox.verify_output_directory(ARGS.output)
 
     # Read residue definition file.
-    (
-        PROTEIN_RESIDUES,
-        LIPID_RESIDUES,
-        NUCLEIC_RESIDUES,
-        WATER_ION_RESIDUES,
-        GLUCID_RESIDUES,
-    ) = read_residue_file(ARGS.residues)
+    RESIDUES_DICT = read_residue_file(ARGS.residues)
 
     # Create a dataframe with all files found in data repositories.
     df = pd.DataFrame()
@@ -280,11 +255,7 @@ if __name__ == "__main__":
         # pbar.set_description(f"Reading {gro_file_name}", refresh=True)
         gro_info = extract_info_from_gro(
             gro_file_name,
-            PROTEIN_RESIDUES,
-            LIPID_RESIDUES,
-            NUCLEIC_RESIDUES,
-            WATER_ION_RESIDUES,
-            GLUCID_RESIDUES,
+            RESIDUES_DICT
         )
         # Keep track of files with error.
         if gro_info["is_error"]:
