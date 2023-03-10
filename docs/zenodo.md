@@ -64,9 +64,11 @@ Example dataset: [All-atom molecular dynamics simulations of SARS-CoV-2 envelope
 - preview for [NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip](https://zenodo.org/record/4743386/preview/NoPTM-2_Mix_CHARMM36m_0.1x3mks.zip)
 - preview for [NoPTM-4_POPC_CHARMM36m_0.1x3mks.zip](https://zenodo.org/record/4743386/preview/NoPTM-4_POPC_CHARMM36m_0.1x3mks.zip)
 
-### Zip files with directory-like organization
+Note that the preview is available for the first 1000 files only.
 
-Some zip file content are really dense, with a directory-like organization.
+### Zip files with tree-like structure
+
+Some zip file content are really dense, with many folders and sub-folders.
 
 Examples:
 
