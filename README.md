@@ -53,7 +53,7 @@ and store it in the file `.env`:
 ```
 ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 ```
-This file is ignored by git and won't be published on GitHub.
+This file is automatically ignored by git and won't be published on GitHub.
 
 Scrap Zenodo for MD-related datasets and files:
 

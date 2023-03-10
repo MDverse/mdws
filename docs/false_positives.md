@@ -14,4 +14,4 @@ False-positive examples:
 
 Special cases:
 
-- In dataset [CLN025__2RVD_3000ns_mutant](https://figshare.com/articles/dataset/CLN025_2RVD_3000ns_mutant/19794073), the archive `CLN025__2RVD_3000ns_mutant.zip` has no preview. Probably because the file is too large. In doubt, we keep datasets for which zip files cannot be previewed.
+- In dataset [CLN025__2RVD_3000ns_mutant](https://figshare.com/articles/dataset/CLN025_2RVD_3000ns_mutant/19794073), the archive `CLN025__2RVD_3000ns_mutant.zip` has no preview. Probably because the file is too large. We remove these kind of datasets anyway.
