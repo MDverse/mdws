@@ -1,0 +1,15 @@
+{
+    "metadata": {
+        "title": "MDverse datasets",
+        "upload_type": "dataset",
+        "description": "Files and datasets in Parquet format related to molecular dynamics and retrieved from the Zenodo, Figshare and OSF data repositories.",
+        "creators": [
+            {"name": "Tiemann, Johanna K. S.", "orcid": "0000-0001-7551-6245", "affiliation": "Linderstrom-Lang Centre for Protein Science, Department of Biology, University of Copenhagen, DK-2200 Copenhagen N, Denmark"},
+            {"name": "Chavent, Mathieu", "orcid": "0000-0003-4524-4773", "affiliation": "Institut de Pharmacologie et Biologie Structurale, CNRS, Université de Toulouse, F-31400 Toulouse, France"},
+            {"name": "Poulain, Pierre", "orcid": "0000-0003-4177-3619", "affiliation": "Université Paris Cité, CNRS, Institut Jacques Monod, F-75013 Paris, France"}
+        ],
+        "access_right": "open",
+        "license": "cc-by",
+        "keywords": ["molecular dynamics", "simulation", "MD", "zenodo", "figshare", "osf"]
+    }
+}

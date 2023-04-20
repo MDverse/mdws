@@ -26,17 +26,25 @@ def get_cli_arguments():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input",
+        "--record",
+        action="store",
+        type=str,
+        help="Zenodo record identifier.",
+        required=True,
+    )
+    parser.add_argument(
+        "--file",
         action="extend",
         type=str,
         nargs="+",
         help="Path to find data files to upload.",
-        required=True,
+        required=False,
     )
     parser.add_argument(
-        "--info",
-        action="store_true",
-        help="Update info.",
+        "--metadata",
+        action="store",
+        type=str,
+        help="Path to file containing metadata.",
         required=False,
     )
     return parser.parse_args()
@@ -178,7 +186,9 @@ def find_last_version_id(root_url="", record_id="", token=""):
 def update_metadata(root_url="", record_id="", metadata="", token=""):
     """Update record metadata.
 
-    Doc: https://developers.zenodo.org/#update
+    Doc:
+    - https://developers.zenodo.org/#edit
+    - https://developers.zenodo.org/#update
     Parameters
     ----------
     root_url : str
@@ -191,10 +201,18 @@ def update_metadata(root_url="", record_id="", metadata="", token=""):
         Zenodo API token, by default "".
     """
     print(f"Updating metadata for record {record_id}")
+    # Step 1: unlock the record for edits
+    url = f"{root_url}/api/deposit/depositions/{record_id}/actions/edit"
+    params = {"access_token": token}
+    response = requests.post(url, params=params)
+    handle_response(url=url, request_response=response, status_code_success=201)
+    # Step 2: update metadata
     url = f"{root_url}/api/deposit/depositions/{record_id}"
     params = {"access_token": token}
     headers = {"Content-Type": "application/json"}
-    response = requests.put(url, data=json.dumps(metadata), headers=headers, params=params)
+    response = requests.put(
+        url, data=json.dumps(metadata), headers=headers, params=params
+    )
     handle_response(url=url, request_response=response, status_code_success=200)
 
 
@@ -378,61 +396,49 @@ if __name__ == "__main__":
     # Find latest version of the record
     # https://sandbox.zenodo.org/record/1165558 is the first version of the record
     last_version_id = find_last_version_id(
-        root_url=ROOT_URL, record_id="1165558", token=ZENODO_TOKEN
+        root_url=ROOT_URL, record_id=ARGS.record, token=ZENODO_TOKEN
     )
-    """
-    import json
-    import requests
 
-    data = {
-        "metadata": {
-            "title": "My first upload",
-            "upload_type": "poster",
-            "description": "This is my first upload",
-            "creators": [
-                {"name": "Doe, John", "affiliation": "Zenodo"}
-            ]
-        }
-    }
-    url = f"https://sandbox.zenodo.org/api/deposit/depositions/{last_version_id}?access_token={ZENODO_TOKEN}"
-    headers = {"Content-Type": "application/json"}
-
-    r = requests.put(url, data=json.dumps(data), headers=headers)
-    print(r.json())
-    print(url)
-    sys.exit()
-    """
-
-    if ARGS.info:
+    if ARGS.metadata:
         # Update metadata
-        #metadata = json.load(open("params/zenodo_share_metadata.json", "rb"))
-        print(metadata)
-        update_metadata(root_url=ROOT_URL, record_id=last_version_id, metadata=metadata, token=ZENODO_TOKEN)
-    
+        metadata = json.load(open(ARGS.metadata, "rb"))
+        update_metadata(
+            root_url=ROOT_URL,
+            record_id=last_version_id,
+            metadata=metadata,
+            token=ZENODO_TOKEN,
+        )
 
-    # Get md5sums and name for local files
-    local_files_df = get_local_files(ARGS.input)
+        # Publish new version of the record
+        deposition_url = f"{ROOT_URL}/api/deposit/depositions/{last_version_id}"
+        publish_new_version(deposition_url=deposition_url, token=ZENODO_TOKEN)
 
-    # List files in record
-    zenodo_files_df = list_files_in_record(
-        root_url=ROOT_URL, record_id=last_version_id, token=ZENODO_TOKEN
-    )
+    if ARGS.file:
+        # Get md5sums and name for local files
+        local_files_df = get_local_files(ARGS.file)
 
-    # Check files status
-    files_df = check_file_status(
-        local_files=local_files_df, zenodo_files=zenodo_files_df
-    )
+        # List files in record
+        zenodo_files_df = list_files_in_record(
+            root_url=ROOT_URL, record_id=last_version_id, token=ZENODO_TOKEN
+        )
 
-    # Create a new version of the record
-    new_deposition_url = create_new_version(
-        root_url=ROOT_URL, record_id=last_version_id, token=ZENODO_TOKEN
-    )
+        # Check files status
+        files_df = check_file_status(
+            local_files=local_files_df, zenodo_files=zenodo_files_df
+        )
 
-    # Delete files
-    delete_files(deposition_url=new_deposition_url, files=files_df, token=ZENODO_TOKEN)
+        # Create a new version of the record
+        new_deposition_url = create_new_version(
+            root_url=ROOT_URL, record_id=last_version_id, token=ZENODO_TOKEN
+        )
 
-    # Add files (status "add" or "update")
-    add_files(deposition_url=new_deposition_url, files=files_df, token=ZENODO_TOKEN)
+        # Delete files
+        delete_files(
+            deposition_url=new_deposition_url, files=files_df, token=ZENODO_TOKEN
+        )
 
-    # Publish new version of the record
-    publish_new_version(deposition_url=new_deposition_url, token=ZENODO_TOKEN)
+        # Add files (status "add" or "update")
+        add_files(deposition_url=new_deposition_url, files=files_df, token=ZENODO_TOKEN)
+
+        # Publish new version of the record
+        publish_new_version(deposition_url=new_deposition_url, token=ZENODO_TOKEN)
