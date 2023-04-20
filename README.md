@@ -1,4 +1,4 @@
-# Molecular Dynamics web scrapper
+# MDverse web scrapper (MDWS)
 
 ## Setup your environment
 

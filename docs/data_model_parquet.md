@@ -1,6 +1,6 @@
 # Data model for collected data
 
-## datasets.tsv
+## datasets.parquet
 
 dataset_origin
 - type: string
@@ -52,17 +52,6 @@ dateset_url
 - example: https://zenodo.org/record/4537794
 - comment: Direct URL to dataset
 
-
-## datasets_text.tsv
-
-dataset_origin
-- type: string
-- example: zenodo, figshare, osf
-
-dataset_id
-- type: string
-- example: 3814193, M1_gro/5840706
-
 title
 - type: string
 - example: "Berger POPE Simulations (versions 1 and 2) 303 K - de Vries repulsive H"
@@ -80,10 +69,10 @@ keywords
 description:
 - type: string
 - example:
-- comment: Interesting field with highly complex because of its 'free' format. May also vary a lot in length.
+- comment: Description of the dataset as unstructured 'free' text. Length may vary a lot.
 
 
-## files.tsv
+## files.parquet
 
 dataset_origin
 - type: string
@@ -128,3 +117,83 @@ origin_zip_file:
 - comment: Default is "none". Name of the zip file the given file has been extracted from.
 
 
+## gromacs_gro_files.parquet
+
+dataset_origin
+- type: string
+- example: zenodo, figshare, osf
+
+dataset_id
+- type: string
+- example: 3814193, M1_gro/5840706
+
+file_name
+- type: string
+- example: md.gro, prod.gro, S1.gro
+
+atom_number
+- type: int
+- example: 93700, 18667
+
+has_protein
+- type: boolean
+- example: True, False
+- comment: Whether or not protein residues are present in the system.
+
+has_nucleic
+- type: boolean
+- example: True, False
+- comment: Whether or not nuclein acid bases are present in the system.
+
+has_lipid
+- type: boolean
+- example: True, False
+- comment: Whether or not lipid 'residues' are present in the system.
+
+has_glucid
+- type: boolean
+- example: True, False
+- comment: Whether or not glucid 'residues' are present in the system.
+
+has_water_ion
+- type: boolean
+- example: True, False
+- comment: Whether or not water or ions are present in the system.
+
+## gromacs_mdp_files.parquet
+
+dataset_origin
+- type: string
+- example: zenodo, figshare, osf
+
+dataset_id
+- type: string
+- example: 3814193, M1_gro/5840706
+
+file_name
+- type: string
+- example: md.mdp, prod.mdp, S1.mdp
+
+dt
+- type: float
+- example: 0.002, 0.001, 0.025
+
+nsteps
+- type: int
+- examples: 100000000, 500000
+
+temperature
+- type: float
+- example: 300, 210, 298.15
+
+thermostat
+- type: string
+- example: Berendsen, V-rescale, no
+
+barostat
+- type: string
+- example: Berendsen, Parrinello-Rahman, no
+
+integrator
+- type: string
+- example: md, sd
