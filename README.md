@@ -212,7 +212,7 @@ python scripts/upload_datasets_to_zenodo.py --record 7856524 \
 --file data/files.parquet \
 --file data/gromacs_gro_files.parquet \
 --file data/gromacs_mdp_files.parquet \
---file docs/data_model_parquet.md 
+--file docs/data_model_parquet.md
 ```
 
 

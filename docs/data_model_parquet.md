@@ -192,14 +192,37 @@ temperature
 thermostat
 - type: string
 - example: Berendsen, V-rescale, no
-- comment: Possible thermostat listed here: https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-tcoupl If no thermostat is used, the value is "no". 
+- comment: Possible thermostat listed here: https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-tcoupl If no thermostat is used, the value is "no". If the thermostat is not listed in the documentation, the value is "unknown". If the thermostat is not a string, the value is "undefined".
 
 barostat
 - type: string
 - example: Berendsen, Parrinello-Rahman, no
-- comment: Possible thermostat listed here: https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-pcoupl If no barostat is used, the value is "no". 
+- comment: Possible thermostat listed here: https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-pcoupl If no barostat is used, the value is "no". If the barostat is not listed in the documentation, the value is "unknown". If the barostat is not a string, the value is "undefined".
 
 integrator
 - type: string
 - example: md, sd
 - commment: Algorithm used to integrate equations of motions.
+
+
+## gromacs_xtc_files.parquet
+
+dataset_origin
+- type: string
+- example: zenodo, figshare, osf
+
+dataset_id
+- type: string
+- example: 3814193, M1_gro/5840706
+
+file_name
+- type: string
+- example: md.mdp, prod.mdp, S1.mdp
+
+atom_number
+- type: int
+- example: 3468, 51523
+
+frame_number
+- type: int
+- example: 226, 5023
