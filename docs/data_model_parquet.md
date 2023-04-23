@@ -58,8 +58,8 @@ title
 
 author
 - type: string
-- example: 
-- comment: Not sure we get the uploader name in Zenodo. Maybe get all available authors.
+- example: Hanne Antila, Saara Lautala
+- comment: People listed as authors.
 
 keywords
 - type: string with keywords separated by ";"
@@ -68,7 +68,7 @@ keywords
 
 description:
 - type: string
-- example:
+- example: The whole simulation trajectories (28 individual trajectories with 27ns for each) contain the coordinates...
 - comment: Description of the dataset as unstructured 'free' text. Length may vary a lot.
 
 
@@ -85,7 +85,7 @@ dataset_id
 file_type
 - type: string
 - example: mdp, gro, mdp, zip
-- comment: Default is "none". Remove the dot. For instance, .gro -> gro
+- comment: Default is "none". File extension do not start with a dot (.gro -> gro)
 
 file_size
 - type: float
@@ -177,23 +177,29 @@ file_name
 dt
 - type: float
 - example: 0.002, 0.001, 0.025
+- comment: Time step in ps.
 
 nsteps
 - type: int
 - examples: 100000000, 500000
+- comment: Number of steps performed in the simulation.
 
 temperature
 - type: float
 - example: 300, 210, 298.15
+- comment: Temperature in Klevin.
 
 thermostat
 - type: string
 - example: Berendsen, V-rescale, no
+- comment: Possible thermostat listed here: https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-tcoupl If no thermostat is used, the value is "no". 
 
 barostat
 - type: string
 - example: Berendsen, Parrinello-Rahman, no
+- comment: Possible thermostat listed here: https://manual.gromacs.org/current/user-guide/mdp-options.html#mdp-pcoupl If no barostat is used, the value is "no". 
 
 integrator
 - type: string
 - example: md, sd
+- commment: Algorithm used.
