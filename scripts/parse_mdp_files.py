@@ -1,9 +1,9 @@
 """Parse Gromacs mdp files.
 
 Gromacs documentation on mdp file:
-https://manual.gromacs.org/5.1.1/user-guide/mdp-options.html
+https://manual.gromacs.org/current/user-guide/mdp-options.html
 mdp file example:
-https://manual.gromacs.org/5.1.1/user-guide/file-formats.html#mdp
+https://manual.gromacs.org/current/reference-manual/file-formats.html#mdp
 """
 
 import argparse
