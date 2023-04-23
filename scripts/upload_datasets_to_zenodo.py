@@ -13,7 +13,8 @@ import requests
 
 import toolbox
 
-ROOT_URL = "https://sandbox.zenodo.org"
+# ROOT_URL = "https://sandbox.zenodo.org"
+ROOT_URL = "https://zenodo.org"
 
 
 def get_cli_arguments():
@@ -59,12 +60,12 @@ def read_zenodo_token():
         Zenodo token.
     """
     dotenv.load_dotenv(".env")
-    if "ZENODO_TOKEN_UPDATE" in os.environ:
+    if "ZENODO_TOKEN" in os.environ:
         print("Found Zenodo token.")
     else:
         print("Zenodo token is missing.")
         sys.exit(1)
-    return os.environ.get("ZENODO_TOKEN_UPDATE", "")
+    return os.environ.get("ZENODO_TOKEN", "")
 
 
 def test_zenodo_connection(root_url="", token="", show_headers=False):
@@ -242,7 +243,8 @@ def list_files_in_record(root_url="", record_id="", token=""):
     zenodo_files = response.json()
     for zenodo_file_dict in zenodo_files:
         print(
-            f"Found in Zenodo: file {zenodo_file_dict['filename']} with ID {zenodo_file_dict['id']}"
+            f"Found in Zenodo: file {zenodo_file_dict['filename']} "
+            f"with ID {zenodo_file_dict['id']}"
         )
     zenodo_files_df = pd.DataFrame(zenodo_files).rename(columns={"filename": "name"})
     return zenodo_files_df

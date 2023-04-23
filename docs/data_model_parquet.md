@@ -202,4 +202,4 @@ barostat
 integrator
 - type: string
 - example: md, sd
-- commment: Algorithm used.
+- commment: Algorithm used to integrate equations of motions.

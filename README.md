@@ -1,5 +1,7 @@
 # MDverse web scrapper (MDWS)
 
+Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
+
 ## Setup your environment
 
 Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
@@ -178,11 +180,9 @@ This step will take about 4 hours to run. Results will be saved in `data/gromacs
 Parquet format is a column-based storage format that is supported by many data analysis tools.
 It's an efficient data format for large datasets.
 
-
 ```bash
 python scripts/export_to_parquet.py
 ```
-
 
 ## Run all script
 
@@ -192,4 +192,27 @@ You can run all commands above with the `run_all.sh` script:
 bash run_all.sh
 ```
 
-Be sure, you have have enough time, bandwidth and disk space to run this command.
+Be sure, you have have **sufficient** time, bandwidth and disk space to run this command.
+
+
+## Upload data on Zenodo (for mainteners only)
+
+*For the owner of the Zenodo record only. Zenodo token requires `deposit:actions` and `deposit:write` scopes.*
+
+Update metadata:
+
+```bash
+python scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json 
+```
+
+Update files:
+```bash
+python scripts/upload_datasets_to_zenodo.py --record 7856524 \
+--file data/datasets.parquet \
+--file data/files.parquet \
+--file data/gromacs_gro_files.parquet \
+--file data/gromacs_mdp_files.parquet \
+--file docs/data_model_parquet.md 
+```
+
+
