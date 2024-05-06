@@ -47,11 +47,74 @@ def normalize_file_size(file_str):
     return int(size_in_bytes)
 
 
+def extract_license(metadata):
+    """Extract license from metadata.
+    
+    Parameters
+    ----------
+    metadata : dict
+        Metadata from Zenodo API.
+
+    Returns
+    -------
+    str
+        License.
+        Empty string if no license found.
+    """
+    try:
+        license = metadata["license"]["id"]
+    except KeyError:
+        license = ""
+    return license
+
+
 def get_files_structure_from_zip(ul):
     """Get files structure from zip file preview.
 
     Recursion based on:
     https://stackoverflow.com/questions/17850121/parsing-nested-html-list-with-beautifulsoup
+
+    Example:
+    https://zenodo.org/records/7756756/preview/Glycerol020.zip
+
+    <ul class="tree list-unstyled">
+      <li>
+        <div class="ui equal width grid">
+          <div class="row">
+          <i class="folder icon"></i> <a href="#tree_item0">Glycerol020 </a>
+        </div>
+      </div><ul id="tree_item0">
+          
+      <li>
+        <div class="ui equal width grid">
+          <div class="row">
+          <i class="folder icon"></i> <a href="#tree_item3">Em2 </a>
+        </div>
+      </div><ul id="tree_item3">
+          
+      <li>
+        <div class="ui equal width grid">
+          <div class="row">
+          <i class="folder icon"></i> <a href="#tree_item15">Flow </a>
+        </div>
+      </div><ul id="tree_item15">
+          
+      <li>
+        <div class="ui equal width grid">
+        <div class="row">
+          <div class="no-padding left floated column"><span><i class="file outline icon"></i></i> flow_00001.dat</span></div>
+          <div class="no-padding right aligned column">4.6 kB</div>
+        </div>
+      </div>
+      </li>
+      <li>
+        <div class="ui equal width grid">
+        <div class="row">
+          <div class="no-padding left floated column"><span><i class="file outline icon"></i></i> flow_00003.dat</span></div>
+          <div class="no-padding right aligned column">4.6 kB</div>
+        </div>
+      </div>
+      </li>
 
     Parameters
     ----------
@@ -69,8 +132,8 @@ def get_files_structure_from_zip(ul):
         ul = li.find("ul")
         if ul:
             structure[key] = get_files_structure_from_zip(ul)
-        elif li.find("span", attrs={"class": "pull-right"}):
-            structure[key] = li.find("span", attrs={"class": "pull-right"}).text
+        elif li.find("div", attrs={"class": "no-padding right aligned column"}):
+            structure[key] = li.find("div", attrs={"class": "no-padding right aligned column"}).text
         else:
             structure[key] = None
     return structure
@@ -79,7 +142,7 @@ def get_files_structure_from_zip(ul):
 def extract_data_from_zip_file(url):
     """Extract data from zip file preview.
 
-    Example: https://zenodo.org/record/4444751/preview/code.zip
+    Example: https://zenodo.org/records/4444751/preview/code.zip
 
     url : str
         URL of zip file preview
@@ -257,7 +320,7 @@ def scrap_zip_content(files_df):
             print(f"Waiting for {SLEEP_TIME} seconds...")
             time.sleep(SLEEP_TIME)
         URL = (
-            f"https://zenodo.org/record/{zip_file['dataset_id']}"
+            f"https://zenodo.org/records/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
         )
         # print(zip_counter, URL)
@@ -299,9 +362,11 @@ def extract_records(response_json):
     files = []
     if response_json["hits"]["hits"]:
         for hit in response_json["hits"]["hits"]:
+            # 'hit' is a Python dictionary.
             if hit["metadata"]["access_right"] != "open":
                 continue
             dataset_id = str(hit["id"])
+            print(f"Extracting data for dataset: {dataset_id}")
             dataset_dict = {
                 "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
@@ -312,8 +377,8 @@ def extract_records(response_json):
                 "file_number": len(hit["files"]),
                 "download_number": int(hit["stats"]["downloads"]),
                 "view_number": int(hit["stats"]["views"]),
-                "license": hit["metadata"]["license"]["id"],
-                "dataset_url": f"https://zenodo.org/record/{dataset_id}",
+                "license": extract_license(hit["metadata"]),
+                "dataset_url": hit["links"]["self_html"],
             }
             datasets.append(dataset_dict)
             text_dict = {
@@ -322,14 +387,14 @@ def extract_records(response_json):
                 "title": toolbox.clean_text(hit["metadata"]["title"]),
                 "author": toolbox.clean_text(hit["metadata"]["creators"][0]["name"]),
                 "keywords": "none",
-                "description": toolbox.clean_text(hit["metadata"]["description"]),
+                "description": toolbox.clean_text(hit["metadata"].get("description", "")),
             }
             if "keywords" in hit["metadata"]:
                 text_dict["keywords"] = ";".join(
                     [str(keyword) for keyword in hit["metadata"]["keywords"]]
                 )
             # Handle existing but empty keywords.
-            # For instance: https://zenodo.org/record/3741678
+            # For instance: https://zenodo.org/records/3741678
             if text_dict["keywords"] == "":
                 text_dict["keywords"] = "none"
             texts.append(text_dict)
@@ -337,11 +402,11 @@ def extract_records(response_json):
                 file_dict = {
                     "dataset_origin": dataset_dict["dataset_origin"],
                     "dataset_id": dataset_dict["dataset_id"],
-                    "file_type": file_in["type"],
                     "file_size": int(file_in["size"]),  # File size in bytes.
                     "file_md5": file_in["checksum"].removeprefix("md5:"),
                     "from_zip_file": False,
                     "file_name": file_in["key"],
+                    "file_type": toolbox.extract_file_extension(file_in["key"]),
                     "file_url": file_in["links"]["self"],
                     "origin_zip_file": "none",
                 }
@@ -400,7 +465,8 @@ if __name__ == "__main__":
     MAX_HITS_PER_QUERY = 10_000
 
     # The best strategy is to use paging.
-    MAX_HITS_PER_PAGE = 1_000
+    # MAX_HITS_PER_PAGE = 1_000
+    MAX_HITS_PER_PAGE = 200
     print(f"Max hits per page: {MAX_HITS_PER_PAGE}")
 
     datasets_df = pd.DataFrame()
