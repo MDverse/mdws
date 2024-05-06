@@ -8,14 +8,19 @@ According to Zenodo [FAQ](https://help.zenodo.org/):
 
 So we don't expect much files to have an individual size above 50 GB.
 
+
 ## API
 
 [REST API](https://developers.zenodo.org/)
 
-The [rate limit](https://developers.zenodo.org/#rate-limiting) is 
+The [rate limit](https://developers.zenodo.org/#rate-limiting) is
+
 > 100 requests per minute, 5000 requests per hour
 
 List of [HTTP status codes](https://developers.zenodo.org/#http-status-codes)
+
+Example of direct API link for a given dataset: <https://zenodo.org/api/records/8183728>
+
 
 ## Query
 
