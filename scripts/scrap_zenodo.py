@@ -128,10 +128,12 @@ def get_files_structure_from_zip(ul):
     """
     structure = {}
     for li in ul.find_all("li", recursive=False):
+        # Extract folrder or file name.
         key = next(li.stripped_strings)
         ul = li.find("ul")
         if ul:
             structure[key] = get_files_structure_from_zip(ul)
+        # Extract file size.
         elif li.find("div", attrs={"class": "no-padding right aligned column"}):
             structure[key] = li.find("div", attrs={"class": "no-padding right aligned column"}).text
         else:
