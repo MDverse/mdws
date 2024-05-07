@@ -73,7 +73,18 @@ def extract_data_from_figshare_zip_file(url):
     list
         List of dictionnaries with data extracted from zip preview.
     """
-    response = requests.get(url)
+    # We need to use a classical web browser user agent to avoid a 403 error.
+    headers = {
+        "content-type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
+    }
+    # 'allow_redirects=True' is necessary to follow the redirection of the zip preview,
+    # generally to S3 AWS servers.
+    response = requests.get(
+        url,
+        headers=headers,
+        allow_redirects=True
+    )
 
     if response.status_code != 200:
         print(f"Status code: {response.status_code}")
@@ -454,7 +465,7 @@ if __name__ == "__main__":
     # Print script name and doctring.
     print(__file__)
     print(__doc__)
-
+   
     # Scrap Figshare
     FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, TEXTS_EXPORT_PATH = main_scrap_figshare(
         ARGS, scrap_zip=True
