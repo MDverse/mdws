@@ -43,6 +43,9 @@ protein:
 - sHe   # Histidine / SIRAH force field
 - sY    # Tyrosine / SIRAH force field
 - sE    # Glutamic acid / SIRAH force field
+- HID   # Histidine / AMBER force field / Histidine with hydrogen on the delta nitrogen
+- HIE   # Histidine / AMBER force field / Histidine with hydrogen on the epsilon nitrogen
+- HIP   # Histidine / AMBER force field / Histidine with hydrogen on both nitrogens
 
 lipid:
 - POPC  # 1-palmitoyl-2-oleoyl-sn-glycero-3-phosphocholine
