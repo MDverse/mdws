@@ -3,15 +3,20 @@ protein:
 - ARG
 - ASN
 - ASP
+- ASH   # protonated ASP
 - CYS
+- CYS2  # disulfide bonded CYS
 - GLN
 - GLU
+- GLH   # protonated GLU
 - GLY
 - HIS
 - HSD
+- HSE
 - ILE
 - LEU
 - LYS
+- LYSH  # protonated LYS
 - MET
 - PHE
 - PRO
@@ -55,6 +60,8 @@ lipid:
 - DLPC
 - DIPC
 - DUPC  # 1,2-di-docosahexaenoyl-sn-glycero-3-phosphocholine
+- DUPE
+- DUPS
 - DMPC
 - DSPC
 - SOPC
@@ -90,6 +97,7 @@ lipid:
 - PIPS
 - PAPI
 - POPI
+- POP2
 - POPA
 - PIPA
 - PAPA
@@ -111,6 +119,13 @@ lipid:
 - DOPE
 - DSUA
 - POPG
+- PADG
+- PEPC
+- PQPE
+- PQPS
+- DOPG
+- DIPS
+- DAPS
 - DBSM  # Martini
 - DXSM  # Martini
 - BNSM  # Martini
@@ -280,14 +295,18 @@ water_ion:
 - Cl-
 - CL-
 - CA
+- CAL
+- Cal
 - Na
 - NA
 - Na+
 - NA+
-- MG
+- MG    # Magnesium ion / Mg2+
 - SOD   # Sodium ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - CLA   # Chloride ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - POT
+- K+
+- ZN    # Zinc ion / Zn2+
 - ION
 - NaW   # Sodium ion / SIRAH force field
 - KW    # Potassium ion / SIRAH force field
@@ -301,3 +320,7 @@ water_ion:
 - SO4
 
 
+ligand:
+- LIG
+- ATP
+- GOL  # Glycerol
