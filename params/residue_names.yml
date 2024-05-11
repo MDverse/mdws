@@ -269,9 +269,11 @@ glucid:
 water_ion:
 - SOL
 - TIP3
+- TIP
 - W      # Martini water
 - WF     # Martini water antifreeze
 - WAT
+- HOH
 - K
 - Cl
 - CL
@@ -285,6 +287,7 @@ water_ion:
 - MG
 - SOD   # Sodium ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
 - CLA   # Chloride ion from CHARMM36 force field. Example in https://zenodo.org/record/6526243 (prod.gro)
+- POT
 - ION
 - NaW   # Sodium ion / SIRAH force field
 - KW    # Potassium ion / SIRAH force field
@@ -294,5 +297,7 @@ water_ion:
 - ZnX   # Zinc ion / SIRAH force field
 - WT4   # Water model / SIRAH force field
 - WLS   # Water model (55 water molecules) / SIRAH force field
+- SUL
+- SO4
 
 
