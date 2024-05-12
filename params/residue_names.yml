@@ -64,6 +64,7 @@ lipid:
 - DUPS
 - DMPC
 - DSPC
+- DGPC  # http://cgmartini.nl/index.php/force-field-parameters/lipids2/351-lipid.html?dir=PC&lipid=DGPC
 - SOPC
 - POPE  # 1-palmitoyl-2-oleoyl-sn-glycero-3-phosphoethanolamin
 - PPCS
@@ -79,6 +80,7 @@ lipid:
 - POGS   # https://limonada.univ-reims.fr/lipids/lisp05010004/
 - POSM   # https://limonada.univ-reims.fr/lipids/lmsp03010040/
 - PODG   # https://limonada.univ-reims.fr/lipids/lmgl02010006/
+- POGL   # https://limonada.univ-reims.fr/topologies/303/
 - POCE   # https://limonada.univ-reims.fr/lipids/lisp02010007/
 - OIPC   # https://limonada.univ-reims.fr/lipids/lmgp01010895/
 - DPCE   # https://limonada.univ-reims.fr/lipids/lisp02010001/
@@ -87,16 +89,22 @@ lipid:
 - PNG3   # https://limonada.univ-reims.fr/lipids/lisp06010007/
 - PAPS   # https://limonada.univ-reims.fr/lipids/lmgp03010038/
 - PUPE   # https://limonada.univ-reims.fr/lipids/lmgp02010095/
+- PDOPE  # https://limonada.univ-reims.fr/topologies/533/
 - PUPI   # https://limonada.univ-reims.fr/lipids/lmgp06010011/
 - SAPS   # https://limonada.univ-reims.fr/lipids/lmgp03010039/
 - PAPC   # https://limonada.univ-reims.fr/lipids/ligp01010001/
 - PIPC   # https://limonada.univ-reims.fr/lipids/lmgp01010594/
+- DPG3   # https://limonada.univ-reims.fr/lipids/lisp06010005/
 - PIPI
 - PIDG
+- PAPE
 - PIPE
+- PIP3
+- POP3
 - PIPS
 - PAPI
 - POPI
+- POP1
 - POP2
 - POPA
 - PIPA
