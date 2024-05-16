@@ -202,10 +202,11 @@ You can run all commands above with the `run_all.sh` script:
 bash run_all.sh
 ```
 
-Be sure, you have have **sufficient** time, bandwidth and disk space to run this command.
+> [!WARNING]
+> Be sure, you have have **sufficient** time, bandwidth and disk space to run this command.
 
 
-## Upload data on Zenodo (for mainteners only)
+## Upload data on Zenodo (for MDverse mainteners only)
 
 *For the owner of the Zenodo record only. Zenodo token requires `deposit:actions` and `deposit:write` scopes.*
 
@@ -225,4 +226,5 @@ python scripts/upload_datasets_to_zenodo.py --record 7856524 \
 --file docs/data_model_parquet.md
 ```
 
-
+> [!NOTE]
+> The latest version of the dataset is available with the DOI [10.5281/zenodo.7856523](https://zenodo.org/doi/10.5281/zenodo.7856523).
