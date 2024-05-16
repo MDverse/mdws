@@ -184,6 +184,16 @@ It's an efficient data format for large datasets.
 python scripts/export_to_parquet.py
 ```
 
+This step will take a couple of seconds to run. Results will be saved in:
+
+```bash
+data/datasets.parquet
+data/files.parquet
+data/gromacs_gro_files.parquet
+data/gromacs_mdp_files.parquet
+```
+
+
 ## Run all script
 
 You can run all commands above with the `run_all.sh` script:
