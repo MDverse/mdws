@@ -4,13 +4,7 @@ Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](htt
 
 ## Setup your environment
 
-Install [miniconda](https://docs.conda.io/en/latest/miniconda.html).
-
-Install [mamba](https://github.com/mamba-org/mamba):
-
-```bash
-conda install mamba -n base -c conda-forge
-```
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 Clone this repository:
 
@@ -24,26 +18,10 @@ Move to the new directory:
 cd mdws
 ```
 
-Create the `mdws` conda environment:
-```
-mamba env create -f binder/environment.yml
-```
-
-Load the `mdws` conda environment:
-```
-conda activate mdws
-```
-
-Note: you can also update the conda environment with:
+Create a virtual environment:
 
 ```bash
-mamba env update -f binder/environment.yml
-```
-
-To deactivate an conda active environment, use
-
-```
-conda deactivate
+uv sync
 ```
 
 ## Scrap Zenodo
@@ -52,21 +30,23 @@ Have a look to the notes regarding [Zenodo](docs/zenodo.md) and its API.
 
 Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
 and store it in the file `.env`:
+
 ```
 ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 ```
+
 This file is automatically ignored by git and won't be published on GitHub.
 
 Scrap Zenodo for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_zenodo.py --query params/query.yml --output data
+uv run scripts/scrap_zenodo.py --query params/query.yml --output data
 ```
 
 Scrap Zenodo with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
+uv run scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (about an hour). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -83,13 +63,13 @@ Have a look to the notes regarding [Figshare](docs/figshare.md) and its API.
 Scrap FigShare for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_figshare.py --query params/query.yml --output data
+uv run scripts/scrap_figshare.py --query params/query.yml --output data
 ```
 
 Scrap FigShare with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_figshare.py --query params/query_dev.yml --output tmp
+uv run scripts/scrap_figshare.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (about 2 hours). Be patient.
@@ -103,26 +83,29 @@ Have a look to the notes regarding [OSF](docs/osf.md) and its API.
 
 Create a token here: <https://osf.io/settings/tokens> (select the `osf.full_read` scope)
 and store it in the file `.env`:
+
 ```
 OSF_TOKEN=<YOUR OSF TOKEN HERE>
 ```
+
 This file is ignored by git and won't be published on GitHub.
 
 Scrap OSF for MD-related datasets and files:
 
 ```bash
-python scripts/scrap_osf.py --query params/query.yml --output data
+uv run scripts/scrap_osf.py --query params/query.yml --output data
 ```
 
 Scrap OSF with a small query, for development or demo purpose:
 
 ```bash
-python scripts/scrap_osf.py --query params/query_dev.yml --output tmp
+uv run scripts/scrap_osf.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (~ 30 min). Be patient.
 
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
+
 
 ## Analyze Gromacs mdp and gro files
 
@@ -131,17 +114,17 @@ Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datas
 To download Gromacs mdp and gro files, use the following commands:
 
 ```bash
-python scripts/download_files.py --input data/zenodo_files.tsv \
+uv run scripts/download_files.py --input data/zenodo_files.tsv \
 --storage data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
 ```bash
-python scripts/download_files.py --input data/figshare_files.tsv \
+uv run scripts/download_files.py --input data/figshare_files.tsv \
 --storage data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
 ```bash
-python scripts/download_files.py --input data/osf_files.tsv \
+uv run scripts/download_files.py --input data/osf_files.tsv \
 --storage data/downloads/ --type mdp --type gro --withzipfiles
 ```
 
@@ -153,10 +136,11 @@ Expect about 640 GB of data with the `--withzipfiles` option (~ 8800 gro files a
 
 Numbers are indicative only and may vary depend on the time you run this command (databases tend to get bigger and bigger).
 
+
 ### Parse .mdp files
 
 ```bash
-python scripts/parse_mdp_files.py \
+uv run scripts/parse_mdp_files.py \
 --input data/zenodo_files.tsv --input data/figshare_files.tsv --input data/osf_files.tsv \
 --storage data/downloads --output data
 ```
@@ -165,10 +149,10 @@ This step will take a couple of seconds to run. Results will be saved in `data/g
 
 ### Parse .gro files
 
-A rought molecular composition is infered from the file `params/residue_name.yml` that contains a partial list of residues names organized in categories *protein*, *lipid*, *nucleic*, *glucid* and *water & ion*.
+A rough molecular composition is deduced from the file `params/residue_name.yml` that contains a partial list of residues names organized in categories *protein*, *lipid*, *nucleic*, *glucid* and *water & ion*.
 
 ```bash
-python scripts/parse_gro_files.py \
+uv run scripts/parse_gro_files.py \
 --input data/zenodo_files.tsv --input data/figshare_files.tsv --input data/osf_files.tsv \
 --storage data/downloads --residues params/residue_names.yml --output data
 ```
@@ -181,7 +165,7 @@ Parquet format is a column-based storage format that is supported by many data a
 It's an efficient data format for large datasets.
 
 ```bash
-python scripts/export_to_parquet.py
+uv run scripts/export_to_parquet.py
 ```
 
 This step will take a couple of seconds to run. Results will be saved in:
@@ -213,12 +197,12 @@ bash run_all.sh
 Update metadata:
 
 ```bash
-python scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json 
+uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json 
 ```
 
 Update files:
 ```bash
-python scripts/upload_datasets_to_zenodo.py --record 7856524 \
+uv run scripts/upload_datasets_to_zenodo.py --record 7856524 \
 --file data/datasets.parquet \
 --file data/files.parquet \
 --file data/gromacs_gro_files.parquet \

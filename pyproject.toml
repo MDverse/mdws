@@ -1,4 +1,54 @@
-[tool.ruff]
+[project]
+name = "MDWS"
+version = "0.1.0"
+description = "MDverse web scrapper (MDWS)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.3",
+    "biopython>=1.85",
+    "html5lib>=1.1",
+    "lxml>=5.3.1",
+    "mdanalysis>=2.9.0",
+    "numpy>=2.2.4",
+    "pandas>=2.2.3",
+    "parquet-tools>=0.2.16",
+    "pooch>=1.8.2",
+    "pyarrow>=19.0.1",
+    "python-dotenv>=1.0.1",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.3",
+    "scipy>=1.15.2",
+    "tqdm>=4.67.1",
+]
 
-# Same as Black.
-line-length = 88
+[dependency-groups]
+dev = [
+    "jupyterlab>=4.3.6",
+    "matplotlib>=3.10.1",
+    "plotly>=6.0.0",
+    "pysankeybeta>=1.4.2",
+    "ruff>=0.11.0",
+    "upsetplot>=0.9.0",
+    "watermark>=2.5.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88  # Same as Black.
+
+[tool.ruff.format]
+preview = true  # Allow preview rules.
+
+[tool.ruff.lint]
+preview = true  # Allow preview rules.
+# Ruff rules: https://docs.astral.sh/ruff/rules/
+select = [
+    "F",    # pyflakes
+    "E",    # pycodestyle Error
+    "W",    # pycodestle Warning
+    "I",    # isort
+    "B",    # bugbear
+    "C90",  # mccabe
+    "N",    # pep8-naming
+]
