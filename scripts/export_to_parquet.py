@@ -1,6 +1,7 @@
 """Convert datasets to parquet format."""
 
 import logging
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -145,49 +146,49 @@ if __name__ == "__main__":
 
     # Convert Gromacs gro files info to parquet
     name = "data/gromacs_gro_files.tsv"
-    df = pd.read_csv(
-        name,
-        sep="\t",
-        dtype={
-            "dataset_origin": str,
-            "dataset_id": str,
-            "file_name": str,
-            "atom_number": int,
-            "bas_protein": bool,
-            "has_nucleic": bool,
-            "has_lipid": bool,
-            "has_glucid": bool,
-            "has_water_ion": bool,
-        },
-    )
-    print("")
-    print(f"Found {len(df)} files in {name}.")
-    output_name = name.replace(".tsv", ".parquet")
-    df.to_parquet(output_name)
-    print(f"Wrote {output_name}")
-    compare_types(df, output_name)
+    if Path(name).exists():
+        df = pd.read_csv(
+            name,
+            sep="\t",
+            dtype={
+                "dataset_origin": str,
+                "dataset_id": str,
+                "file_name": str,
+                "atom_number": int,
+                "bas_protein": bool,
+                "has_nucleic": bool,
+                "has_lipid": bool,
+                "has_glucid": bool,
+                "has_water_ion": bool,
+            },
+        )
+        print("")
+        print(f"Found {len(df)} files in {name}.")
+        output_name = name.replace(".tsv", ".parquet")
+        df.to_parquet(output_name)
+        print(f"Wrote {output_name}")
+        compare_types(df, output_name)
 
     # Convert Gromacs mdp files info to parquet
     name = "data/gromacs_mdp_files.tsv"
-    df = pd.read_csv(
-        name,
-        sep="\t",
-        dtype={
-            "dataset_origin": str,
-            "dataset_id": str,
-            "file_name": str,
-            "dt": float,
-            "nsteps": float,
-            "temperature": float,
-            "thermostat": str,
-            "barostat": str,
-        },
-    )
-    print("")
-    print(f"Found {len(df)} files in {name}.")
-    output_name = name.replace(".tsv", ".parquet")
-    df.to_parquet(output_name)
-    print(f"Wrote {output_name}")
-    compare_types(df, output_name)
-
-
+    if Path(name).exists():
+        df = pd.read_csv(
+            name,
+            sep="\t",
+            dtype={
+                "dataset_origin": str,
+                "dataset_id": str,
+                "file_name": str,
+                "dt": float,
+                "nsteps": float,
+                "temperature": float,
+                "thermostat": str,
+                "barostat": str,
+            },
+        )
+        print("")
+        print(f"Found {len(df)} files in {name}.")
+        output_name = name.replace(".tsv", ".parquet")
+        df.to_parquet(output_name)
+        print(f"Wrote {output_name}")
+        compare_types(df, output_name)
