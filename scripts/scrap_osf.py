@@ -170,12 +170,18 @@ def search_datasets(token, file_types, query_keywords, excluded_files, excluded_
                 params={"q": query, "page": page},
             )
             for file_info in resp_json["data"]:
-                if file_info["attributes"]["kind"] != "file":
-                    break
-                if not file_info["attributes"]["name"].endswith(file_type["type"]):
-                    break
-                if file_info["relationships"]["target"]["data"]["type"] == "nodes":
-                    datasets_tmp.add(file_info["relationships"]["target"]["data"]["id"])
+                try:
+                    if file_info["attributes"]["kind"] != "file":
+                        break
+                    if not file_info["attributes"]["name"].endswith(file_type["type"]):
+                        break
+                    if file_info["relationships"]["target"]["data"]["type"] == "nodes":
+                        datasets_tmp.add(file_info["relationships"]["target"]["data"]["id"])
+                except KeyError:
+                    print("KeyError!")
+                    print('Cannot get ["attributes"]["kind"] or ["attributes"]["name"]')
+                    print('or ["relationships"]["target"]["data"]["type"] or ["relationships"]["target"]["data"]["id"]')
+                    print(file_info)
         datasets_count_old = len(datasets)
         datasets.update(datasets_tmp)
         print(
@@ -431,7 +437,7 @@ if __name__ == "__main__":
 
     # Create logger
     log_file = logging.FileHandler(f"{ARGS.output}/scrap_osf.log", mode="w")
-    log_file.setLevel(logging.INFO)
+    log_file.setLevel(logging.DEBUG)
     log_stream = logging.StreamHandler()
     logging.basicConfig(
         handlers=[log_file, log_stream],
