@@ -24,7 +24,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "jupyterlab>=4.3.6",
+    "jupyterlab>=4.4.9",
     "matplotlib>=3.10.1",
     "plotly>=6.0.0",
     "pysankeybeta>=1.4.2",
