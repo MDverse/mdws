@@ -144,7 +144,9 @@ def get_files_structure_from_zip(ul):
 def extract_data_from_zip_file(url):
     """Extract data from zip file preview.
 
-    Example: https://zenodo.org/records/4444751/preview/code.zip
+    Examples:
+    - https://zenodo.org/records/4444751/preview/code.zip
+    - https://zenodo.org/records/16412906/preview/DPPS200_HN45_0.25M-NaCl_TIP3P_353.15K_prod.zip
 
     url : str
         URL of zip file preview
@@ -182,7 +184,13 @@ def extract_data_from_zip_file(url):
     files_structure = get_files_structure_from_zip(table)
     # Convert nested dictionnary files structure to a flat dictionnary.
     df = pd.json_normalize(files_structure, sep="/")
-    files_dict = df.to_dict(orient="records")[0]
+    # Handle case with zip file with no files.
+    # For instance:
+    # https://zenodo.org/records/15878278/preview/data_naresh.zip
+    try:
+        files_dict = df.to_dict(orient="records")[0]
+    except IndexError:
+        return file_lst
     # Normalize file size.
     for path, size in files_dict.items():
         if size:
