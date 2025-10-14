@@ -12,6 +12,12 @@ Clone this repository:
 git clone https://github.com/MDverse/mdws.git
 ```
 
+> [!TIP]
+> For maintainers only:
+> ```bash
+> git clone https://github.com/MDverse/mdws.git
+> ```
+
 Move to the new directory:
 
 ```bash
