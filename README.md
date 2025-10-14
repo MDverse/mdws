@@ -15,7 +15,7 @@ git clone https://github.com/MDverse/mdws.git
 > [!TIP]
 > For maintainers only:
 > ```bash
-> git clone https://github.com/MDverse/mdws.git
+> git clone git@github.com:MDverse/mdws.git
 > ```
 
 Move to the new directory:
