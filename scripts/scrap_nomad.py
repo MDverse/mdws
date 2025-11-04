@@ -49,7 +49,26 @@ from pydantic import BaseModel, Field, ValidationError
 # CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 OUTPUT_DIR = "../data/nomad"
-
+JSON_PAYLOAD_DATASETS = {
+  "owner": "visible",
+  "query": {
+    "results.method.workflow_name:any": [
+      "MolecularDynamics"
+    ]
+  },
+  "aggregations": {},
+  "pagination": {
+    "order_by": "upload_create_time",
+    "order": "desc",
+    "page_size": None
+  },
+  "required": {
+    "exclude": [
+      "quantities",
+      "sections",
+    ]
+  }
+}
 
 # CLASS DEFINITIONS
 class NomadDataset(BaseModel):
@@ -57,7 +76,7 @@ class NomadDataset(BaseModel):
 
     entry_id: str = Field(..., description="Unique identifier for the dataset entry.")
     title: str = Field(..., description="Title of the dataset.")
-    date_creation: datetime = Field(..., description="Creation date of the dataset.", alias="date_created")
+    date_created: datetime = Field(..., description="Creation date of the dataset.", alias="date_created")
     date_last_modification: datetime = Field(..., description="Last modification date of the dataset.", alias="date_last_updated")
     nb_files: int = Field(..., description="Number of files in the dataset.")
     file_names: List[str] = Field(..., description="List of file names in the dataset.")
@@ -78,6 +97,7 @@ def parse_arguments() -> Tuple[bool, str, str]:
     out_path : str
         The output file path for the scraped data.
     """
+    logger.info("Starting to parse command-line arguments...")
     parser = argparse.ArgumentParser(
         description="Scrape molecular dynamics datasets from NOMAD."
     )
@@ -99,6 +119,11 @@ def parse_arguments() -> Tuple[bool, str, str]:
     folder_out_path = os.path.dirname(args.out_path)
     file_name = os.path.basename(args.out_path)
 
+    logger.debug(f"Logger: '{args.log}'")
+    logger.debug(f"Output folder path: '{folder_out_path}'")
+    logger.debug(f"Output file name: '{file_name}'")
+
+    logger.success("Parsed arguments sucessfully!\n")
     return args.log, folder_out_path, file_name
 
 
@@ -121,7 +146,7 @@ def test_nomad_connection() -> bool:
         return False
 
 
-def fetch_entries_md_related_by_batch(page_size: int = 50) -> Tuple[List[Dict[str, Any]], str]:
+def fetch_entries_md_related_by_batch(page_size: int = 50) -> List[Tuple[List[Dict[str, Any]], str]]:
     """
     Fetch all Molecular Dynamics (MD)-related entries from the NOMAD API with pagination.
 
@@ -132,44 +157,45 @@ def fetch_entries_md_related_by_batch(page_size: int = 50) -> Tuple[List[Dict[st
 
     Returns
     -------
-    Tuple[List[Dict[str, Any]], str]:
-        - A list of all MD-related entries (JSON objects).
-        - The current timestamp in ISO 8601 format.
+    List[Tuple[List[Dict[str, Any]], str]]:
+        - A list of tuples (entries_list, fetch_time) for each batch.
     """
     logger.info("Fetching Molecular Dynamics related entries from NOMAD API by batch...")
     fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
-    all_entries = []
+    all_entries_with_time = []
     next_page_value = None
     total_entries = None
 
     # Fetch the first page
     try:
-        url = (
-            f"{BASE_NOMAD_URL}/entries"
-            "?owner=public"
-            f"&page_size={page_size}"
-            "&order=asc"
-            "&json_query=%7B%22results.method.workflow_name%22%3A%22MolecularDynamics%22%7D"
-            "&exclude=quantities&exclude=sections"
-        )
-        logger.debug(f"Requesting first page: {url}")
-        response = httpx.get(url, timeout=1000)
+        logger.debug("Requesting first page...")
+        fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        # HTTP request
+        response = httpx.post(
+            f"{BASE_NOMAD_URL}/entries/query",
+            json={**JSON_PAYLOAD_DATASETS,
+              "pagination": {**JSON_PAYLOAD_DATASETS["pagination"], "page_size": page_size}},
+            timeout=100)
         response.raise_for_status()
-
-        first_50_entries_with_request_md = response.json()
-        all_entries.extend(first_50_entries_with_request_md["data"])
-
-        total_entries = first_50_entries_with_request_md["pagination"]["total"]
-        next_page_value = first_50_entries_with_request_md["pagination"]["next_page_after_value"]
-
-        logger.debug(f"Fetched first {len(first_50_entries_with_request_md['data'])} entries / {total_entries}")
+        # Get the formated response with request metadatas in JSON format
+        first_entries_with_request_md = response.json()
+        # Get the total entries from the request md
+        total_entries = first_entries_with_request_md["pagination"]["total"]
+        # Get the ID to start the next batch of entries
+        next_page_value = first_entries_with_request_md["pagination"]["next_page_after_value"]
+        # Get only the entries metadatas
+        first_entries = first_entries_with_request_md["data"]
+        # Add it with the crawled time
+        all_entries_with_time.append((first_entries, fetch_time))
+        logger.debug(f"Fetched first {len(first_entries_with_request_md['data'])}/{total_entries} entries")
 
     except httpx.HTTPError as e:
         logger.error(f"HTTP error occurred: {e}")
-        return [], fetch_time
+        return [], None
 
     # Paginate through remaining entries
+    logger.debug("Paginate through remaining entries... (usually takes around 3 minutes)")
     with tqdm(
         total=total_entries,
         desc="Fetching MD entries from NOMAD",
@@ -180,39 +206,37 @@ def fetch_entries_md_related_by_batch(page_size: int = 50) -> Tuple[List[Dict[st
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]"
     ) as pbar:
         # Initial update for the first batch already fetched
-        pbar.update(len(all_entries))
-        while len(all_entries) < total_entries and next_page_value:
+        pbar.update(len(first_entries))
+        while sum(len(batch[0]) for batch in all_entries_with_time) < total_entries and next_page_value:
             try:
-                url = (
-                    f"{BASE_NOMAD_URL}/entries"
-                    f"?owner=visible"
-                    f"&page_size={page_size}"
-                    f"&order=asc"
-                    f"&filter=results.method.workflow_name:MolecularDynamics"
-                    f"&exclude=quantities&exclude=sections"
-                    f"&page_after_value={next_page_value}"
-                )
-                response = httpx.get(url, timeout=1000)
+                fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                # HTTP request
+                response = httpx.post(
+                    f"{BASE_NOMAD_URL}/entries/query",
+                    json={**JSON_PAYLOAD_DATASETS,
+                    "pagination": {**JSON_PAYLOAD_DATASETS["pagination"],
+                    "page_size": page_size,
+                    "next_page_after_value": next_page_value}},
+                    timeout=100)
                 response.raise_for_status()
-
                 next_batch = response.json()
-                entries_count = len(next_batch["data"])
-                all_entries.extend(next_batch["data"])
+                all_entries_with_time.append((next_batch["data"], fetch_time))
 
                 # Update the bar progression
-                pbar.update(entries_count)
+                pbar.update(len(next_batch["data"]))
                 # Update the next entry to begin with
-                next_page_value = next_batch["pagination"]["next_page_after_value"]
+                next_page_value = next_batch.get("pagination", {}).get("next_page_after_value", None)
 
             except httpx.HTTPError as e:
                 logger.error(f"HTTP error occurred while fetching next page: {e}")
                 break
 
-    logger.success(f"Fetched {len(all_entries)} Molecular Dynamics entries from NOMAD successfully !")
-    return all_entries, fetch_time
+    logger.success(f"Fetched {sum(len(batch[0]) for batch in all_entries_with_time)} Molecular Dynamics entries from NOMAD successfully !")
+    return all_entries_with_time
 
 
 def fetch_entries_md_related_once() -> Tuple[List[Dict[str, Any]], str]:
+    # NOTE: Deprecated -> single-request fetch can be too heavy; prefer batch fetching
     """
     Fetch all Molecular Dynamics (MD)-related entries from the NOMAD API in a single request.
     Note:
@@ -257,96 +281,64 @@ def fetch_entries_md_related_once() -> Tuple[List[Dict[str, Any]], str]:
         return [], fetch_time
 
 
-def parse_entry_metadata(data: Dict[str, Any], fetch_time: str) -> Dict[str, Any]:
+def parse_and_validate_entry_metadatas(nomad_data: List[Tuple[List[Dict[str, Any]], str]]) -> List[NomadDataset]:
     """
-    Parse relevant metadata fields from a single NOMAD entry JSON.
+    Parse and validate metadata fields for all NOMAD entries in batches.
 
     Parameters
     ----------
-    data : Dict[str, Any]
-        JSON response for a single NOMAD entry.
-    fetch_time : str
-        Timestamp when the data was fetched.
+    nomad_data : List[Tuple[List[Dict[str, Any]], str]]
+        List of tuples containing a batch of entries and the fetch_time.
 
     Returns
     -------
-    Dict[str, Any]
-        Flattened metadata dictionary for one entry.
+    List[NomadDataset]
+        List of validated metadata in NomadDataset format for all entries.
     """
-    entry_id = data.get("entry_id")
-    dataset = data.get("datasets", [{}])[0] if data.get("datasets") else {}
+    validated_entries = []
 
-    metadata_dict = {
-        "source": "NOMAD",
-        "source_id": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
-        "link_to_paper": data.get("references")[0],
-        "title": dataset.get("dataset_name"),
-        "date_created": dataset.get("dataset_create_time"),
-        "date_last_updated": dataset.get("dataset_modified_time"),
-        "date_last_crawled": fetch_time,
-        "nb_files": len(data.get("files", [])),
-        "file_names": data.get("files", []),
-        "authors": [a.get("name") for a in data.get("authors", [])],
-        "license": data.get("license"),
-        "description": data.get("comment"),
-        "file_analyses": data.get("results"),
-        "keywords": None,
-    }
+    for entries_list, fetch_time in nomad_data:
+        for data in entries_list:
+            entry_id = data.get("entry_id")
+            dataset = data.get("datasets", [{}])[0] if data.get("datasets") else {}
 
-    try:
-        dataset_obj = NomadDataset(**metadata_dict)
-        return dataset_obj
-    except ValidationError as e:
-        logger.error(f"Validation failed for entry {entry_id}:")
-        logger.error(e.json())
-        raise
+            parsed_entry = {
+                "source": "NOMAD",
+                "source_id": entry_id,
+                "url": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
+                "links": data.get("references"),
+                "title": dataset.get("entry_name"),
+                "date_created": dataset.get("entry_create_time"),
+                "date_last_updated": dataset.get("last_processing_time"),
+                "date_last_crawled": fetch_time,
+                "nb_files": len(data.get("files", [])),
+                "file_names": data.get("files", []),
+                "author_names": [a.get("name") for a in data.get("authors", [])],
+                "author_ids": [a.get("user_id") for a in data.get("authors", [])],
+                "license": data.get("license"),
+                "description": data.get("comment"),
+                "simulation_program": (
+                    data.get("results", {})
+                        .get("method", {})
+                        .get("simulation", {})
+                        .get("program_name")
+                ),
+                "simulation_program_version": (
+                    data.get("results", {})
+                        .get("method", {})
+                        .get("simulation", {})
+                        .get("program_version")
+                )
+            }
 
-
-def parse_nomad_dataset_parallel(
-    nomad_data: List[Dict[str, Any]], fetch_time: str, max_workers: Optional[int] = None
-) -> pd.DataFrame:
-    """
-    Parse all NOMAD entries in parallel and return a combined DataFrame.
-
-    Parameters
-    ----------
-    nomad_data : List[Dict[str, Any]]
-        List of NOMAD entry JSON objects.
-    fetch_time : str
-        Timestamp when data was fetched.
-    max_workers : int, optional
-        Maximum number of threads to use for parallel parsing (default is None, which uses os.cpu_count()).
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame containing parsed metadata for all entries.
-    """
-    results = []
-    # Get all available CPU cores if max_workers is not specified
-    if max_workers is None:
-        max_workers = os.cpu_count()
-    logger.debug(f"Parsing NOMAD dataset in parallel with {max_workers} workers...")
-
-    # Start parallel parsing
-    start_time = time.time()
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(parse_entry_metadata, entry, fetch_time): entry
-            for entry in nomad_data
-        }
-        for future in as_completed(futures):
             try:
-                results.append(future.result())
-            except Exception as e:
-                logger.error(f"Error parsing {futures[future]}: {e}")
+                # Validate and normalize data collected wieh pydantic model
+                dataset_model = NomadDataset(**parsed_entry)
+                validated_entries.append(dataset_model)
+            except ValidationError as e:
+                logger.error(f"Validation failed for entry {entry_id}: {e}")
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.success(
-        f"Parsed NOMAD entries in {elapsed_time:.2f} seconds successfully ! \n"
-    )
-    return pd.DataFrame(results)
+    return validated_entries
 
 
 def parse_nomad_files(batch_json: Dict[str, Any], fetch_time: str) -> List[Dict[str, Any]]:
@@ -528,30 +520,32 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
     file_name : str
         The output file name for the scraped data."""
     logger.info("Starting Nomad data scraping...")
+    start_time = time.time()
 
     if test_nomad_connection:
-        # Define output directory
-        os.makedirs(folder_out_path, exist_ok=True)
-        output_file_path = os.path.join(folder_out_path, file_name)
-
         # Fetch NOMAD entries metadata
-        nomad_data, fetch_time = fetch_entries_md_related_by_batch()
+        nomad_data = fetch_entries_md_related_by_batch()
         if nomad_data == []:
             logger.warning("No data fetched from NOMAD.")
             return
-        # Parse NOMAD entries metadata in parallel
-        nomad_metadata_df = parse_nomad_dataset_parallel(nomad_data, fetch_time)
+
+        # Parse and validate NOMAD entry metadatas with a pydantic model (NomadDataset)
+        nomad_metadatas_validated = parse_and_validate_entry_metadatas(nomad_data)
 
         # Save parsed metadata to local file
-        save_entries_metadata_to_parquet(nomad_metadata_df, output_file_path)
+        # save_entries_metadata_to_parquet(nomad_metadatas_validated, output_file_path)
 
         # Parse NOMAD file metadatas
-        files_metas = fetch_files_metadata
-        df = pd.DataFrame(files_metas)
-        output_file_path = os.path.join(folder_out_path, "nomad_file_metadatas.parquet")
-        save_files_metadata_to_parquet(df, output_file_path)
+        # files_metas = fetch_files_metadata
+        # df = pd.DataFrame(files_metas)
+        # output_file_path = os.path.join(folder_out_path, "nomad_file_metadatas.parquet")
+        # save_files_metadata_to_parquet(df, output_file_path)
 
-        # logger.success(f"Scrapped NOMAD data successfully and saved to {output_file_path} !")
+        # end_time = time.time()
+        # elapsed_time = end_time - start_time
+        # logger.success(
+        #     f"Completed Nomad data scraping in {elapsed_time:.2f} seconds successfully 🎉"
+        # )
 
     else:
         logger.error("Cannot scrap data, no connection to NOMAD API.")
@@ -559,19 +553,15 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
 
 
 if __name__ == "__main__":
-    start_time = time.time()
-
     # Parse arguments
     log, folder_out_path, file_name = parse_arguments()
     # Configure logging
     if log:
-        logger.add("../logs/scrap_nomad_{time:YYYY-MM-DD}.log")
+        log_folder = Path("logs")
+        log_folder.mkdir(parents=True, exist_ok=True)
+        logger.add(log_folder / "scrap_nomad_{time:YYYY-MM-DD}.log")
 
     # Scrap NOMAD data
     scrap_nomad_data(folder_out_path, file_name)
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    logger.success(
-        f"Completed Nomad data scraping in {elapsed_time:.2f} seconds successfully 🎉"
-    )
+
