@@ -43,13 +43,13 @@ from typing import List, Dict, Any, Tuple, Optional
 import httpx
 import pandas as pd
 from loguru import logger
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, computed_field
 
 
 # CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 OUTPUT_DIR = "data/nomad"
-JSON_PAYLOAD_DATASETS = {
+JSON_PAYLOAD_NOMAD_REQUEST = {
   "owner": "visible",
   "query": {
     "results.method.workflow_name:any": [
@@ -80,8 +80,8 @@ class NomadDataset(BaseModel):
     url: str = Field(..., description="URL to access the dataset on NOMAD.")
     date_created: str = Field(..., description="Creation date of the dataset.")
     date_last_updated: str = Field(..., description="Last modification date of the dataset.")
-    date_last_crawled: str = Field(None, description="Date when the dataset was last crawled.")
-    
+    date_last_crawled: str = Field(..., description="Date when the dataset was last crawled.")
+
     # --- Metadata ---
     title: str = Field(..., description="Title of the dataset.")
     author_names: List[str] = Field(..., description="List of author names associated with the dataset.")
@@ -101,7 +101,7 @@ class NomadDataset(BaseModel):
     @field_validator("date_created", "date_last_updated", "date_last_crawled", mode="before")
     def format_dates(cls, v: datetime | str) -> str:
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
-        
+
         Parameters
         ----------
         cls : type[NomadDataset]
@@ -127,7 +127,7 @@ class NomadDataset(BaseModel):
                 raise ValueError(f"Invalid datetime format: {v}. Expected format: YYYY-MM-DDTHH:MM:SS")
 
         raise TypeError(f"Expected datetime or str, got {type(v).__name__}")
-    
+
 
     @field_validator("url")
     def valid_url(cls, v: str) -> str:
@@ -150,7 +150,7 @@ class NomadDataset(BaseModel):
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             raise ValueError(f"Invalid URL: {v}")
         return v
-    
+
 
     @field_validator("links", "license", "description", mode="before")
     def empty_to_none(cls, v: list | str) -> list | str:
@@ -172,6 +172,84 @@ class NomadDataset(BaseModel):
         if v == [] or v == "":
             return None
         return v
+
+
+class NomadFile(BaseModel):
+    """Class representing a Nomad molecular dynamics file."""
+    # --- Source (NOMAD) ---
+    entry_id: str = Field(..., description="Unique NOMAD entry identifier of the dataset related to this file.")
+    file_url: str = Field(..., description="Full file path within the NOMAD repository")
+
+    # --- Metadata ---
+    name_file: str = Field(..., description="Name of the file in the NOMAD entry")
+    type: str = Field(..., description="File extension.")
+    size: int = Field(..., description="File size in bytes")
+    date_last_crawled: str = Field(..., description="Date when the dataset was last crawled.")
+
+    # METHODS
+    @field_validator("date_last_crawled", mode="before")
+    def format_dates(cls, v: datetime | str) -> str:
+        """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
+
+        Parameters
+        ----------
+        cls : type[NomadDataset]
+            The Pydantic model class being validated.
+        v : str
+            The input value of the 'date' field to validate.
+
+        Returns:
+        --------
+        str:
+            The date in '%Y-%m-%dT%H:%M:%S' format.
+        """
+        if isinstance(v, datetime):
+            # Ensure formatting consistency by re-parsing the formatted string
+            return v.strftime("%Y-%m-%dT%H:%M:%S")
+
+        if isinstance(v, str):
+            try:
+                # Enforce strict matching format, no fractional seconds or timezone
+                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
+                return dt.strftime("%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                raise ValueError(f"Invalid datetime format: {v}. Expected format: YYYY-MM-DDTHH:MM:SS")
+
+        raise TypeError(f"Expected datetime or str, got {type(v).__name__}")
+
+    @field_validator("file_url")
+    def valid_url(cls, v: str) -> str:
+        """
+        Validate that the URL field is a properly formatted HTTP/HTTPS URL.
+
+        Parameters
+        ----------
+        cls : type[NomadFiles]
+            The Pydantic model class being validated.
+        v : str
+            The input value of the 'url' field to validate.
+
+        Returns
+        -------
+        str
+            The validated URL string.
+        """
+        parsed = urlparse(v)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError(f"Invalid URL: {v}")
+        return v
+
+
+    @computed_field
+    @property
+    def size_readable(self) -> str:
+        size = self.size
+        units = ["B", "KB", "MB", "GB", "TB"]
+        idx = 0
+        while size >= 1024 and idx < len(units) - 1:
+            size /= 1024
+            idx += 1
+        return f"{size:.2f} {units[idx]}"
 
 
 # FUNCTIONS
@@ -234,14 +312,17 @@ def test_nomad_connection() -> bool:
         return False
 
 
-def fetch_entries_md_related_by_batch(page_size: int = 50) -> List[Tuple[List[Dict[str, Any]], str]]:
+def fetch_nomad_md_related_by_batch(query_entry_point: str, page_size: int = 50) -> List[Tuple[List[Dict[str, Any]], str]]:
     """
-    Fetch all Molecular Dynamics (MD)-related entries from the NOMAD API with pagination.
+    Fetch all Molecular Dynamics (MD)-related entries/files from the NOMAD API with pagination.
 
     Parameters
     ----------
+    query_entry_point : str
+        The entry point of the .post API request.
+        Doc: https://nomad-lab.eu/prod/v1/api/v1/extensions/docs#/entries/metadata
     page_size : int
-        Number of entries to fetch per page.
+        Number of entries to fetch per page. (Default : 50)
 
     Returns
     -------
@@ -249,8 +330,6 @@ def fetch_entries_md_related_by_batch(page_size: int = 50) -> List[Tuple[List[Di
         - A list of tuples (entries_list, fetch_time) for each batch.
     """
     logger.info(f"Fetching Molecular Dynamics related entries from NOMAD API by batch of {page_size} entries...")
-    fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-
     all_entries_with_time = []
     next_page_value = None
     total_entries = None
@@ -261,9 +340,9 @@ def fetch_entries_md_related_by_batch(page_size: int = 50) -> List[Tuple[List[Di
         fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         # HTTP request
         response = httpx.post(
-            f"{BASE_NOMAD_URL}/entries/query",
-            json={**JSON_PAYLOAD_DATASETS,
-              "pagination": {**JSON_PAYLOAD_DATASETS["pagination"], "page_size": page_size}},
+            f"{BASE_NOMAD_URL}/{query_entry_point}",
+            json={**JSON_PAYLOAD_NOMAD_REQUEST,
+              "pagination": {**JSON_PAYLOAD_NOMAD_REQUEST["pagination"], "page_size": page_size}},
             timeout=100)
         response.raise_for_status()
         # Get the formated response with request metadatas in JSON format
@@ -300,11 +379,11 @@ def fetch_entries_md_related_by_batch(page_size: int = 50) -> List[Tuple[List[Di
                 fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 # HTTP request
                 response = httpx.post(
-                    f"{BASE_NOMAD_URL}/entries/query",
-                    json={**JSON_PAYLOAD_DATASETS,
-                    "pagination": {**JSON_PAYLOAD_DATASETS["pagination"],
+                    f"{BASE_NOMAD_URL}/{query_entry_point}",
+                    json={**JSON_PAYLOAD_NOMAD_REQUEST,
+                    "pagination": {**JSON_PAYLOAD_NOMAD_REQUEST["pagination"],
                     "page_size": page_size,
-                    "next_page_after_value": next_page_value}},
+                    "page_after_value": next_page_value}},
                     timeout=100)
                 response.raise_for_status()
                 next_batch = response.json()
@@ -431,11 +510,64 @@ def parse_and_validate_entry_metadatas(nomad_data: List[Tuple[List[Dict[str, Any
     return validated_entries, non_validated_entry_ids
 
 
+def parse_and_validate_files_metadatas(nomad_data: List[Tuple[List[Dict[str, Any]], str]]) -> Tuple[List["NomadFile"], List[Dict]]:
+    """
+    Parse and validate metadata fields for all NOMAD files in batches.
+
+    Parameters
+    ----------
+    nomad_data : List[Tuple[List[Dict[str, Any]], str]]
+        List of tuples containing a batch of files and the fetch_time.
+
+    Returns
+    -------
+    Tuple[List[NomadDataset], List[Dict]]
+        - List of successfully validated `NomadFile` objects.
+        - List of parsed entry that failed validation.
+    """
+    logger.info("Starting parsing and validation of NOMAD files...")
+    validated_entries = []
+    non_validated_entry_ids = []
+    total_entries = sum(len(batch) for batch, _ in nomad_data)
+
+    for entries_list, fetch_time in nomad_data:
+        for data in entries_list:
+            entry_id = data.get("entry_id")
+            for file in data.get("files", []):
+                name_file = file["path"].split("/")[-1]
+                file_extension = name_file.split(".")[-1]
+                file_path = (
+                    f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/"
+                    f"{entry_id}/files/{name_file}"
+                )
+                size = file.get("size", None)
+
+            parsed_entry = {
+                "entry_id": entry_id,
+                "name_file": name_file,
+                "type": file_extension,
+                "size": size,
+                "file_url": file_path,
+                "date_last_crawled": fetch_time
+            }
+            try:
+                # Validate and normalize data collected wieh pydantic model
+                dataset_model = NomadFile(**parsed_entry)
+                validated_entries.append(dataset_model)
+            except ValidationError as e:
+                logger.error(f"Validation failed for file {entry_id}: {e}")
+                non_validated_entry_ids.append(parsed_entry)
+
+    logger.success(f"Parsing completed: {len(validated_entries)} validated / {total_entries} total files successfully! \n")
+    return validated_entries, non_validated_entry_ids
+
+
 def save_nomad_entries_metadatas_to_parquet(
     folder_out_path: str,
     file_name: str,
-    nomad_metadatas_validated: List["NomadDataset"],
-    nomad_metadatas_unvalidated: List[Dict]
+    nomad_metadatas_validated: List["NomadDataset"] | List["NomadFile"],
+    nomad_metadatas_unvalidated: List[Dict],
+    tag: str
 ) -> None:
     """
     Save NOMAD validated and unvalidated metadata to Parquet files.
@@ -450,13 +582,18 @@ def save_nomad_entries_metadatas_to_parquet(
         List of validated NOMAD entries.
     nomad_metadatas_unvalidated : List[Dict]
         List of unvalidated NOMAD entries as dictionaries.
+    tag: str
+        Tag to know if its entries or files metadata to save.
     """
     logger.info("Saving NOMAD entries metadatas to a Parquet file...")
     # Ensure output folder exists
     Path(folder_out_path).mkdir(parents=True, exist_ok=True)
 
     # Save validated entries
-    validated_path = os.path.join(folder_out_path, f"validated_{file_name}")
+    if tag == "entries":
+        validated_path = os.path.join(folder_out_path, f"validated_entries_{file_name}")
+    elif tag == "files":
+        validated_path = os.path.join(folder_out_path, f"validated_files_{file_name}")
     try:
         # Convert list of Pydantic models to list of dicts
         validated_dicts = [entry.model_dump() for entry in nomad_metadatas_validated]
@@ -467,7 +604,10 @@ def save_nomad_entries_metadatas_to_parquet(
         logger.error(f"Failed to save validated metadata to {validated_path}: {e}")
 
     # Save unvalidated entries
-    unvalidated_path = os.path.join(folder_out_path, f"unvalidated_{file_name}")
+    if tag == "entries":
+        unvalidated_path = os.path.join(folder_out_path, f"unvalidated_entries_{file_name}")
+    elif tag == "files":
+        unvalidated_path = os.path.join(folder_out_path, f"unvalidated_files_{file_name}")
     try:
         if len(nomad_metadatas_unvalidated) != 0:
             df_unvalidated = pd.DataFrame(nomad_metadatas_unvalidated)
@@ -493,25 +633,26 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
 
     if test_nomad_connection:
         # Fetch NOMAD entries metadata
-        nomad_data = fetch_entries_md_related_by_batch()
+        nomad_data = fetch_nomad_md_related_by_batch(query_entry_point="entries/query")
         if nomad_data == []:
             logger.warning("No data fetched from NOMAD.")
             return
-
         # Parse and validate NOMAD entry metadatas with a pydantic model (NomadDataset)
-        nomad_metadatas_validated, nomad_metadatas_unvalidated = parse_and_validate_entry_metadatas(nomad_data)
-
+        nomad_entries_validated, nomad_entries_unvalidated = parse_and_validate_entry_metadatas(nomad_data)
         # Save parsed metadata to local file
-        save_nomad_entries_metadatas_to_parquet(folder_out_path, file_name, nomad_metadatas_validated, nomad_metadatas_unvalidated)
+        save_nomad_entries_metadatas_to_parquet(folder_out_path, file_name, nomad_entries_validated, nomad_entries_unvalidated, tag="entries")
 
-        
+        # Fetch NOMAD files metadata
+        nomad_files_metadata = fetch_nomad_md_related_by_batch(query_entry_point="entries/rawdir/query")
+        # Parse and validate the file metadatas with a pydantic model (NomadFile)
+        nomad_files_metadata_validated, nomad_files_metadata_unvalidated = parse_and_validate_files_metadatas(nomad_files_metadata)
+        save_nomad_entries_metadatas_to_parquet(folder_out_path, file_name, nomad_files_metadata_validated, nomad_files_metadata_unvalidated, tag="files")
 
         end_time = time.time()
         elapsed_time = end_time - start_time
         logger.success(
              f"Completed Nomad data scraping in {elapsed_time:.2f} seconds 🎉"
         )
-
     else:
         logger.error("Cannot scrap data, no connection to NOMAD API.")
         sys.exit()
@@ -528,5 +669,3 @@ if __name__ == "__main__":
 
     # Scrap NOMAD data
     scrap_nomad_data(folder_out_path, file_name)
-
-
