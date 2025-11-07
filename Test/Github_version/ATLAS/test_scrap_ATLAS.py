@@ -9,14 +9,13 @@ from asyncio import Semaphore
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Optional
-
 # ------------------------
 # Configuration
 # ------------------------
 HTML_LIST_URL: str = "https://www.dsimb.inserm.fr/ATLAS/"
 API_BASE: str = "https://www.dsimb.inserm.fr/ATLAS/api/ATLAS/metadata/"
 DB_PATH: str = "catalog.db"
-MDVERSE_JSON_PATH: str = "mdverse_formatted_metadata.json"
+ATLAS_JSON_PATH: str = "atlas_formatted_metadata.json"
 
 MAX_CONCURRENT_REQUESTS: int = 10
 BATCH_SIZE: int = 50
@@ -164,10 +163,10 @@ def insert_and_save_mdverse(records: List[Dict]) -> None:
             logger.info(f"Committed batch of {len(batch)} entries.")
 
     # Save JSON file
-    Path(MDVERSE_JSON_PATH).parent.mkdir(parents=True, exist_ok=True)
-    with open(MDVERSE_JSON_PATH, "w", encoding="utf-8") as f:
+    Path(ATLAS_JSON_PATH).parent.mkdir(parents=True, exist_ok=True)
+    with open(ATLAS_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(records, f, indent=2, ensure_ascii=False)
-    logger.info(f"Saved MDverse-style metadata to {MDVERSE_JSON_PATH}")
+    logger.info(f"Saved MDverse-style metadata to {ATLAS_JSON_PATH}")
 
 # ------------------------
 # Step 6: Main execution
