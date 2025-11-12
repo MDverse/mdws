@@ -1,8 +1,18 @@
 """Scrap molecular dynamics datasets and files from NOMAD.
 
-This script scrapes molecular dynamics datasets from the Nomad repository (https://nomad-lab.eu/prod/v1/gui/search/entries).
-It retrieves metadata like dataset names, descriptions, authors...etc and download links for datasets related to molecular dynamics simulations.
-The scraped data is saved locally in Parquet format.
+This script fetches molecular dynamics (MD) datasets from the NOMAD repository (https://nomad-lab.eu/prod/v1/gui/search/entries).
+It collects metadata such as dataset names, descriptions, authors, download links...etc for datasets related to molecular dynamics
+simulations. Additionally, it retrieves file metadata for each dataset, including file paths in NOMAD, size, file type/extension...etc
+
+The scraped data is validated against Pydantic models (`NomadDataset` and `NomadFile`) 
+and saved locally in Parquet format:
+     "data/nomad/validated_entries_{timestamp}.parquet"
+    - "data/nomad/validated_files_{timestamp}.parquet"
+
+Entries that fail validation are saved as:
+    - "data/nomad/unvalidated_entries_{timestamp}.parquet"
+    - "data/nomad/unvalidated_files_{timestamp}.parquet"
+
 
 Usage :
 =======
@@ -13,15 +23,21 @@ Arguments:
     --log : (optional)
         Enable logging to a file.
     --out-path : (optional)
-        File path to save the scraped data. Default is "data/nomad/{timestamp}.parquet".
+        End file path to save the scraped NOMAD data (Dataset and File metadatas). Default is "data/nomad/{timestamp}.parquet".
 
 Example:
 ========
     uv run scripts/scrap_nomad.py --log --out-path data/nomad/nomad_metadatas.parquet
+
+This command will:
+    1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
+    2. Parse their metadata and validate them using the Pydantic models `NomadDataset` and `NomadFile`.
+    3. Save both the validated and unvalidated entries to "data/nomad/{validated or unvalidated}_entries_nomad_metadatas.parquet".
+    4. Save file metadata similarly for validated and unvalidated files.
 """
 
 
-# METADATA
+# METADATAS
 __authors__ = ("Pierre Poulain", "Essmay Touami")
 __contact__ = "pierre.poulain@u-paris.fr"
 __copyright__ = "AGPL-3.0 license"
@@ -82,7 +98,7 @@ class NomadDataset(BaseModel):
     date_last_updated: str = Field(..., description="Last modification date of the dataset.")
     date_last_crawled: str = Field(..., description="Date when the dataset was last crawled.")
 
-    # --- Metadata ---
+    # --- Metadatas ---
     title: str = Field(..., description="Title of the dataset.")
     author_names: List[str] = Field(..., description="List of author names associated with the dataset.")
     links: Optional[List[str]] = Field(None, description="List of external or reference links associated with the dataset.")
@@ -96,6 +112,8 @@ class NomadDataset(BaseModel):
     # --- Simulation ---
     simulation_program: str = Field(..., description="Name of the simulation program used.")
     simulation_program_version: str = Field(..., description="Version of the simulation program used.")
+    nb_atoms : Optional[int] = Field(None, description="Total number of atoms in the system.")
+    molecules: Optional[List[str]] = Field(None, description="List of (molecule_label, number_of_atoms) tuples extracted from NOMAD analysis.")
 
     # METHODS
     @field_validator("date_created", "date_last_updated", "date_last_crawled", mode="before")
@@ -287,7 +305,7 @@ def parse_arguments() -> Tuple[bool, str, str]:
 
     logger.debug(f"Logger: '{args.log}'")
     logger.debug(f"Output folder path: '{folder_out_path}'")
-    logger.debug(f"Output file name: '{file_name}'")
+    logger.debug(f"Output end file name: '{file_name}'")
 
     logger.success("Parsed arguments sucessfully!\n")
     return args.log, folder_out_path, file_name
@@ -312,7 +330,7 @@ def test_nomad_connection() -> bool:
         return False
 
 
-def fetch_nomad_md_related_by_batch(query_entry_point: str, page_size: int = 50) -> List[Tuple[List[Dict[str, Any]], str]]:
+def fetch_nomad_md_related_by_batch(query_entry_point: str, tag: str, page_size: int = 50) -> List[Tuple[List[Dict[str, Any]], str]]:
     """
     Fetch all Molecular Dynamics (MD)-related entries/files from the NOMAD API with pagination.
 
@@ -321,6 +339,8 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, page_size: int = 50)
     query_entry_point : str
         The entry point of the .post API request.
         Doc: https://nomad-lab.eu/prod/v1/api/v1/extensions/docs#/entries/metadata
+    tag: str
+        Tag to know if its entries or files metadata to fetch.
     page_size : int
         Number of entries to fetch per page. (Default : 50)
 
@@ -329,7 +349,7 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, page_size: int = 50)
     List[Tuple[List[Dict[str, Any]], str]]:
         - A list of tuples (entries_list, fetch_time) for each batch.
     """
-    logger.info(f"Fetching Molecular Dynamics related entries from NOMAD API by batch of {page_size} entries...")
+    logger.info(f"Fetching Molecular Dynamics related {tag} from NOMAD API by batch of {page_size} {tag}...")
     all_entries_with_time = []
     next_page_value = None
     total_entries = None
@@ -355,21 +375,21 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, page_size: int = 50)
         first_entries = first_entries_with_request_md["data"]
         # Add it with the crawled time
         all_entries_with_time.append((first_entries, fetch_time))
-        logger.debug(f"Fetched first {len(first_entries_with_request_md['data'])}/{total_entries} entries")
+        logger.debug(f"Fetched first {len(first_entries_with_request_md['data'])}/{total_entries} {tag}")
 
     except httpx.HTTPError as e:
         logger.error(f"HTTP error occurred: {e}")
         return [], None
 
     # Paginate through remaining entries
-    logger.debug("Paginate through remaining entries... (usually takes around 3 minutes)")
+    logger.debug(f"Paginate through remaining {tag}... (usually takes around 3 minutes)")
     with tqdm(
         total=total_entries,
-        desc="Fetching MD entries from NOMAD",
+        desc=f"Fetching MD {tag} from NOMAD",
         colour="blue",
         ncols=100,
         ascii="░▒█",
-        unit="entry",
+        unit="entry" if tag == "entries" else "file",
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]"
     ) as pbar:
         # Initial update for the first batch already fetched
@@ -398,7 +418,7 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, page_size: int = 50)
                 logger.error(f"HTTP error occurred while fetching next page: {e}")
                 break
 
-    logger.success(f"Fetched {sum(len(batch[0]) for batch in all_entries_with_time)} Molecular Dynamics entries from NOMAD successfully ! \n")
+    logger.success(f"Fetched {sum(len(batch[0]) for batch in all_entries_with_time)} Molecular Dynamics {tag} from NOMAD successfully ! \n")
     return all_entries_with_time
 
 
@@ -471,6 +491,25 @@ def parse_and_validate_entry_metadatas(nomad_data: List[Tuple[List[Dict[str, Any
     for entries_list, fetch_time in nomad_data:
         for data in entries_list:
             entry_id = data.get("entry_id")
+
+            # Extract molecules and number total of atoms if available
+            total_atoms = None
+            molecules = None
+            try:
+                topology = data.get("results", {}).get("material", {}).get("topology", [])
+                if isinstance(topology, list):
+                    total_atoms = next(
+                        (t.get("n_atoms") for t in topology if t.get("label") == "original"),
+                        None
+                    )
+                    molecules = [
+                        f'{t.get("label")} ({t.get("n_atoms")} atoms)'
+                        for t in topology
+                        if t.get("structural_type") == "molecule"
+                    ]
+            except Exception as e:
+                logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
+            
             parsed_entry = {
                 "source": "NOMAD",
                 "source_id": entry_id,
@@ -496,7 +535,9 @@ def parse_and_validate_entry_metadatas(nomad_data: List[Tuple[List[Dict[str, Any
                         .get("method", {})
                         .get("simulation", {})
                         .get("program_version")
-                )
+                ),
+                "nb_atoms": total_atoms,
+                "molecules": molecules
             }
             try:
                 # Validate and normalize data collected wieh pydantic model
@@ -633,7 +674,7 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
 
     if test_nomad_connection:
         # Fetch NOMAD entries metadata
-        nomad_data = fetch_nomad_md_related_by_batch(query_entry_point="entries/query")
+        nomad_data = fetch_nomad_md_related_by_batch(query_entry_point="entries/query", tag="entries")
         if nomad_data == []:
             logger.warning("No data fetched from NOMAD.")
             return
@@ -643,16 +684,17 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
         save_nomad_entries_metadatas_to_parquet(folder_out_path, file_name, nomad_entries_validated, nomad_entries_unvalidated, tag="entries")
 
         # Fetch NOMAD files metadata
-        nomad_files_metadata = fetch_nomad_md_related_by_batch(query_entry_point="entries/rawdir/query")
+        nomad_files_metadata = fetch_nomad_md_related_by_batch(query_entry_point="entries/rawdir/query", tag="files")
         # Parse and validate the file metadatas with a pydantic model (NomadFile)
         nomad_files_metadata_validated, nomad_files_metadata_unvalidated = parse_and_validate_files_metadatas(nomad_files_metadata)
         save_nomad_entries_metadatas_to_parquet(folder_out_path, file_name, nomad_files_metadata_validated, nomad_files_metadata_unvalidated, tag="files")
 
         end_time = time.time()
         elapsed_time = end_time - start_time
-        logger.success(
-             f"Completed Nomad data scraping in {elapsed_time:.2f} seconds 🎉"
-        )
+        minutes = int(elapsed_time // 60)
+        seconds = int(elapsed_time % 60)
+        logger.success(f"Completed Nomad data scraping in {minutes} min {seconds} sec 🎉")
+
     else:
         logger.error("Cannot scrap data, no connection to NOMAD API.")
         sys.exit()

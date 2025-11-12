@@ -2,6 +2,7 @@
 *.tsv
 data/*
 !data/.gitkeep
+logs/*
 
 # Result figures
 notebooks/*.png
