@@ -384,7 +384,7 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, tag: str, page_size:
     # Paginate through remaining entries
     logger.debug(f"Paginate through remaining {tag}... (usually takes around 3 minutes)")
     with tqdm(
-        total=total_entries,
+        total=total_entries if tag == "entries" else None,
         desc=f"Fetching MD {tag} from NOMAD",
         colour="blue",
         ncols=100,
@@ -394,7 +394,7 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, tag: str, page_size:
     ) as pbar:
         # Initial update for the first batch already fetched
         pbar.update(len(first_entries))
-        while sum(len(batch[0]) for batch in all_entries_with_time) < total_entries and next_page_value:
+        while next_page_value:
             try:
                 fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 # HTTP request
@@ -413,12 +413,13 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, tag: str, page_size:
                 pbar.update(len(next_batch["data"]))
                 # Update the next entry to begin with
                 next_page_value = next_batch.get("pagination", {}).get("next_page_after_value", None)
-
             except httpx.HTTPError as e:
                 logger.error(f"HTTP error occurred while fetching next page: {e}")
                 break
-
-    logger.success(f"Fetched {sum(len(batch[0]) for batch in all_entries_with_time)} Molecular Dynamics {tag} from NOMAD successfully ! \n")
+    
+    total_datasets = sum(len(batch[0]) for batch in all_entries_with_time)
+    total_files = sum(len(entry["files"]) for batch, _ in all_entries_with_time for entry in batch)
+    logger.success(f"Fetched {total_datasets if tag == 'entries' else total_files} Molecular Dynamics {tag} from NOMAD successfully ! \n")
     return all_entries_with_time
 
 
@@ -569,7 +570,7 @@ def parse_and_validate_files_metadatas(nomad_data: List[Tuple[List[Dict[str, Any
     logger.info("Starting parsing and validation of NOMAD files...")
     validated_entries = []
     non_validated_entry_ids = []
-    total_entries = sum(len(batch) for batch, _ in nomad_data)
+    total_files = sum(len(entry["files"]) for batch, _ in nomad_data for entry in batch)
 
     for entries_list, fetch_time in nomad_data:
         for data in entries_list:
@@ -583,23 +584,23 @@ def parse_and_validate_files_metadatas(nomad_data: List[Tuple[List[Dict[str, Any
                 )
                 size = file.get("size", None)
 
-            parsed_entry = {
-                "entry_id": entry_id,
-                "name_file": name_file,
-                "type": file_extension,
-                "size": size,
-                "file_url": file_path,
-                "date_last_crawled": fetch_time
-            }
-            try:
-                # Validate and normalize data collected wieh pydantic model
-                dataset_model = NomadFile(**parsed_entry)
-                validated_entries.append(dataset_model)
-            except ValidationError as e:
-                logger.error(f"Validation failed for file {entry_id}: {e}")
-                non_validated_entry_ids.append(parsed_entry)
+                parsed_entry = {
+                    "entry_id": entry_id,
+                    "name_file": name_file,
+                    "type": file_extension,
+                    "size": size,
+                    "file_url": file_path,
+                    "date_last_crawled": fetch_time
+                }
+                try:
+                    # Validate and normalize data collected wieh pydantic model
+                    dataset_model = NomadFile(**parsed_entry)
+                    validated_entries.append(dataset_model)
+                except ValidationError as e:
+                    logger.error(f"Validation failed for file {entry_id}: {e}")
+                    non_validated_entry_ids.append(parsed_entry)
 
-    logger.success(f"Parsing completed: {len(validated_entries)} validated / {total_entries} total files successfully! \n")
+    logger.success(f"Parsing completed: {len(validated_entries)} validated / {total_files} total files successfully! \n")
     return validated_entries, non_validated_entry_ids
 
 
