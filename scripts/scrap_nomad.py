@@ -4,7 +4,7 @@ This script fetches molecular dynamics (MD) datasets from the NOMAD repository (
 It collects metadata such as dataset names, descriptions, authors, download links...etc for datasets related to molecular dynamics
 simulations. Additionally, it retrieves file metadata for each dataset, including file paths in NOMAD, size, file type/extension...etc
 
-The scraped data is validated against Pydantic models (`NomadDataset` and `NomadFile`) 
+The scraped data is validated against Pydantic models (`NomadDataset` and `NomadFile`)
 and saved locally in Parquet format:
      "data/nomad/validated_entries_{timestamp}.parquet"
     - "data/nomad/validated_files_{timestamp}.parquet"
@@ -53,13 +53,15 @@ import argparse
 from tqdm import tqdm
 from pathlib import Path
 from datetime import datetime
-from urllib.parse import urlparse
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 import pandas as pd
 from loguru import logger
-from pydantic import BaseModel, Field, ValidationError, field_validator, computed_field
+from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
+
+# LOCAL UTILITIES IMPORTS
+from toolbox import validate_http_url
 
 
 # CONSTANTS
@@ -129,7 +131,7 @@ class NomadDataset(BaseModel):
 
         Returns:
         --------
-        str: 
+        str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
         if isinstance(v, datetime):
@@ -146,9 +148,9 @@ class NomadDataset(BaseModel):
 
         raise TypeError(f"Expected datetime or str, got {type(v).__name__}")
 
-
-    @field_validator("url")
-    def valid_url(cls, v: str) -> str:
+    # To comment if u won't take time to valid all the dataset urls
+    #@field_validator("url", mode="before")
+    def validate_url(cls, v: str) -> str:
         """
         Validate that the URL field is a properly formatted HTTP/HTTPS URL.
 
@@ -164,10 +166,7 @@ class NomadDataset(BaseModel):
         str
             The validated URL string.
         """
-        parsed = urlparse(v)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError(f"Invalid URL: {v}")
-        return v
+        return validate_http_url(v)
 
 
     @field_validator("links", "license", "description", mode="before")
@@ -235,7 +234,8 @@ class NomadFile(BaseModel):
 
         raise TypeError(f"Expected datetime or str, got {type(v).__name__}")
 
-    @field_validator("file_url")
+    # To comment if u won't take time to valid all the file urls
+    #@field_validator("file_url", mode="before")
     def valid_url(cls, v: str) -> str:
         """
         Validate that the URL field is a properly formatted HTTP/HTTPS URL.
@@ -252,10 +252,7 @@ class NomadFile(BaseModel):
         str
             The validated URL string.
         """
-        parsed = urlparse(v)
-        if parsed.scheme not in ("http", "https") or not parsed.netloc:
-            raise ValueError(f"Invalid URL: {v}")
-        return v
+        return validate_http_url(v)
 
 
     @computed_field
@@ -307,7 +304,7 @@ def parse_arguments() -> Tuple[bool, str, str]:
     logger.debug(f"Output folder path: '{folder_out_path}'")
     logger.debug(f"Output end file name: '{file_name}'")
 
-    logger.success("Parsed arguments sucessfully!\n")
+    logger.success("Parsed arguments successfully!\n")
     return args.log, folder_out_path, file_name
 
 
@@ -323,7 +320,7 @@ def test_nomad_connection() -> bool:
     try:
         r = httpx.get(f"{BASE_NOMAD_URL}/entries", timeout=5)
         if r.status_code == 200:
-            logger.success("Connected to NOMAD API successfully !")
+            logger.success("Connected to NOMAD API successfully!")
             return True
     except httpx.RequestException:
         logger.error("Failed to connect to NOMAD API.")
@@ -416,10 +413,10 @@ def fetch_nomad_md_related_by_batch(query_entry_point: str, tag: str, page_size:
             except httpx.HTTPError as e:
                 logger.error(f"HTTP error occurred while fetching next page: {e}")
                 break
-    
+
     total_datasets = sum(len(batch[0]) for batch in all_entries_with_time)
     total_files = sum(len(entry["files"]) for batch, _ in all_entries_with_time for entry in batch)
-    logger.success(f"Fetched {total_datasets if tag == 'entries' else total_files} Molecular Dynamics {tag} from NOMAD successfully ! \n")
+    logger.success(f"Fetched {total_datasets if tag == 'entries' else total_files} Molecular Dynamics {tag} from NOMAD successfully! \n")
     return all_entries_with_time
 
 
@@ -460,13 +457,15 @@ def fetch_entries_md_related_once() -> Tuple[List[Dict[str, Any]], str]:
         # Parse JSON data
         entries_md = response.json()
         logger.success(
-            f"Fetched {len(entries_md)} MD-related entries from NOMAD successfully ! \n"
+            f"Fetched {len(entries_md)} MD-related entries from NOMAD successfully! \n"
         )
         return entries_md, fetch_time
 
     except httpx.HTTPError as e:
         logger.error(f"HTTP error occurred: {e}")
         return [], fetch_time
+
+
 
 
 def parse_and_validate_entry_metadatas(nomad_data: List[Tuple[List[Dict[str, Any]], str]]) -> Tuple[List["NomadDataset"], List[Dict]]:
@@ -692,9 +691,11 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
 
         end_time = time.time()
         elapsed_time = end_time - start_time
-        minutes = int(elapsed_time // 60)
+        hours = int(elapsed_time // 3600)
+        minutes = int((elapsed_time % 3600) // 60)
         seconds = int(elapsed_time % 60)
-        logger.success(f"Completed Nomad data scraping in {minutes} min {seconds} sec 🎉")
+
+        logger.success(f"Completed Nomad data scraping in {hours} h {minutes} min {seconds} sec 🎉")
 
     else:
         logger.error("Cannot scrap data, no connection to NOMAD API.")

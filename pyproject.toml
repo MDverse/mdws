@@ -16,6 +16,7 @@ dependencies = [
     "parquet-tools>=0.2.16",
     "pooch>=1.8.2",
     "pyarrow>=19.0.1",
+    "pydantic>=2.12.4",
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",

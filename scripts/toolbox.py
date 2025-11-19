@@ -1,15 +1,16 @@
 """Common functions and utilities used in the project."""
 
 import argparse
-from datetime import datetime
 import pathlib
 import re
 import warnings
+from datetime import datetime
+from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup
+import httpx
 import pandas as pd
 import yaml
-
+from bs4 import BeautifulSoup
 
 warnings.filterwarnings(
     "ignore",
@@ -360,3 +361,32 @@ def remove_false_positive_datasets(filename, database_type, dataset_ids_to_remov
         f"({records_count_old} -> {records_count_clean}) in {filename}"
     )
     df_clean.to_csv(filename, sep="\t", index=False)
+
+
+def validate_http_url(v: str) -> str:
+    """
+    Validate that the input string is a reachable HTTP or HTTPS URL.
+
+    Parameters
+    ----------
+    v : str
+        The input string to validate as a URL.
+
+    Returns
+    -------
+    str
+        The validated URL, if it is well-formed and reachable.
+    """
+    parsed = urlparse(v)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError(f"Invalid URL format: {v}")
+
+    try:
+        # Perform a HEAD request (faster+lighter than GET)
+        response = httpx.head(v, timeout=5.0)
+        if response.status_code >= 400:
+            raise ValueError(f"URL not reachable (status code {response.status_code}): {v}")
+    except httpx.RequestError as e:
+        raise ValueError(f"Failed to connect to URL {v}: {e}") from e
+
+    return v
