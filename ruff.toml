@@ -1,0 +1,48 @@
+target-version = "py313"
+line-length = 88  # Same as Black.
+
+[format]
+docstring-code-format = true
+docstring-code-line-length = 72
+
+[lint]
+preview = true  # Allow preview rules.
+extend-select = [
+    "F",    # pyflakes
+    "E",    # Pycodestyle errors
+    "W",    # Pycodestyle warnings
+    "I",    # isort - import ordering
+    "B",    # bugbear
+    "C90",  # McCabe - code complexity metric for functions
+    "N",    # PEP8 Naming
+    "D",    # Pydocstyle - docstring formatting
+    "UP",   # Pyupgrade - upgraded syntax to newer Python versions
+    "S",    # Flake8-bandit – security issues
+    "BLE",  # Flake8-blind-except – flags bare excepts
+    "FBT",  # Flake8-boolean-trap – potential pitfalls with booleans
+    "A",    # Flake8-builtins – misuse of Python built-in names
+    "COM",  # Flake8-commas – trailing/comma issues
+    "C4",   # Flake8-comprehensions – best practices in comprehensions
+    "EM",   # Flake8-errmsg – error message style
+    "ICN",  # Flake8-import-conventions – enforces conventional import aliases
+    "LOG",  # Flake8-logging – proper logging usage
+    "G",    # Flake8-logging-format – logging format string issues
+    "PT",   # Flake8-pytest-style – pytest best practices
+    "Q",    # Flake8-quotes – enforces quote style consistency
+    "SIM",  # Flake8-simplify – code simplification hints
+    "PD",   # Pandas-vet – checks pandas-specific code practices
+    "NPY",  # NumPy-specific rules – ensures NumPy coding standards
+    "FAST", # FastAPI – FastAPI-specific linting rules
+    "PERF", # Perflint – performance-related checks
+    "FURB", # Refurb – rules for code refurbishment
+    "DOC",  # Pydoclint – docstring linting and consistency
+    "RUF",  # Ruff-specific rules – additional Ruff checks
+]
+ignore = [
+    "COM812", # Redundant with ruff formatter. See: https://docs.astral.sh/ruff/rules/missing-trailing-comma/
+]
+
+# Force numpy-style for docstrings
+# https://docs.astral.sh/ruff/faq/#does-ruff-support-numpy-or-google-style-docstrings
+[lint.pydocstyle]
+convention = "numpy"

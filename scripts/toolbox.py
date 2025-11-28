@@ -36,9 +36,7 @@ def load_database(filename, database_type):
         Datasets in a Pandas dataframe.
     """
     df = pd.DataFrame()
-    if database_type == "datasets":
-        df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
-    elif database_type == "texts":
+    if database_type == "datasets" or database_type == "texts":
         df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
     elif database_type == "files":
         df = pd.read_csv(
@@ -110,7 +108,7 @@ def read_query_file(query_file_path):
     exclusion_paths : list
         Patterns for path exclusion.
     """
-    with open(query_file_path, "r") as param_file:
+    with open(query_file_path) as param_file:
         print(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
     keywords = data_loaded["keywords"]
@@ -127,12 +125,19 @@ def verify_file_exists(filename):
     ----------
     filename : str
         Name of file to verify existence
+
+    Raises
+    ------
+    FileNotFoundError
+        If file does not exist or is not a file.
     """
     file_in = pathlib.Path(filename)
     if not file_in.exists():
-        raise FileNotFoundError(f"File {filename} not found")
+        msg = f"File {filename} not found"
+        raise FileNotFoundError(msg)
     if not file_in.is_file():
-        raise FileNotFoundError(f"File {filename} is not a file")
+        msg = f"{filename} is not a file"
+        raise FileNotFoundError(msg)
 
 
 def verify_output_directory(directory):
@@ -144,12 +149,19 @@ def verify_output_directory(directory):
     ----------
     directory : str
         Path to directory to store results
+
+    Raises
+    ------
+    FileNotFoundError
+        If directory path is an existing file.
     """
     directory_path = pathlib.Path(directory)
     if directory_path.is_file():
-        raise FileNotFoundError(f"{directory} is an existing file.")
+        msg = f"{directory} is an existing file."
+        raise FileNotFoundError(msg)
     if directory_path.is_dir():
-        print(f"Output directory {directory} already exists.")
+        msg = f"Output directory {directory} already exists."
+        print(msg)
     else:
         directory_path.mkdir(parents=True, exist_ok=True)
         print(f"Created output directory {directory}")
@@ -175,7 +187,7 @@ def clean_text(string):
     # Remove tabulation and carriage return
     text_decode = re.sub(r"[\n\r\t]", " ", text_decode)
     # Remove multi spaces
-    text_decode = re.sub(" {2,}", " ", text_decode)
+    text_decode = re.sub(r" {2,}", " ", text_decode)
     return text_decode
 
 
@@ -376,17 +388,25 @@ def validate_http_url(v: str) -> str:
     -------
     str
         The validated URL, if it is well-formed and reachable.
+
+    Raises
+    ------
+    ValueError
+        If the URL is not well-formed or not reachable.
     """
     parsed = urlparse(v)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise ValueError(f"Invalid URL format: {v}")
+        msg = f"Invalid URL format: {v}"
+        raise ValueError(msg)
 
     try:
         # Perform a HEAD request (faster+lighter than GET)
         response = httpx.head(v, timeout=5.0)
         if response.status_code >= 400:
-            raise ValueError(f"URL not reachable (status code {response.status_code}): {v}")
+            msg = f"URL not reachable (status code {response.status_code}): {v}"
+            raise ValueError(msg)
     except httpx.RequestError as e:
-        raise ValueError(f"Failed to connect to URL {v}: {e}") from e
+        msg = f"Failed to connect to URL {v}: {e}"
+        raise ValueError(msg) from e
 
     return v
