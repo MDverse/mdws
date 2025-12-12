@@ -5,6 +5,7 @@ import pathlib
 import re
 import warnings
 from datetime import datetime
+from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -448,3 +449,31 @@ def format_date(date: datetime | str) -> str:
             raise ValueError(msg) from err
     msg = f"Expected datetime or str, got {type(date).__name__}"
     raise TypeError(msg)
+
+
+def ensure_dir(ctx, param, value: Path) -> Path:
+    """
+    Create the directory if it does not already exist.
+
+    Callback for Click options to ensure the provided path
+    is a valid directory. Behaves like `mkdir -p`.
+
+    Parameters
+    ----------
+    ctx : click.Context
+        The Click context for the current command invocation.
+        (Required by Click callbacks but unused in this function.)
+    param : click.Parameter
+        The Click parameter associated with this callback.
+        (Required by Click callbacks but unused in this function.)
+    value : Path
+        The directory path provided by the user, already converted
+        into a `pathlib.Path` object by Click.
+
+    Returns
+    -------
+    Path
+        The same path, after ensuring the directory exists.
+    """
+    value.mkdir(parents=True, exist_ok=True)
+    return value

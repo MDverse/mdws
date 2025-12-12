@@ -3,44 +3,43 @@
 This script fetches molecular dynamics (MD) datasets from the NOMAD repository (https://nomad-lab.eu/prod/v1/gui/search/entries).
 It collects metadata such as dataset names, descriptions, authors, download links...
 for datasets related to molecular dynamics simulations.
-Additionally, it retrieves file metadata for each dataset, including file paths in NOMAD,
-size, file type/extension... of molecular dynamics simulations.
+Additionally, it retrieves file metadata for each dataset, including file paths
+in NOMAD,size, file type/extension... of molecular dynamics simulations.
 
 The scraped data is validated against Pydantic models (`NomadDataset` and `NomadFile`)
 and saved locally in Parquet format:
-- "data/nomad/validated_entries_{timestamp}.parquet"
-- "data/nomad/validated_files_{timestamp}.parquet"
+- "data/nomad/{timestamp}/validated_entries.parquet"
+- "data/nomad/{timestamp}/validated_files.parquet"
 
 Entries that fail validation are saved as:
-- "data/nomad/unvalidated_entries_{timestamp}.parquet"
-- "data/nomad/unvalidated_files_{timestamp}.parquet"
+- "data/nomad/{timestamp}/unvalidated_entries.parquet"
+- "data/nomad/{timestamp}/unvalidated_files.parquet"
 
 
 Usage :
 =======
-    uv run scripts/scrap_nomad.py [--log] [--out-path]
+    uv run scripts/scrap_nomad.py [--out-path]
 
 Arguments:
 ==========
-    --log : (optional)
-        Enable logging to a file.
     --out-path : (optional)
-        End file path to save the scraped NOMAD data (Dataset and File metadatas).
-        Default is "data/nomad/{timestamp}.parquet".
+        Folder path to save the scraped NOMAD data (Dataset and File metadatas).
+        Default is "data/nomad/{timestamp}".
 
 Example:
 ========
-    uv run scripts/scrap_nomad.py --log --out-path data/nomad/nomad_metadatas.parquet
+    uv run scripts/scrap_nomad.py --out-path data/nomad/nomad_metadatas
 
 This command will:
     1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
     2. Parse their metadata and validate them using the Pydantic models `NomadDataset`
        and `NomadFile`.
-    3. Save both the validated and unvalidated entries to "data/nomad/{validated or
-       unvalidated}_entries_nomad_metadatas.parquet".
+    3. Save both the validated and unvalidated entries to "data/nomad/{timestamp}/
+       {validated or unvalidated}_entries.parquet".
     4. Save file metadata similarly for validated and unvalidated files.
 """
 
+# METADATAS
 __authors__ = ("Pierre Poulain", "Essmay Touami")
 __contact__ = "pierre.poulain@u-paris.fr"
 __copyright__ = "AGPL-3.0 license"
@@ -57,6 +56,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import click
 import httpx
 import pandas as pd
 from loguru import logger
@@ -64,8 +64,8 @@ from pydantic import BaseModel, Field, ValidationError, computed_field, field_va
 from toolbox import format_date, validate_http_url
 from tqdm import tqdm
 
+# CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
-OUTPUT_DIR = "data/nomad"
 JSON_PAYLOAD_NOMAD_REQUEST = {
     "owner": "visible",
     "query": {"results.method.workflow_name:any": ["MolecularDynamics"]},
@@ -84,7 +84,7 @@ JSON_PAYLOAD_NOMAD_REQUEST = {
 }
 
 
-# Pydantic class definitions.
+# PYDANTIC CLASS
 class NomadDataset(BaseModel):
     """Class representing a Nomad molecular dynamics dataset."""
 
@@ -304,44 +304,38 @@ class NomadFile(BaseModel):
         return f"{size:.2f} {units[idx]}"
 
 
-def parse_arguments() -> tuple[bool, str, str]:
-    """Parse command line arguments.
+# FUNCTIONS
+def setup_logger(loguru_logger: Any, log_dir: str | Path = "logs") -> None:
+    """Configure a Loguru logger to write logs into a rotating daily log file.
 
-    Returns
-    -------
-    log : bool
-        Whether to enable logging to a file.
-    out_path : str
-        The output file path for the scraped data.
+    Parameters
+    ----------
+    loguru_logger : Any
+        A Loguru logger instance (typically `loguru.logger`).
+    log_dir : str or Path, optional
+        Directory where log files will be stored. Default is "logs".
     """
-    logger.info("Starting to parse command-line arguments...")
-    parser = argparse.ArgumentParser(
-        description="Scrape molecular dynamics datasets from NOMAD."
+    # Ensure log directory exists
+    log_folder = Path(log_dir)
+    log_folder.mkdir(parents=True, exist_ok=True)
+    # Reset any previous configuration
+    loguru_logger.remove()
+    # Define log format
+    fmt = (
+        "{time:YYYY-MM-DD HH:mm:ss}"
+        "| <level>{level:<8}</level> "
+        "| <level>{message}</level>"
     )
-    parser.add_argument(
-        "--log",
-        action="store_true",
-        default=False,
-        help="Enable logging to a file.",
+    loguru_logger.add(
+        log_folder / "scrap_nomad_data_{time:YYYY-MM-DD}.log",
+        format=fmt,
+        level="DEBUG",
     )
-    parser.add_argument(
-        "--out-path",
-        type=str,
-        default=f"{OUTPUT_DIR}/{datetime.now().strftime('%Y%m%d_%H%M%S')}.parquet",
-        help="Output file path for the scraped data.",
+    loguru_logger.add(
+        sys.stdout,
+        format=fmt,
+        level="DEBUG",
     )
-
-    args = parser.parse_args()
-    # retrieve output directory
-    folder_out_path = os.path.dirname(args.out_path)
-    file_name = os.path.basename(args.out_path)
-
-    logger.debug(f"Logger: '{args.log}'")
-    logger.debug(f"Output folder path: '{folder_out_path}'")
-    logger.debug(f"Output end file name: '{file_name}'")
-
-    logger.success("Parsed arguments successfully!\n")
-    return args.log, folder_out_path, file_name
 
 
 def test_nomad_connection() -> bool:
@@ -446,7 +440,7 @@ def fetch_nomad_md_related_by_batch(
     ) as pbar:
         # Initial update for the first batch already fetched
         pbar.update(len(first_entries))
-        while next_page_value:
+        while next_page_value and len(all_entries_with_time) < 10:
             try:
                 fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 # HTTP request
@@ -687,8 +681,7 @@ def parse_and_validate_files_metadatas(
 
 
 def save_nomad_entries_metadatas_to_parquet(
-    folder_out_path: str,
-    file_name: str,
+    folder_out_path: Path,
     nomad_metadatas_validated: list["NomadDataset"] | list["NomadFile"],
     nomad_metadatas_unvalidated: list[dict],
     tag: str,
@@ -698,10 +691,8 @@ def save_nomad_entries_metadatas_to_parquet(
 
     Parameters
     ----------
-    folder_out_path : str
+    folder_out_path : Path
         Folder path where Parquet files will be saved.
-    file_name : str
-        Base file name to use for saving (suffixes will be added automatically).
     nomad_metadatas_validated : List[NomadDataset]
         List of validated NOMAD entries.
     nomad_metadatas_unvalidated : List[Dict]
@@ -715,9 +706,9 @@ def save_nomad_entries_metadatas_to_parquet(
 
     # Save validated entries
     if tag == "entries":
-        validated_path = os.path.join(folder_out_path, f"validated_entries_{file_name}")
+        validated_path = os.path.join(folder_out_path, "validated_entries.parquet")
     elif tag == "files":
-        validated_path = os.path.join(folder_out_path, f"validated_files_{file_name}")
+        validated_path = os.path.join(folder_out_path, "validated_files.parquet")
     try:
         # Convert list of Pydantic models to list of dicts
         validated_dicts = [entry.model_dump() for entry in nomad_metadatas_validated]
@@ -732,11 +723,11 @@ def save_nomad_entries_metadatas_to_parquet(
     # Save unvalidated entries
     if tag == "entries":
         unvalidated_path = os.path.join(
-            folder_out_path, f"unvalidated_entries_{file_name}"
+            folder_out_path, "unvalidated_entries.parquet"
         )
     elif tag == "files":
         unvalidated_path = os.path.join(
-            folder_out_path, f"unvalidated_files_{file_name}"
+            folder_out_path, "unvalidated_files.parquet"
         )
     try:
         if len(nomad_metadatas_unvalidated) != 0:
@@ -751,15 +742,21 @@ def save_nomad_entries_metadatas_to_parquet(
         logger.error(f"Failed to save unvalidated metadata to {unvalidated_path}: {e}")
 
 
-def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
+@click.command()
+@click.option(
+    "--out-path",
+    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    default=Path(f"data/nomad/{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+    show_default=True,
+    help="Folder path to save the scraped NOMAD data (Dataset and File metadatas)"
+)
+def scrap_nomad_data(out_path: Path) -> None:
     """Scrap molecular dynamics datasets and files from NOMAD.
 
     Parameters
     ----------
-    folder_out_path : str
+    out_path : Path
         The output folder path for the scraped data.
-    file_name : str
-        The output file name for the scraped data.
     """
     logger.info("Starting Nomad data scraping...")
     start_time = time.time()
@@ -778,8 +775,7 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
         )
         # Save parsed metadata to local file
         save_nomad_entries_metadatas_to_parquet(
-            folder_out_path,
-            file_name,
+            out_path,
             nomad_entries_validated,
             nomad_entries_unvalidated,
             tag="entries",
@@ -794,8 +790,7 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
             parse_and_validate_files_metadatas(nomad_files_metadata)
         )
         save_nomad_entries_metadatas_to_parquet(
-            folder_out_path,
-            file_name,
+            out_path,
             nomad_files_metadata_validated,
             nomad_files_metadata_unvalidated,
             tag="files",
@@ -817,13 +812,8 @@ def scrap_nomad_data(folder_out_path: str, file_name: str) -> None:
 
 
 if __name__ == "__main__":
-    # Parse arguments.
-    log, folder_out_path, file_name = parse_arguments()
     # Configure logging.
-    if log:
-        log_folder = Path("logs")
-        log_folder.mkdir(parents=True, exist_ok=True)
-        logger.add(log_folder / "scrap_nomad_{time:YYYY-MM-DD}.log")
+    setup_logger(logger)
 
     # Scrap NOMAD data
-    scrap_nomad_data(folder_out_path, file_name)
+    scrap_nomad_data()
