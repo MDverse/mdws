@@ -410,3 +410,41 @@ def validate_http_url(v: str) -> str:
         raise ValueError(msg) from e
 
     return v
+
+
+def format_date(date: datetime | str) -> str:
+    """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
+
+    Parameters
+    ----------
+    date : str
+        The date to validate the format.
+
+    Returns
+    -------
+    str:
+        The date in '%Y-%m-%dT%H:%M:%S' format.
+
+    Raises
+    ------
+    ValueError
+        If the input string is not in a valid ISO 8601 format.
+    TypeError
+        If the input is neither a datetime object nor a string.
+    """
+    if isinstance(date, datetime):
+        # Ensure formatting consistency by re-parsing the formatted string
+        return date.strftime("%Y-%m-%dT%H:%M:%S")
+
+    if isinstance(date, str):
+        try:
+            dt = datetime.fromisoformat(date)
+            return dt.strftime("%Y-%m-%dT%H:%M:%S")
+        except ValueError as err:
+            msg = (
+                f"Invalid datetime format: {date}. Expected format: "
+                "YYYY-MM-DDTHH:MM:SS"
+            )
+            raise ValueError(msg) from err
+    msg = f"Expected datetime or str, got {type(date).__name__}"
+    raise TypeError(msg)

@@ -25,7 +25,8 @@ Arguments:
     --log : (optional)
         Enable logging to a file.
     --out-path : (optional)
-        End file path to save the scraped NOMAD data (Dataset and File metadatas). Default is "data/nomad/{timestamp}.parquet".
+        End file path to save the scraped NOMAD data (Dataset and File metadatas).
+        Default is "data/nomad/{timestamp}.parquet".
 
 Example:
 ========
@@ -33,8 +34,10 @@ Example:
 
 This command will:
     1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-    2. Parse their metadata and validate them using the Pydantic models `NomadDataset` and `NomadFile`.
-    3. Save both the validated and unvalidated entries to "data/nomad/{validated or unvalidated}_entries_nomad_metadatas.parquet".
+    2. Parse their metadata and validate them using the Pydantic models `NomadDataset`
+       and `NomadFile`.
+    3. Save both the validated and unvalidated entries to "data/nomad/{validated or
+       unvalidated}_entries_nomad_metadatas.parquet".
     4. Save file metadata similarly for validated and unvalidated files.
 """
 
@@ -58,10 +61,8 @@ import httpx
 import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
-
-from toolbox import validate_http_url
+from toolbox import format_date, validate_http_url
 from tqdm import tqdm
-
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 OUTPUT_DIR = "data/nomad"
@@ -157,14 +158,15 @@ class NomadDataset(BaseModel):
     )
     molecules: list[str] | None = Field(
         None,
-        description="List of (molecule_label, number_of_atoms) tuples extracted from NOMAD analysis.",
+        description="List of (molecule_label, number_of_atoms) \
+            tuples extracted fromNOMAD analysis.",
     )
 
     # METHODS
     @field_validator(
         "date_created", "date_last_updated", "date_last_crawled", mode="before"
     )
-    def format_dates(cls, v: datetime | str) -> str:
+    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
@@ -178,32 +180,12 @@ class NomadDataset(BaseModel):
         -------
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
-
-        Raises
-        ------
-        ValueError
-            If the input string is not in a valid ISO 8601 format.
-        TypeError
-            If the input is neither a datetime object nor a string.
         """
-        if isinstance(v, datetime):
-            # Ensure formatting consistency by re-parsing the formatted string
-            return v.strftime("%Y-%m-%dT%H:%M:%S")
-
-        if isinstance(v, str):
-            try:
-                # Enforce strict matching format, no fractional seconds or timezone
-                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-                return dt.strftime("%Y-%m-%dT%H:%M:%S")
-            except ValueError:
-                msg = f"Invalid datetime format: {v}. Expected format: YYYY-MM-DDTHH:MM:SS"
-                raise ValueError(msg)
-        msg = f"Expected datetime or str, got {type(v).__name__}"
-        raise TypeError(msg)
+        return format_date(v)
 
     # To comment if u won't take time to valid all the dataset urls
     # @field_validator("url", mode="before")
-    def validate_url(cls, v: str) -> str:
+    def validate_url(cls, v: str) -> str:  # noqa: N805
         """
         Validate that the URL field is a properly formatted HTTP/HTTPS URL.
 
@@ -222,7 +204,7 @@ class NomadDataset(BaseModel):
         return validate_http_url(v)
 
     @field_validator("links", "license", "description", mode="before")
-    def empty_to_none(cls, v: list | str) -> list | str | None:
+    def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
         """
         Normalize empty field values by converting them to None.
 
@@ -251,7 +233,7 @@ class NomadFile(BaseModel):
     # --- Source (NOMAD) ---
     entry_id: str = Field(
         ...,
-        description="Unique NOMAD entry identifier of the dataset related to this file.",
+        description="Unique NOMAD entry identifier of the dataset related to this file."
     )
     file_url: str = Field(..., description="Full file path within the NOMAD repository")
 
@@ -265,7 +247,7 @@ class NomadFile(BaseModel):
 
     # METHODS
     @field_validator("date_last_crawled", mode="before")
-    def format_dates(cls, v: datetime | str) -> str:
+    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
@@ -279,32 +261,12 @@ class NomadFile(BaseModel):
         -------
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
-
-        Raises
-        ------
-        ValueError
-            If the input string is not in a valid ISO 8601 format.
-        TypeError
-            If the input is neither a datetime object nor a string.
         """
-        if isinstance(v, datetime):
-            # Ensure formatting consistency by re-parsing the formatted string
-            return v.strftime("%Y-%m-%dT%H:%M:%S")
-
-        if isinstance(v, str):
-            try:
-                # Enforce strict matching format, no fractional seconds or timezone
-                dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
-                return dt.strftime("%Y-%m-%dT%H:%M:%S")
-            except ValueError:
-                msg = f"Invalid datetime format: {v}. Expected format: YYYY-MM-DDTHH:MM:SS"
-                raise ValueError(msg)
-        msg = f"Expected datetime or str, got {type(v).__name__}"
-        raise TypeError(msg)
+        return format_date(v)
 
     # To comment if u won't take time to valid all the file urls
     # @field_validator("file_url", mode="before")
-    def valid_url(cls, v: str) -> str:
+    def valid_url(cls, v: str) -> str:  # noqa: N805
         """
         Validate that the URL field is a properly formatted HTTP/HTTPS URL.
 
@@ -325,6 +287,14 @@ class NomadFile(BaseModel):
     @computed_field
     @property
     def size_readable(self) -> str:
+        """
+        Convert the file size in bytes into a human-readable format.
+
+        Returns
+        -------
+            str: The size formatted with an appropriate unit
+            (B, KB, MB, GB, or TB), rounded to two decimals.
+        """
         size = self.size
         units = ["B", "KB", "MB", "GB", "TB"]
         idx = 0
@@ -397,7 +367,7 @@ def fetch_nomad_md_related_by_batch(
     query_entry_point: str, tag: str, page_size: int = 50
 ) -> list[tuple[list[dict[str, Any]], str]]:
     """
-    Fetch all Molecular Dynamics (MD)-related entries/files from the NOMAD API with pagination.
+    Fetch all Molecular Dynamics (MD)-related entries/files from the NOMAD API by batch.
 
     Parameters
     ----------
@@ -415,7 +385,8 @@ def fetch_nomad_md_related_by_batch(
         - A list of tuples (entries_list, fetch_time) for each batch.
     """
     logger.info(
-        f"Fetching Molecular Dynamics related {tag} from NOMAD API by batch of {page_size} {tag}..."
+        f"Fetching Molecular Dynamics related {tag} from NOMAD API \
+        by batch of {page_size} {tag}..."
     )
     all_entries_with_time = []
     next_page_value = None
@@ -451,7 +422,8 @@ def fetch_nomad_md_related_by_batch(
         # Add it with the crawled time
         all_entries_with_time.append((first_entries, fetch_time))
         logger.debug(
-            f"Fetched first {len(first_entries_with_request_md['data'])}/{total_entries} {tag}"
+            f"Fetched first {len(first_entries_with_request_md['data'])}\
+            /{total_entries} {tag}"
         )
 
     except httpx.HTTPError as e:
@@ -469,7 +441,8 @@ def fetch_nomad_md_related_by_batch(
         ncols=100,
         ascii="░▒█",
         unit="entry" if tag == "entries" else "file",
-        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, \
+                    {rate_fmt}]",
     ) as pbar:
         # Initial update for the first batch already fetched
         pbar.update(len(first_entries))
@@ -508,7 +481,8 @@ def fetch_nomad_md_related_by_batch(
         len(entry["files"]) for batch, _ in all_entries_with_time for entry in batch
     )
     logger.success(
-        f"Fetched {total_datasets if tag == 'entries' else total_files} Molecular Dynamics {tag} from NOMAD successfully! \n"
+        f"Fetched {total_datasets if tag == 'entries' else total_files} Molecular \
+        Dynamics {tag} from NOMAD successfully! \n"
     )
     return all_entries_with_time
 
@@ -516,10 +490,11 @@ def fetch_nomad_md_related_by_batch(
 def fetch_entries_md_related_once() -> tuple[list[dict[str, Any]], str]:
     # NOTE: Deprecated -> single-request fetch can be too heavy; prefer batch fetching
     """
-    Fetch all Molecular Dynamics (MD)-related entries from the NOMAD API in a single request.
+    Fetch all Molecular Dynamics-related entries from the NOMAD API in a single request.
+
     Note:
         This function is not recommended for regular use, as the server must prepare
-        approximately 1.5 GB of data in one batch, which can be slow or memory-intensive.
+        approximately 1.5 GB of data in one batch, which can be slow/memory-intensive.
 
     Returns
     -------
@@ -530,7 +505,8 @@ def fetch_entries_md_related_once() -> tuple[list[dict[str, Any]], str]:
 
     """
     logger.debug(
-        "Fetching Molecular Dynamics related entries from NOMAD API... (usually take less than 3 minutes!)"
+        "Fetching Molecular Dynamics related entries from NOMAD API... (usually take \
+        less than 3 minutes!)"
     )
     # Current timestamp in ISO format
     fetch_time: str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -543,7 +519,7 @@ def fetch_entries_md_related_once() -> tuple[list[dict[str, Any]], str]:
             "&json_query=%7B%22results.method.workflow_name%22%3A%22MolecularDynamics%22%7D"
         )
 
-        # Perform the HTTP GET request with a long timeout to accommodate large data (usually take less than 3 minutes)
+        # Perform the HTTP GET request with a long timeout to accommodate large data
         response = httpx.get(url, timeout=1000)
         response.raise_for_status()
 
@@ -606,7 +582,7 @@ def parse_and_validate_entry_metadatas(
                         for t in topology
                         if t.get("structural_type") == "molecule"
                     ]
-            except Exception as e:
+            except (ValueError, KeyError) as e:
                 logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
 
             parsed_entry = {
@@ -647,7 +623,8 @@ def parse_and_validate_entry_metadatas(
                 non_validated_entry_ids.append(parsed_entry)
 
     logger.success(
-        f"Parsing completed: {len(validated_entries)} validated / {total_entries} total entries successfully! \n"
+        f"Parsing completed: {len(validated_entries)} validated / {total_entries} total\
+            entries successfully! \n"
     )
     return validated_entries, non_validated_entry_ids
 
@@ -703,7 +680,8 @@ def parse_and_validate_files_metadatas(
                     non_validated_entry_ids.append(parsed_entry)
 
     logger.success(
-        f"Parsing completed: {len(validated_entries)} validated / {total_files} total files successfully! \n"
+        f"Parsing completed: {len(validated_entries)} validated / {total_files} total \
+              files successfully! \n"
     )
     return validated_entries, non_validated_entry_ids
 
@@ -748,7 +726,7 @@ def save_nomad_entries_metadatas_to_parquet(
         logger.success(
             f"NOMAD validated metadatas saved to: {validated_path} successfully!"
         )
-    except Exception as e:
+    except (ValueError, TypeError, OSError) as e:
         logger.error(f"Failed to save validated metadata to {validated_path}: {e}")
 
     # Save unvalidated entries
@@ -765,11 +743,11 @@ def save_nomad_entries_metadatas_to_parquet(
             df_unvalidated = pd.DataFrame(nomad_metadatas_unvalidated)
             df_unvalidated.to_parquet(unvalidated_path, index=False)
             logger.success(
-                f"NOMAD unvalidated metadatas saved to: {unvalidated_path} successfully!"
+            f"NOMAD unvalidated metadatas saved to: {unvalidated_path} successfully!"
             )
         else:
             logger.warning("There is no unvalidated entries to save!")
-    except Exception as e:
+    except (ValueError, TypeError, OSError) as e:
         logger.error(f"Failed to save unvalidated metadata to {unvalidated_path}: {e}")
 
 
