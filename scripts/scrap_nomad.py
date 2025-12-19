@@ -48,7 +48,6 @@ __version__ = "1.0.0"
 
 
 # LIBRARY IMPORTS
-import argparse
 import os
 import sys
 import time
@@ -61,8 +60,9 @@ import httpx
 import pandas as pd
 from loguru import logger
 from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
-from toolbox import format_date, validate_http_url
 from tqdm import tqdm
+
+from scripts.toolbox import format_date, validate_http_url
 
 # CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
@@ -352,8 +352,10 @@ def test_nomad_connection() -> bool:
         if r.status_code == 200:
             logger.success("Connected to NOMAD API successfully!")
             return True
-    except httpx.RequestException:
-        logger.error("Failed to connect to NOMAD API.")
+        logger.error(f"NOMAD API returned status code {r.status_code}")
+        return False
+    except httpx.RequestError as exc:
+        logger.error(f"Failed to connect to NOMAD API: {exc}")
         return False
 
 
@@ -422,7 +424,7 @@ def fetch_nomad_md_related_by_batch(
 
     except httpx.HTTPError as e:
         logger.error(f"HTTP error occurred: {e}")
-        return [], None
+        return []
 
     # Paginate through remaining entries
     logger.debug(
@@ -610,7 +612,7 @@ def parse_and_validate_entry_metadatas(
             }
             try:
                 # Validate and normalize data collected wieh pydantic model
-                dataset_model = NomadDataset(**parsed_entry)
+                dataset_model = NomadDataset(**parsed_entry)  # ty:ignore[invalid-argument-type]
                 validated_entries.append(dataset_model)
             except ValidationError as e:
                 logger.error(f"Validation failed for entry {entry_id}: {e}")
@@ -667,7 +669,7 @@ def parse_and_validate_files_metadatas(
                 }
                 try:
                     # Validate and normalize data collected wieh pydantic model
-                    dataset_model = NomadFile(**parsed_entry)
+                    dataset_model = NomadFile(**parsed_entry)  # ty:ignore[invalid-argument-type]
                     validated_entries.append(dataset_model)
                 except ValidationError as e:
                     logger.error(f"Validation failed for file {entry_id}: {e}")
