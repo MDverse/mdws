@@ -5,6 +5,7 @@ import pathlib
 import re
 import warnings
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,6 +20,17 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
+
+
+class DatasetOrigin(StrEnum):
+    """Supported repositories from which molecular dynamics datasets are scraped."""
+
+    ZENODO = "ZENODO"
+    FIGSHARE = "FIGSHARE"
+    OSF = "OSF"
+    NOMAD = "NOMAD"
+    ATLAS = "ATLAS"
+    GPCRMD = "GPCRMD"
 
 
 def load_database(filename, database_type):
