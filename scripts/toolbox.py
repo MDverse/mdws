@@ -22,8 +22,19 @@ warnings.filterwarnings(
 )
 
 
-class DatasetOrigin(StrEnum):
+class DatasetRepository(StrEnum):
     """Supported repositories from which molecular dynamics datasets are scraped."""
+
+    ZENODO = "ZENODO"
+    FIGSHARE = "FIGSHARE"
+    OSF = "OSF"
+    NOMAD = "NOMAD"
+    ATLAS = "ATLAS"
+    GPCRMD = "GPCRMD"
+
+
+class DatasetProject(StrEnum):
+    """Supported projects from which molecular dynamics datasets are scraped."""
 
     ZENODO = "ZENODO"
     FIGSHARE = "FIGSHARE"

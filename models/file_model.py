@@ -11,10 +11,6 @@ The models are designed to:
 - Provide a common representation that downstream tools can rely on
   regardless of the original data provider
 
-Each dataset-specific model (e.g. NomadDataset) captures both:
-- Generic metadata shared across repositories (title, authors, dates, license)
-- Source-specific attributes (file listings, simulation software, system size)
-
 These schemas are intended to be used as the final validation layer of
 automated scraping pipelines, ensuring that extracted data is complete,
 consistent, and ready for storage, indexing, or further analysis.
@@ -24,7 +20,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from scripts.toolbox import DatasetOrigin, format_date, validate_http_url
+from scripts.toolbox import (
+    DatasetRepository,
+    format_date,
+    validate_http_url,
+)
 
 
 # =====================================================================
@@ -44,21 +44,22 @@ class BaseFile(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_origin: DatasetOrigin = Field(
+    dataset_repository: DatasetRepository = Field(
         ...,
         description=(
             "Name of the source repository. "
             "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
         ),
     )
-    dataset_id: str = Field(
+    dataset_id_in_repository: str = Field(
         ...,
         description="Unique identifier of the dataset in the source repository.",
     )
-    file_url: str = Field(
+    file_url_in_repository: str = Field(
         ...,
         description="Direct URL to access the file.",
     )
+
     # ------------------------------------------------------------------
     # Descriptive metadata
     # ------------------------------------------------------------------
@@ -74,20 +75,24 @@ class BaseFile(BaseModel):
     file_md5: str | None = Field(
         None, description="MD5 checksum."
     )
-    date_last_crawled: str = Field(
-        ..., description="Date when the file was last crawled."
+    date_last_fetched: str = Field(
+        ..., description="Date when the file was last fetched."
+    )
+    extracted_from_archive: str | None = Field(
+        None,
+        description="Archive file name this file was extracted from, if applicable."
     )
 
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
-    @field_validator("date_last_crawled", mode="before")
+    @field_validator("date_last_fetched", mode="before")
     def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
         ----------
-        cls : type[NomadDataset]
+        cls : type[BaseDataset]
             The Pydantic model class being validated.
         v : str
             The input value of the 'date' field to validate.

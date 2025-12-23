@@ -11,10 +11,6 @@ The models are designed to:
 - Provide a common representation that downstream tools can rely on
   regardless of the original data provider
 
-Each dataset-specific model (e.g. NomadDataset) captures both:
-- Generic metadata shared across repositories (title, authors, dates, license)
-- Source-specific attributes (e.g. force-field)
-
 These schemas are intended to be used as the final validation layer of
 automated scraping pipelines, ensuring that extracted data is complete,
 consistent, and ready for storage, indexing, or further analysis.
@@ -25,7 +21,12 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from scripts.toolbox import DatasetOrigin, format_date, validate_http_url
+from scripts.toolbox import (
+    DatasetProject,
+    DatasetRepository,
+    format_date,
+    validate_http_url,
+)
 
 DOI = Annotated[
     str,
@@ -52,21 +53,40 @@ class BaseDataset(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_origin: DatasetOrigin = Field(
+    dataset_repository: DatasetRepository = Field(
         ...,
         description=(
             "Name of the source repository. "
             "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
         ),
     )
-    dataset_id: str = Field(
+    dataset_project: DatasetProject = Field(
+        ...,
+        description=(
+            "Name of the project."
+            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
+        ),
+    )
+    dataset_id_in_repository: str = Field(
         ...,
         description="Unique identifier of the dataset in the source repository.",
     )
-    dataset_url: str = Field(
+    dataset_id_in_project: str = Field(
         ...,
-        description="Canonical URL to access the dataset.",
+        description="Unique identifier of the dataset in the project.",
     )
+    dataset_url_in_repository: str = Field(
+        ...,
+        description="Canonical URL to access the dataset in the repository.",
+    )
+    dataset_url_in_project: str = Field(
+        ...,
+        description="Canonical URL to access the dataset in the project.",
+    )
+
+    # ------------------------------------------------------------------
+    # Statistics metadata
+    # ------------------------------------------------------------------
     download_number: int | None = Field(
         None,
         description="Total number of downloads for the dataset.",
@@ -87,9 +107,9 @@ class BaseDataset(BaseModel):
         None,
         description="Date when the dataset metadata was last updated.",
     )
-    date_last_crawled: str = Field(
+    date_last_fetched: str = Field(
         ...,
-        description="Date when the dataset was last crawled by the pipeline.",
+        description="Date when the dataset was last fetched by the pipeline.",
     )
 
     # ------------------------------------------------------------------
@@ -134,15 +154,11 @@ class BaseDataset(BaseModel):
         ...,
         description="Total number of files in the dataset.",
     )
-    file_names: list[str] = Field(
-        ...,
-        description="List of dataset file names.",
-    )
 
     # ------------------------------------------------------------------
     # Simulation metadata
     # ------------------------------------------------------------------
-    simulation_program: str | None = Field(
+    simulation_program_name: str | None = Field(
         None,
         description="Molecular dynamics engine used (e.g. GROMACS, NAMD).",
     )
@@ -154,16 +170,30 @@ class BaseDataset(BaseModel):
         None,
         description="Total number of atoms in the simulated system.",
     )
-    molecules: list[str] | None = Field(
+    molecule_names: list[str] | None = Field(
         None,
         description="Molecular composition of the system, if available.",
+    )
+    forcefield_model_name: str | None = Field(
+        None,
+        description="Molecular dynamics forcefield model used (e.g. AMBER).",
+    )
+    forcefield_model_version: str | None = Field(
+        None,
+        description="Version of the forcefield model.",
+    )
+    timestep: int | None = Field(
+        None, description="The time interval between new positions computation (in fs)."
+    )
+    delta: int | None = Field(
+        None, description="The time gap between frames (in ns)."
     )
 
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
     @field_validator(
-        "date_created", "date_last_updated", "date_last_crawled", mode="before"
+        "date_created", "date_last_updated", "date_last_fetched", mode="before"
     )
     def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
@@ -203,7 +233,7 @@ class BaseDataset(BaseModel):
         return validate_http_url(v)
 
     @field_validator(
-            "description", "keywords", "links", "license", "molecules", mode="before")
+            "description", "keywords", "links", "license", "molecule_names", mode="before")
     def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
         """
         Normalize empty field values by converting them to None.

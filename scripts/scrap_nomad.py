@@ -361,16 +361,18 @@ def parse_and_validate_entry_metadatas(
                 logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
 
             parsed_entry = {
-                "dataset_origin": "NOMAD",
-                "dataset_id": entry_id,
-                "dataset_url": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
+                "dataset_repository": "NOMAD",
+                "dataset_project": "NOMAD",
+                "dataset_id_in_repository": entry_id,
+                "dataset_id_in_project": entry_id,
+                "dataset_url_in_repository": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
+                "dataset_url_in_project": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
                 "links": data.get("references"),
                 "title": data.get("entry_name"),
                 "date_created": data.get("entry_create_time"),
                 "date_last_updated": data.get("last_processing_time"),
-                "date_last_crawled": fetch_time,
+                "date_last_fetched": fetch_time,
                 "nb_files": len(data.get("files", [])),
-                "file_names": data.get("files", []),
                 "author_names": [a.get("name") for a in data.get("authors", [])],
                 "license": data.get("license"),
                 "description": data.get("comment"),
@@ -387,7 +389,7 @@ def parse_and_validate_entry_metadatas(
                     .get("program_version")
                 ),
                 "nb_atoms": total_atoms,
-                "molecules": molecules,
+                "molecule_names": molecules,
             }
             try:
                 # Validate and normalize data collected wieh pydantic model
@@ -442,13 +444,13 @@ def parse_and_validate_files_metadatas(
                 size = file.get("size", None)
 
                 parsed_entry = {
-                    "dataset_origin": "NOMAD",
-                    "dataset_id": entry_id,
+                    "dataset_repository": "NOMAD",
+                    "dataset_id_in_repository": entry_id,
                     "file_name": name_file,
                     "file_type": file_extension,
                     "file_size": size,
-                    "file_url": file_path,
-                    "date_last_crawled": fetch_time,
+                    "file_url_in_repository": file_path,
+                    "date_last_fetched": fetch_time,
                 }
                 try:
                     # Validate and normalize data collected wieh pydantic model
