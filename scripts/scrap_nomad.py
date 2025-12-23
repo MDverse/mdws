@@ -221,7 +221,7 @@ def fetch_nomad_md_related_by_batch(
     ) as pbar:
         # Initial update for the first batch already fetched
         pbar.update(len(first_entries))
-        while next_page_value and len(all_entries_with_time) < 10:
+        while next_page_value:
             try:
                 fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
                 # HTTP request
