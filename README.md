@@ -113,6 +113,23 @@ The scraping takes some time (~ 30 min). Be patient.
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
 
 
+## Scrap NOMAD
+
+Scrap Nomad for MD-related datasets and files:
+
+```bash
+uv run scripts/scrap_nomad.py [--out-path]
+```
+
+This command will (takes usually less than 6 minutes):
+    1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
+    2. Parse their metadata and validate them using the Pydantic models `BaseDataset`
+       and `BaseFile`.
+    3. Save both the validated and unvalidated entries to "data/nomad/{timestamp}/
+       {validated or unvalidated}_entries.parquet".
+    4. Save file metadata similarly for validated and unvalidated files.
+
+
 ## Analyze Gromacs mdp and gro files
 
 ### Download files
