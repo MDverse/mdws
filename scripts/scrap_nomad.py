@@ -6,7 +6,7 @@ for datasets related to molecular dynamics simulations.
 Additionally, it retrieves file metadata for each dataset, including file paths
 in NOMAD,size, file type/extension... of molecular dynamics simulations.
 
-The scraped data is validated against Pydantic models (`NomadDataset` and `NomadFile`)
+The scraped data is validated against Pydantic models (`BaseDataset` and `BaseFile`)
 and saved locally in Parquet format:
 - "data/nomad/{timestamp}/validated_entries.parquet"
 - "data/nomad/{timestamp}/validated_files.parquet"
@@ -32,8 +32,8 @@ Example:
 
 This command will:
     1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-    2. Parse their metadata and validate them using the Pydantic models `NomadDataset`
-       and `NomadFile`.
+    2. Parse their metadata and validate them using the Pydantic models `BaseDataset`
+       and `BaseFile`.
     3. Save both the validated and unvalidated entries to "data/nomad/{timestamp}/
        {validated or unvalidated}_entries.parquet".
     4. Save file metadata similarly for validated and unvalidated files.
@@ -48,7 +48,6 @@ __version__ = "1.0.0"
 
 
 # LIBRARY IMPORTS
-import argparse
 import os
 import sys
 import time
@@ -60,9 +59,11 @@ import click
 import httpx
 import pandas as pd
 from loguru import logger
-from pydantic import BaseModel, Field, ValidationError, computed_field, field_validator
-from toolbox import format_date, validate_http_url
+from pydantic import ValidationError
 from tqdm import tqdm
+
+from models.dataset_model import BaseDataset
+from models.file_model import BaseFile
 
 # CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
@@ -82,226 +83,6 @@ JSON_PAYLOAD_NOMAD_REQUEST = {
         ]
     },
 }
-
-
-# PYDANTIC CLASS
-class NomadDataset(BaseModel):
-    """Class representing a Nomad molecular dynamics dataset."""
-
-    source: str = Field(
-        "NOMAD",
-        description="Source of the dataset ('https://nomad-lab.eu/prod/v1/gui/').",
-    )
-    source_id: str = Field(
-        ...,
-        description="Unique identifier for the dataset in the source."
-    )
-    url: str = Field(
-        ...,
-        description="URL to access the dataset on NOMAD."
-    )
-    date_created: str = Field(
-        ...,
-        description="Date when the dataset was created."
-    )
-    date_last_updated: str = Field(
-        ...,
-        description="Date when the dataset was last updated."
-    )
-    date_last_crawled: str = Field(
-        ...,
-        description="Date when the dataset was last crawled."
-    )
-    title: str = Field(
-        ...,
-        description="Title of the dataset."
-    )
-    author_names: list[str] = Field(
-        ...,
-        description="List of author names associated with the dataset."
-    )
-    links: list[str] | None = Field(
-        None,
-        description="List of external or reference links associated with the dataset.",
-    )
-    license: str | None = Field(
-        None,
-        description="License under which the dataset is shared."
-    )
-    description: str | None = Field(
-        None,
-        description="Description or comment about the dataset."
-    )
-
-    # Files.
-    nb_files: int = Field(
-        ...,
-        description="Number of files in the dataset."
-    )
-    file_names: list[str] = Field(
-        ...,
-        description="List of file names in the dataset."
-    )
-
-    # Simulation.
-    simulation_program: str = Field(
-        ...,
-        description="Name of the simulation program used."
-    )
-    simulation_program_version: str = Field(
-        ...,
-        description="Version of the simulation program used."
-    )
-    nb_atoms: int | None = Field(
-        None,
-        description="Total number of atoms in the system."
-    )
-    molecules: list[str] | None = Field(
-        None,
-        description="List of (molecule_label, number_of_atoms) \
-            tuples extracted fromNOMAD analysis.",
-    )
-
-    # METHODS
-    @field_validator(
-        "date_created", "date_last_updated", "date_last_crawled", mode="before"
-    )
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
-        """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
-
-        Parameters
-        ----------
-        cls : type[NomadDataset]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'date' field to validate.
-
-        Returns
-        -------
-        str:
-            The date in '%Y-%m-%dT%H:%M:%S' format.
-        """
-        return format_date(v)
-
-    # To comment if u won't take time to valid all the dataset urls
-    # @field_validator("url", mode="before")
-    def validate_url(cls, v: str) -> str:  # noqa: N805
-        """
-        Validate that the URL field is a properly formatted HTTP/HTTPS URL.
-
-        Parameters
-        ----------
-        cls : type[NomadDataset]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'url' field to validate.
-
-        Returns
-        -------
-        str
-            The validated URL string.
-        """
-        return validate_http_url(v)
-
-    @field_validator("links", "license", "description", mode="before")
-    def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
-        """
-        Normalize empty field values by converting them to None.
-
-        Parameters
-        ----------
-        cls : type[NomadDataset]
-            The Pydantic model class being validated.
-        v : Optional[list | str]
-            The raw input value of the field before conversion.
-            Can be a list, a string, or None.
-
-        Returns
-        -------
-        list | str | None
-            Returns None if the value is an empty list or empty string;
-            otherwise returns the original value.
-        """
-        if v == [] or v == "":
-            return None
-        return v
-
-
-class NomadFile(BaseModel):
-    """Class representing a Nomad molecular dynamics file."""
-
-    # --- Source (NOMAD) ---
-    entry_id: str = Field(
-        ...,
-        description="Unique NOMAD entry identifier of the dataset related to this file."
-    )
-    file_url: str = Field(..., description="Full file path within the NOMAD repository")
-
-    # --- Metadata ---
-    name_file: str = Field(..., description="Name of the file in the NOMAD entry")
-    type: str = Field(..., description="File extension.")
-    size: int = Field(..., description="File size in bytes")
-    date_last_crawled: str = Field(
-        ..., description="Date when the dataset was last crawled."
-    )
-
-    # METHODS
-    @field_validator("date_last_crawled", mode="before")
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
-        """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
-
-        Parameters
-        ----------
-        cls : type[NomadDataset]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'date' field to validate.
-
-        Returns
-        -------
-        str:
-            The date in '%Y-%m-%dT%H:%M:%S' format.
-        """
-        return format_date(v)
-
-    # To comment if u won't take time to valid all the file urls
-    # @field_validator("file_url", mode="before")
-    def valid_url(cls, v: str) -> str:  # noqa: N805
-        """
-        Validate that the URL field is a properly formatted HTTP/HTTPS URL.
-
-        Parameters
-        ----------
-        cls : type[NomadFiles]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'url' field to validate.
-
-        Returns
-        -------
-        str
-            The validated URL string.
-        """
-        return validate_http_url(v)
-
-    @computed_field
-    @property
-    def size_readable(self) -> str:
-        """
-        Convert the file size in bytes into a human-readable format.
-
-        Returns
-        -------
-            str: The size formatted with an appropriate unit
-            (B, KB, MB, GB, or TB), rounded to two decimals.
-        """
-        size = self.size
-        units = ["B", "KB", "MB", "GB", "TB"]
-        idx = 0
-        while size >= 1024 and idx < len(units) - 1:
-            size /= 1024
-            idx += 1
-        return f"{size:.2f} {units[idx]}"
 
 
 # FUNCTIONS
@@ -531,7 +312,7 @@ def fetch_entries_md_related_once() -> tuple[list[dict[str, Any]], str]:
 
 def parse_and_validate_entry_metadatas(
     nomad_data: list[tuple[list[dict[str, Any]], str]],
-) -> tuple[list["NomadDataset"], list[dict]]:
+) -> tuple[list[BaseDataset], list[dict]]:
     """
     Parse and validate metadata fields for all NOMAD entries in batches.
 
@@ -542,8 +323,8 @@ def parse_and_validate_entry_metadatas(
 
     Returns
     -------
-    Tuple[List[NomadDataset], List[Dict]]
-        - List of successfully validated `NomadDataset` objects.
+    Tuple[List[BaseDataset], List[Dict]]
+        - List of successfully validated `BaseDataset` objects.
         - List of parsed entry that failed validation.
     """
     logger.info("Starting parsing and validation of NOMAD entries...")
@@ -580,9 +361,9 @@ def parse_and_validate_entry_metadatas(
                 logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
 
             parsed_entry = {
-                "source": "NOMAD",
-                "source_id": entry_id,
-                "url": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
+                "dataset_origin": "NOMAD",
+                "dataset_id": entry_id,
+                "dataset_url": f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}",
                 "links": data.get("references"),
                 "title": data.get("entry_name"),
                 "date_created": data.get("entry_create_time"),
@@ -610,10 +391,13 @@ def parse_and_validate_entry_metadatas(
             }
             try:
                 # Validate and normalize data collected wieh pydantic model
-                dataset_model = NomadDataset(**parsed_entry)
+                dataset_model = BaseDataset(**parsed_entry)
                 validated_entries.append(dataset_model)
             except ValidationError as e:
-                logger.error(f"Validation failed for entry {entry_id}: {e}")
+                logger.error(f"Validation failed for entry {entry_id}")
+                for err in e.errors():
+                    logger.error(f"  Field: {'.'.join(str(x) for x in err['loc'])}")
+                    logger.error(f"  Error: {err['msg']} (type={err['type']})")
                 non_validated_entry_ids.append(parsed_entry)
 
     logger.success(
@@ -625,7 +409,7 @@ def parse_and_validate_entry_metadatas(
 
 def parse_and_validate_files_metadatas(
     nomad_data: list[tuple[list[dict[str, Any]], str]],
-) -> tuple[list["NomadFile"], list[dict]]:
+) -> tuple[list[BaseFile], list[dict]]:
     """
     Parse and validate metadata fields for all NOMAD files in batches.
 
@@ -636,8 +420,8 @@ def parse_and_validate_files_metadatas(
 
     Returns
     -------
-    Tuple[List[NomadDataset], List[Dict]]
-        - List of successfully validated `NomadFile` objects.
+    Tuple[List[BaseDataset], List[Dict]]
+        - List of successfully validated `BaseFile` objects.
         - List of parsed entry that failed validation.
     """
     logger.info("Starting parsing and validation of NOMAD files...")
@@ -658,16 +442,17 @@ def parse_and_validate_files_metadatas(
                 size = file.get("size", None)
 
                 parsed_entry = {
-                    "entry_id": entry_id,
-                    "name_file": name_file,
-                    "type": file_extension,
-                    "size": size,
+                    "dataset_origin": "NOMAD",
+                    "dataset_id": entry_id,
+                    "file_name": name_file,
+                    "file_type": file_extension,
+                    "file_size": size,
                     "file_url": file_path,
                     "date_last_crawled": fetch_time,
                 }
                 try:
                     # Validate and normalize data collected wieh pydantic model
-                    dataset_model = NomadFile(**parsed_entry)
+                    dataset_model = BaseFile(**parsed_entry)
                     validated_entries.append(dataset_model)
                 except ValidationError as e:
                     logger.error(f"Validation failed for file {entry_id}: {e}")
@@ -682,7 +467,7 @@ def parse_and_validate_files_metadatas(
 
 def save_nomad_entries_metadatas_to_parquet(
     folder_out_path: Path,
-    nomad_metadatas_validated: list["NomadDataset"] | list["NomadFile"],
+    nomad_metadatas_validated: list[BaseDataset] | list[BaseFile],
     nomad_metadatas_unvalidated: list[dict],
     tag: str,
 ) -> None:
@@ -693,7 +478,7 @@ def save_nomad_entries_metadatas_to_parquet(
     ----------
     folder_out_path : Path
         Folder path where Parquet files will be saved.
-    nomad_metadatas_validated : List[NomadDataset]
+    nomad_metadatas_validated : List[BaseDataset]
         List of validated NOMAD entries.
     nomad_metadatas_unvalidated : List[Dict]
         List of unvalidated NOMAD entries as dictionaries.
@@ -758,6 +543,7 @@ def scrap_nomad_data(out_path: Path) -> None:
     out_path : Path
         The output folder path for the scraped data.
     """
+    setup_logger(logger, out_path)
     logger.info("Starting Nomad data scraping...")
     start_time = time.time()
 
@@ -769,7 +555,7 @@ def scrap_nomad_data(out_path: Path) -> None:
         if nomad_data == []:
             logger.warning("No data fetched from NOMAD.")
             return
-        # Parse and validate NOMAD entry metadatas with a pydantic model (NomadDataset)
+        # Parse and validate NOMAD entry metadatas with a pydantic model (BaseDataset)
         nomad_entries_validated, nomad_entries_unvalidated = (
             parse_and_validate_entry_metadatas(nomad_data)
         )
@@ -785,7 +571,7 @@ def scrap_nomad_data(out_path: Path) -> None:
         nomad_files_metadata = fetch_nomad_md_related_by_batch(
             query_entry_point="entries/rawdir/query", tag="files"
         )
-        # Parse and validate the file metadatas with a pydantic model (NomadFile)
+        # Parse and validate the file metadatas with a pydantic model (BaseFile)
         nomad_files_metadata_validated, nomad_files_metadata_unvalidated = (
             parse_and_validate_files_metadatas(nomad_files_metadata)
         )
@@ -812,8 +598,5 @@ def scrap_nomad_data(out_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    # Configure logging.
-    setup_logger(logger)
-
     # Scrap NOMAD data
     scrap_nomad_data()
