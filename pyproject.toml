@@ -7,7 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.13.3",
     "biopython>=1.85",
+    "click>=8.3.1",
     "html5lib>=1.1",
+    "loguru>=0.7.3",
     "lxml>=5.3.1",
     "mdanalysis>=2.9.0",
     "numpy>=2.2.4",
@@ -15,6 +17,7 @@ dependencies = [
     "parquet-tools>=0.2.16",
     "pooch>=1.8.2",
     "pyarrow>=19.0.1",
+    "pydantic>=2.12.4",
     "python-dotenv>=1.0.1",
     "pyyaml>=6.0.2",
     "requests>=2.32.3",

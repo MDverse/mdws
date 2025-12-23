@@ -1,15 +1,18 @@
 """Common functions and utilities used in the project."""
 
 import argparse
-from datetime import datetime
 import pathlib
 import re
 import warnings
+from datetime import datetime
+from enum import StrEnum
+from pathlib import Path
+from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup
+import httpx
 import pandas as pd
 import yaml
-
+from bs4 import BeautifulSoup
 
 warnings.filterwarnings(
     "ignore",
@@ -17,6 +20,28 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
+
+
+class DatasetRepository(StrEnum):
+    """Supported repositories from which molecular dynamics datasets are scraped."""
+
+    ZENODO = "ZENODO"
+    FIGSHARE = "FIGSHARE"
+    OSF = "OSF"
+    NOMAD = "NOMAD"
+    ATLAS = "ATLAS"
+    GPCRMD = "GPCRMD"
+
+
+class DatasetProject(StrEnum):
+    """Supported projects from which molecular dynamics datasets are scraped."""
+
+    ZENODO = "ZENODO"
+    FIGSHARE = "FIGSHARE"
+    OSF = "OSF"
+    NOMAD = "NOMAD"
+    ATLAS = "ATLAS"
+    GPCRMD = "GPCRMD"
 
 
 def load_database(filename, database_type):
@@ -35,9 +60,7 @@ def load_database(filename, database_type):
         Datasets in a Pandas dataframe.
     """
     df = pd.DataFrame()
-    if database_type == "datasets":
-        df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
-    elif database_type == "texts":
+    if database_type == "datasets" or database_type == "texts":
         df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
     elif database_type == "files":
         df = pd.read_csv(
@@ -109,7 +132,7 @@ def read_query_file(query_file_path):
     exclusion_paths : list
         Patterns for path exclusion.
     """
-    with open(query_file_path, "r") as param_file:
+    with open(query_file_path) as param_file:
         print(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
     keywords = data_loaded["keywords"]
@@ -126,12 +149,19 @@ def verify_file_exists(filename):
     ----------
     filename : str
         Name of file to verify existence
+
+    Raises
+    ------
+    FileNotFoundError
+        If file does not exist or is not a file.
     """
     file_in = pathlib.Path(filename)
     if not file_in.exists():
-        raise FileNotFoundError(f"File {filename} not found")
+        msg = f"File {filename} not found"
+        raise FileNotFoundError(msg)
     if not file_in.is_file():
-        raise FileNotFoundError(f"File {filename} is not a file")
+        msg = f"{filename} is not a file"
+        raise FileNotFoundError(msg)
 
 
 def verify_output_directory(directory):
@@ -143,12 +173,19 @@ def verify_output_directory(directory):
     ----------
     directory : str
         Path to directory to store results
+
+    Raises
+    ------
+    FileNotFoundError
+        If directory path is an existing file.
     """
     directory_path = pathlib.Path(directory)
     if directory_path.is_file():
-        raise FileNotFoundError(f"{directory} is an existing file.")
+        msg = f"{directory} is an existing file."
+        raise FileNotFoundError(msg)
     if directory_path.is_dir():
-        print(f"Output directory {directory} already exists.")
+        msg = f"Output directory {directory} already exists."
+        print(msg)
     else:
         directory_path.mkdir(parents=True, exist_ok=True)
         print(f"Created output directory {directory}")
@@ -174,7 +211,7 @@ def clean_text(string):
     # Remove tabulation and carriage return
     text_decode = re.sub(r"[\n\r\t]", " ", text_decode)
     # Remove multi spaces
-    text_decode = re.sub(" {2,}", " ", text_decode)
+    text_decode = re.sub(r" {2,}", " ", text_decode)
     return text_decode
 
 
@@ -360,3 +397,106 @@ def remove_false_positive_datasets(filename, database_type, dataset_ids_to_remov
         f"({records_count_old} -> {records_count_clean}) in {filename}"
     )
     df_clean.to_csv(filename, sep="\t", index=False)
+
+
+def validate_http_url(v: str) -> str:
+    """
+    Validate that the input string is a reachable HTTP or HTTPS URL.
+
+    Parameters
+    ----------
+    v : str
+        The input string to validate as a URL.
+
+    Returns
+    -------
+    str
+        The validated URL, if it is well-formed and reachable.
+
+    Raises
+    ------
+    ValueError
+        If the URL is not well-formed or not reachable.
+    """
+    parsed = urlparse(v)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        msg = f"Invalid URL format: {v}"
+        raise ValueError(msg)
+
+    try:
+        # Perform a HEAD request (faster+lighter than GET)
+        response = httpx.head(v, timeout=5.0)
+        if response.status_code >= 400:
+            msg = f"URL not reachable (status code {response.status_code}): {v}"
+            raise ValueError(msg)
+    except httpx.RequestError as e:
+        msg = f"Failed to connect to URL {v}: {e}"
+        raise ValueError(msg) from e
+
+    return v
+
+
+def format_date(date: datetime | str) -> str:
+    """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
+
+    Parameters
+    ----------
+    date : str
+        The date to validate the format.
+
+    Returns
+    -------
+    str:
+        The date in '%Y-%m-%dT%H:%M:%S' format.
+
+    Raises
+    ------
+    ValueError
+        If the input string is not in a valid ISO 8601 format.
+    TypeError
+        If the input is neither a datetime object nor a string.
+    """
+    if isinstance(date, datetime):
+        # Ensure formatting consistency by re-parsing the formatted string
+        return date.strftime("%Y-%m-%dT%H:%M:%S")
+
+    if isinstance(date, str):
+        try:
+            dt = datetime.fromisoformat(date)
+            return dt.strftime("%Y-%m-%dT%H:%M:%S")
+        except ValueError as err:
+            msg = (
+                f"Invalid datetime format: {date}. Expected format: "
+                "YYYY-MM-DDTHH:MM:SS"
+            )
+            raise ValueError(msg) from err
+    msg = f"Expected datetime or str, got {type(date).__name__}"
+    raise TypeError(msg)
+
+
+def ensure_dir(ctx, param, value: Path) -> Path:
+    """
+    Create the directory if it does not already exist.
+
+    Callback for Click options to ensure the provided path
+    is a valid directory. Behaves like `mkdir -p`.
+
+    Parameters
+    ----------
+    ctx : click.Context
+        The Click context for the current command invocation.
+        (Required by Click callbacks but unused in this function.)
+    param : click.Parameter
+        The Click parameter associated with this callback.
+        (Required by Click callbacks but unused in this function.)
+    value : Path
+        The directory path provided by the user, already converted
+        into a `pathlib.Path` object by Click.
+
+    Returns
+    -------
+    Path
+        The same path, after ensuring the directory exists.
+    """
+    value.mkdir(parents=True, exist_ok=True)
+    return value
