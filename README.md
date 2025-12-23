@@ -118,10 +118,10 @@ Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datas
 Scrap Nomad for MD-related datasets and files:
 
 ```bash
-uv run scripts/scrap_nomad.py [--out-path]
+uv run -m scripts.scrap_nomad
 ```
 
-This command will (takes usually less than 6 minutes):
+This command (takes usually less than 6 minutes) will:
     1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
     2. Parse their metadata and validate them using the Pydantic models `BaseDataset`
        and `BaseFile`.

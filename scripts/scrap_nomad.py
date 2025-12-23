@@ -18,7 +18,7 @@ Entries that fail validation are saved as:
 
 Usage :
 =======
-    uv run scripts/scrap_nomad.py [--out-path]
+    uv run -m scripts.scrap_nomad [--out-path]
 
 Arguments:
 ==========
@@ -28,7 +28,7 @@ Arguments:
 
 Example:
 ========
-    uv run scripts/scrap_nomad.py --out-path data/nomad/nomad_metadatas
+    uv run -m scripts.scrap_nomad
 
 This command will:
     1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
