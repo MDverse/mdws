@@ -182,11 +182,14 @@ class BaseDataset(BaseModel):
         None,
         description="Version of the forcefield model.",
     )
-    timestep: int | None = Field(
+    timestep: float | None = Field(
         None, description="The time interval between new positions computation (in fs)."
     )
-    delta: int | None = Field(
+    delta: float | None = Field(
         None, description="The time gap between frames (in ns)."
+    )
+    simulation_time: str | None = Field(
+        None, description="The accumulated simulation time (in μs)."
     )
 
     # ------------------------------------------------------------------
