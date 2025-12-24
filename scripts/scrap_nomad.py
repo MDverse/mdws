@@ -1,4 +1,4 @@
-"""Scrap molecular dynamics datasets and files from NOMAD.
+"""Scrape molecular dynamics datasets and files from NOMAD.
 
 This script fetches molecular dynamics (MD) datasets from the NOMAD repository (https://nomad-lab.eu/prod/v1/gui/search/entries).
 It collects metadata such as dataset names, descriptions, authors, download links...
@@ -376,7 +376,7 @@ def parse_and_validate_entry_metadatas(
                 "author_names": [a.get("name") for a in data.get("authors", [])],
                 "license": data.get("license"),
                 "description": data.get("comment"),
-                "simulation_program": (
+                "simulation_program_name": (
                     data.get("results", {})
                     .get("method", {})
                     .get("simulation", {})
