@@ -32,7 +32,7 @@ Example:
    uv run -m scripts.scrap_gpcrmd
 
 This command will:
-    1. Fetch all available datasets from GPCRMD in batches.
+    1. Fetch all available datasets from GPCRMD.
     2. Parse their metadata and validate them using the Pydantic models `BaseDataset`
        and `BaseFile`.
     3. Save both the validated and unvalidated dataset entries to
@@ -59,12 +59,12 @@ from typing import Any
 import click
 import httpx
 import pandas as pd
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from loguru import logger
 from pydantic import ValidationError
 from tqdm import tqdm
 
-from models.dataset_model import BaseDataset
+from models.dataset_model import BaseDataset, DatasetProject, DatasetRepository
 from models.file_model import BaseFile
 
 # CONSTANTS
@@ -117,8 +117,8 @@ def fetch_entries_once() -> tuple[list[dict[str, Any]], str]:
         - The current timestamp in ISO 8601 format (e.g., '2023-03-05T22:01:12').
     """
     logger.debug(
-        "Fetching entries from GPCRMD API... (usually take \
-        less than 1 minutes!)"
+        "Fetching entries from GPCRMD API... "
+        "(usually takes less than 1 minute!)"
     )
     # Current timestamp in ISO format
     fetch_time: str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -140,7 +140,7 @@ def fetch_entries_once() -> tuple[list[dict[str, Any]], str]:
         return [], fetch_time
 
 
-def retrieve_metadata(url: str, field_name: str, timeout: int = 10) -> str | None:
+def retrieve_metadata(url: str, field_name: str, timeout: int = 50) -> str | None:
     """
     Retrieve a specific metadata field from a webpage.
 
@@ -163,6 +163,13 @@ def retrieve_metadata(url: str, field_name: str, timeout: int = 10) -> str | Non
     try:
         response = httpx.get(url, timeout=timeout)
         response.raise_for_status()
+
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            f"HTTP error {e.response.status_code} for {url}"
+        )
+        return None
+
     except httpx.RequestError as e:
         logger.warning(f"Failed to fetch {field_name} from {url}: {e}")
         return None
@@ -172,14 +179,18 @@ def retrieve_metadata(url: str, field_name: str, timeout: int = 10) -> str | Non
     if not bold_tag:
         return None
     # Get all the text from the parent element of the <b> tag
-    parent_text = bold_tag.parent.get_text(strip=True)
+    parent = bold_tag.parent
+    if not isinstance(parent, Tag):
+        return None
+    parent_text = parent.get_text(strip=True)
+
     if ":" not in parent_text:
         return None
     # Get only what is after the "field_name:"
     return parent_text.split(":", 1)[1].strip() or None
 
 
-def retrieve_reference_links(url: str, timeout: int = 10) -> list[str] | None:
+def retrieve_reference_links(url: str, timeout: int = 50) -> list[str] | None:
     """
     Retrieve reference URLs from the References section of a GPCRMD entry page.
 
@@ -199,6 +210,13 @@ def retrieve_reference_links(url: str, timeout: int = 10) -> list[str] | None:
     try:
         response = httpx.get(url, timeout=timeout)
         response.raise_for_status()
+
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            f"HTTP error {e.response.status_code} for {url}"
+        )
+        return None
+
     except httpx.RequestError as e:
         logger.warning(f"Failed to fetch reference links from {url}: {e}")
         return None
@@ -213,17 +231,22 @@ def retrieve_reference_links(url: str, timeout: int = 10) -> list[str] | None:
     if not content_div:
         return None
 
+    # Iterate over all <a> elements with an href attribute inside the content div
+    # Only keep elements that are of type Tag to satisfy type checkers
+    content_div = header.find_next_sibling("div", class_="techinfo_content")
+    if not isinstance(content_div, Tag):
+        return None
     links: list[str] = []
-    # Collect all hrefs that start with http:// or https://
-    for a in content_div.find_all("a", href=True):
+    for a in filter(lambda x: isinstance(x, Tag), content_div.find_all("a", href=True)):
         href = a["href"].strip()
+        # Only include links that start with "http://" or "https://"
         if href.startswith(("http://", "https://")):
             links.append(href)
 
     return links or None
 
 
-def count_simulation_files(url: str, timeout: int = 10) -> int | None:
+def count_simulation_files(url: str, timeout: int = 50) -> int | None:
     """
     Count files in the dataset webpage.
 
@@ -238,6 +261,12 @@ def count_simulation_files(url: str, timeout: int = 10) -> int | None:
     try:
         response = httpx.get(url, timeout=timeout)
         response.raise_for_status()
+
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            f"HTTP error {e.response.status_code} for {url}"
+        )
+        return None
     except httpx.RequestError as e:
         logger.warning(f"Failed to fetch file counts from {url}: {e}")
         return None
@@ -246,14 +275,20 @@ def count_simulation_files(url: str, timeout: int = 10) -> int | None:
 
     # Helper function to count unique links in a container div
     def count_links(container_id: str) -> int:
+        # Find the container <div> by ID
         container = soup.find("div", id=container_id)
-        if not container:
+        # Ensure the container is actually a Tag
+        if not isinstance(container, Tag):
             return 0
 
-        # Collect all hrefs and remove duplicates while preserving order
-        links = ([a["href"].strip() for a in container.find_all("a", href=True)
-            if a["href"].strip()]
-        )
+        # Collect all hrefs in <a> tags, stripping whitespace
+        links = [
+            str(a.get("href", "")).strip()
+            for a in container.find_all("a", href=True)
+            if isinstance(a, Tag) and str(a.get("href", "")).strip()
+        ]
+
+        # Remove duplicates while preserving order
         return len(dict.fromkeys(links))
 
     output_files_count = count_links("allfiles")
@@ -263,9 +298,9 @@ def count_simulation_files(url: str, timeout: int = 10) -> int | None:
 
 
 def parse_and_validate_entry_metadatas(
-    entries_list: list[dict],
+    entries_list: list[dict[str, Any]],
     fetch_time: str
-) -> tuple[list[BaseDataset], list[dict]]:
+) -> tuple[list[BaseDataset], list[dict[str, Any]]]:
     """
     Parse and validate metadata fields for a list of GPCRMD entries.
 
@@ -282,77 +317,230 @@ def parse_and_validate_entry_metadatas(
         - List of successfully validated `BaseDataset` objects.
         - List of parsed entry that failed validation.
     """
-    logger.info("Starting parsing and validation of GPCRMD entries...")
-    validated_entries = []
-    non_validated_entry_ids = []
-    total_entries = len(entries_list)
+    logger.info("Starting parsing and validating GPCRMD entries...")
+    validated_entries: list[BaseDataset] = []
+    non_validated_entries: list[dict[str, Any]] = []
+    total_entries: int = len(entries_list)
 
-    for data in tqdm(entries_list):
-        entry_id = str(data.get("dyn_id"))
+    for entry in tqdm(entries_list,
+            desc="Validating GPCRmd entries",
+            colour="blue",
+            unit="entry"
+        ):
+        entry_id = str(entry.get("dyn_id"))
 
         # Extract molecules and number total of atoms if available
-        total_atoms = data.get("atom_num")
-        dyncomp = data.get("dyncomp", [])
-        molecules = [comp.get("resname") for comp in dyncomp if comp.get("resname")]
-        url = data.get("url")
-        author_names = [retrieve_metadata(url, "Submitted by")]
-        description = retrieve_metadata(url, "Description")
-        stime = retrieve_metadata(url, "Accumulated simulation time")
-        refs = retrieve_reference_links(url)
-        nb_files = count_simulation_files(url)
+        total_atoms: int | None = entry.get("atom_num")
+        dyncomp: list[dict[str, Any]] = entry.get("dyncomp", [])
+        molecules: list[str] = (
+            [comp.get("resname") for comp in dyncomp if comp.get("resname")]
+        )
+        url: str = entry.get("url")
+        author_names: list[str | None] = [retrieve_metadata(url, "Submitted by")]
+        description: str | None = retrieve_metadata(url, "Description")
+        stime: str | None = retrieve_metadata(url, "Accumulated simulation time")
+        refs: list[str] | None = retrieve_reference_links(url)
+        nb_files: int | None = count_simulation_files(url)
+        softname: str = entry.get("mysoftware")
+        softvers: str = entry.get("software_version")
+        ffm: str = entry.get("forcefield")
+        ffm_vers: str = entry.get("forcefield_version")
+        delta: float = entry.get("delta")
+        timestep: float = entry.get("timestep")
+        title: str = entry.get("modelname")
+        date: str = entry.get("creation_timestamp")
 
         parsed_entry = {
-            "dataset_repository": "GPCRMD",
-            "dataset_project": "GPCRMD",
+            "dataset_repository": DatasetRepository.GPCRMD,
+            "dataset_project": DatasetProject.GPCRMD,
             "dataset_id_in_repository": entry_id,
             "dataset_id_in_project": entry_id,
             "dataset_url_in_repository": url,
             "dataset_url_in_project": url,
             "links": refs,
-            "title": data.get("modelname"),
-            "date_created": data.get("creation_timestamp"),
+            "title": title,
+            "date_created": date,
             "date_last_fetched": fetch_time,
             "nb_files": nb_files,
             "author_names": author_names,
             "description": description,
-            "simulation_program_name": data.get("mysoftware"),
-            "simulation_program_version": data.get("software_version"),
+            "simulation_program_name": softname,
+            "simulation_program_version": softvers,
             "nb_atoms": total_atoms,
             "molecule_names": molecules,
-            "forcefield_model_name": data.get("forcefield"),
-            "forcefield_model_version": data.get("forcefield_version"),
-            "timestep": data.get("timestep"),
-            "delta": data.get("delta"),
+            "forcefield_model_name": ffm,
+            "forcefield_model_version": ffm_vers,
+            "timestep": timestep,
+            "delta": delta,
             "simulation_time": stime
             }
         try:
-            # Validate and normalize data collected wieh pydantic model
-            dataset_model = BaseDataset(**parsed_entry)
+            # Validate and normalize data collected with pydantic model
+            dataset_model = BaseDataset(**parsed_entry)  # ty:ignore[invalid-argument-type]  # noqa: E501
             validated_entries.append(dataset_model)
         except ValidationError as e:
-            logger.error(f"Validation failed for entry {entry_id}")
+            reasons: list[str] = []
+
             for err in e.errors():
-                logger.error(f"  Field: {'.'.join(str(x) for x in err['loc'])}")
-                logger.error(f"  Error: {err['msg']} (type={err['type']})")
-            non_validated_entry_ids.append(parsed_entry)
+                field = ".".join(str(x) for x in err["loc"])
+                reason = err["msg"]
+                value = err.get("input")
+
+                logger.error(
+                    "Validation error on '{}': value={!r} (type={}) -> {}",
+                    field,
+                    value,
+                    type(value).__name__,
+                    reason,
+                )
+                reasons.append(f"{field}: {reason}")
+
+            parsed_entry["non_validation_reason"] = "; ".join(reasons)
+            non_validated_entries.append(parsed_entry)
 
     logger.success(
         f"Parsing completed: {len(validated_entries)} validated / {total_entries} total\
             entries successfully! \n"
     )
-    return validated_entries, non_validated_entry_ids
+    return validated_entries, non_validated_entries
 
 
-def parse_and_validate_files_metadatas(
-    entries_list: list[dict],
-    fetch_time: str
-) -> tuple[list[BaseFile], list[dict]]:
-    """
-    Parse and validate metadata for GPCRMD files.
+def make_base_parsed_entry(
+    entry_id: str,
+    url: str,
+    fetch_time: str,
+) -> dict[str, Any]:
+    """Create a base parsed entry with empty file metadata.
 
     Parameters
     ----------
-    entries_list : list[dict]
+    entry_id : str
+        The unique identifier of the GPCRMD entry.
+    url : str
+        The URL of the GPCRMD entry.
+    fetch_time : str
+        The timestamp indicating when the data was fetched.
+
+    Returns
+    -------
+    dict[str, Any]
+        A dictionary representing the base parsed entry with empty file metadata.
+    """
+    return {
+        "dataset_repository": DatasetRepository.GPCRMD,
+        "dataset_id_in_repository": entry_id,
+        "file_name": None,
+        "file_type": None,
+        "file_size": None,
+        "file_url_in_repository": url,
+        "date_last_fetched": fetch_time,
+    }
+
+
+def fetch_entry_page(url: str) -> str | None:
+    """Fetch an entry page and return its HTML content.
+
+    Parameters
+    ----------
+    url : str
+        The URL of the entry page to fetch.
+
+    Returns
+    -------
+    str | None
+        The HTML content of the page if the request is successful, otherwise None.
+    """
+    try:
+        response = httpx.get(url, timeout=50)
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        logger.warning("HTTP error %s for %s", exc.response.status_code, url)
+        return None
+    except httpx.RequestError as exc:
+        logger.warning("Request error for %s: %s", url, exc)
+        return None
+
+    return response.text
+
+
+def fetch_file_size(file_path: str) -> int | None:
+    """Fetch file size using a HEAD request.
+
+    Parameters
+    ----------
+    file_path : str
+        The URL of the file to fetch the size for.
+
+    Returns
+    -------
+        int | None
+        The size of the file in bytes if available, otherwise None.
+    """
+    try:
+        response = httpx.head(file_path, timeout=50, follow_redirects=True)
+        return int(response.headers.get("Content-Length", 0))
+    except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "HTTP error %s for %s",
+            exc.response.status_code,
+            file_path,
+        )
+    except httpx.RequestError as exc:
+        logger.warning("Failed to fetch file size for %s: %s", file_path, exc)
+
+    return None
+
+
+def validate_parsed_entry(
+    parsed_entry: dict[str, Any],
+) -> BaseFile | None:
+    """Validate a parsed entry using the BaseFile model.
+
+    Parameters
+    ----------
+    parsed_entry : dict[str, Any]
+        The parsed entry to validate.
+
+    Returns
+    -------
+    BaseFile | None
+        The validated BaseFile object if validation is successful,
+        otherwise None.
+
+    """
+    try:
+        return BaseFile(**parsed_entry)
+    except ValidationError as exc:
+        reasons: list[str] = []
+
+        for err in exc.errors():
+            field = ".".join(str(x) for x in err["loc"])
+            reason = err["msg"]
+            value = err.get("input")
+
+            logger.error(
+                "Validation error on '{}': value={!r} (type={}) -> {}",
+                field,
+                value,
+                type(value).__name__,
+                reason,
+            )
+
+            reasons.append(f"{field}: {reason}")
+
+        parsed_entry["non_validation_reason"] = "; ".join(reasons)
+        return None
+
+
+def fetch_and_validate_file_metadatas(
+    entries: list[dict],
+    fetch_time: str,
+) -> tuple[list[BaseFile], list[dict]]:
+    """Fetch and validate metadata for GPCRMD files.
+
+    Parameters
+    ----------
+    entries : list[dict]
         List of file entries, each containing metadata such as 'dyn_id' and 'url'.
     fetch_time : str
         Timestamp indicating when the data was fetched.
@@ -363,74 +551,64 @@ def parse_and_validate_files_metadatas(
         - List of validated `BaseFile` objects.
         - List of file entries that failed validation.
     """
-    logger.info("Starting parsing and validation of GPCRMD files...")
+    logger.info("Starting fetching and validating GPCRMD files...")
+
     validated_entries: list[BaseFile] = []
-    non_validated_entry_ids: list[dict] = []
-    total_files = len(entries_list)
+    non_validated_entries: list[dict] = []
 
-    # Loop over the first two entries for demonstration
-    for data in tqdm(entries_list):
-        entry_id = str(data.get("dyn_id"))
-        url = data.get("url")
+    for entry in tqdm(
+        entries,
+        desc="Validating GPCRmd files",
+        colour="blue",
+        unit="file",
+    ):
+        entry_id = str(entry.get("dyn_id"))
+        url = entry.get("url")
 
-        # Fetch the file page
-        try:
-            response = httpx.get(url, timeout=10)
-            response.raise_for_status()
-        except httpx.RequestError as e:
-            logger.warning(f"Failed to fetch file page for {entry_id}: {e}")
-            non_validated_entry_ids.append(data)
+        base_entry = make_base_parsed_entry(entry_id, url, fetch_time)
+
+        html = fetch_entry_page(url)
+        if html is None:
+            base_entry["non_validation_reason"] = "entry_page_fetch_failed"
+            non_validated_entries.append(base_entry)
             continue
 
-        soup = BeautifulSoup(response.text, "html.parser")
-        sections = ["allfiles", "paramfiles"]
+        soup = BeautifulSoup(html, "html.parser")
 
-        # Iterate over sections containing files
-        for sec_id in sections:
+        for sec_id in ("allfiles", "paramfiles"):
             container = soup.find("div", id=sec_id)
-            if not container:
+            # Ensure container is a Tag
+            if not isinstance(container, Tag):
                 continue
 
-            # Process each file link
-            for a in container.find_all("a", href=True):
-                file_path = f"https://www.gpcrmd.org/{a['href'].strip()}"
-                if not file_path:
+            for link in container.find_all("a", href=True):
+                # Ensure link is a Tag to safely access ['href']
+                if not isinstance(link, Tag):
                     continue
 
+                # Use .get() to safely retrieve the href, then convert to str
+                href_value = str(link.get("href", "")).strip()
+                if not href_value:
+                    continue
+                file_path = f"https://www.gpcrmd.org/{href_value}"
                 file_name = os.path.basename(file_path)
-                file_extension = os.path.splitext(file_name)[1].lstrip(".").lower()
-
-                # Try to fetch file size via HEAD request
-                size: int = None
-                try:
-                    head_resp = httpx.head(file_path, timeout=10, follow_redirects=True)
-                    size = int(head_resp.headers.get("Content-Length", 0))
-                except httpx.RequestError as e:
-                    logger.warning(f"Failed to fetch file size for {file_name}: {e}")
+                file_type = os.path.splitext(file_name)[1].lstrip(".").lower()
 
                 parsed_entry = {
-                    "dataset_repository": "GPCRMD",
-                    "dataset_id_in_repository": entry_id,
+                    **base_entry,
                     "file_name": file_name,
-                    "file_type": file_extension,
-                    "file_size": size,
+                    "file_type": file_type,
+                    "file_size": fetch_file_size(file_path),
                     "file_url_in_repository": file_path,
-                    "date_last_fetched": fetch_time,
                 }
 
-                # Validate and normalize entry using Pydantic model
-                try:
-                    dataset_model = BaseFile(**parsed_entry)
-                    validated_entries.append(dataset_model)
-                except ValidationError as e:
-                    logger.error(f"Validation failed for file {entry_id}: {e}")
-                    non_validated_entry_ids.append(parsed_entry)
+                validated = validate_parsed_entry(parsed_entry)
+                if validated is None:
+                    non_validated_entries.append(parsed_entry)
+                else:
+                    validated_entries.append(validated)
 
-    logger.success(
-        f"Parsing completed: {len(validated_entries)} validated / {total_files} \
-            total files successfully!"
-    )
-    return validated_entries, non_validated_entry_ids
+    return validated_entries, non_validated_entries
 
 
 def save_metadatas_to_parquet(
@@ -447,9 +625,9 @@ def save_metadatas_to_parquet(
     folder_out_path : Path
         Folder path where Parquet files will be saved.
     metadatas_validated : List[BaseDataset]
-        List of validated entries.
+        List of validated metadatas.
     metadatas_unvalidated : List[Dict]
-        List of unvalidated entries as dictionaries.
+        List of unvalidated metadatas as dictionaries.
     tag: str
         Tag to know if its entries or files metadata to save.
     """
@@ -534,7 +712,7 @@ def scrap_gpcrmd_data(out_path: Path) -> None:
 
     # Fetch, parse and validate the file metadatas with a pydantic model (BaseFile)
     files_metadata_validated, files_metadata_unvalidated = (
-        parse_and_validate_files_metadatas(entries, fetch_time)
+        fetch_and_validate_file_metadatas(entries, fetch_time)
     )
     save_metadatas_to_parquet(
         out_path,
@@ -543,6 +721,7 @@ def scrap_gpcrmd_data(out_path: Path) -> None:
         tag="files"
     )
 
+    # Compute the elapsed time for scrapping
     end_time = time.time()
     elapsed_time = end_time - start_time
     hours = int(elapsed_time // 3600)
