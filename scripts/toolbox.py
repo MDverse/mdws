@@ -9,6 +9,7 @@ from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
+from dotenv import load_dotenv
 import httpx
 import pandas as pd
 import yaml
@@ -20,6 +21,7 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
+
 
 
 class DatasetRepository(StrEnum):
@@ -42,6 +44,11 @@ class DatasetProject(StrEnum):
     NOMAD = "NOMAD"
     ATLAS = "ATLAS"
     GPCRMD = "GPCRMD"
+
+
+def load_token() -> None:
+    """Load API token from .env file."""
+    load_dotenv()
 
 
 def load_database(filename, database_type):

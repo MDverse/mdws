@@ -5,18 +5,22 @@ import logging
 import json
 import pathlib
 import time
-
-
+import os
+import sys
 import numpy as np
 import pandas as pd
 import requests
-
+import httpx
 
 import toolbox
+from logger import create_logger
+from figshare_api import FigshareAPI
+
+
+
 
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
-
 
 def extract_date(date_str):
     """Extract and format date from a string.
@@ -106,7 +110,7 @@ def extract_data_from_figshare_zip_file(url):
     return file_list
 
 
-def search_figshare_with_query(query, page=1, hits_per_page=1000):
+def search_figshare_with_query(query: str, page: int = 1, hits_per_page: int = 1000) -> dict:
     """Search for datasets.
 
     Arguments
@@ -123,16 +127,28 @@ def search_figshare_with_query(query, page=1, hits_per_page=1000):
     dict
         Figshare response as a JSON object.
     """
-    HEADERS = {"content-type": "application/json"}
-    response = requests.post(
-        "https://api.figshare.com/v2/articles/search",
-        data=f'\u007b"search_for": "{query}", "page_size":{hits_per_page}, "item_type":3, "page":{page}\u007d',
-        headers=HEADERS,
+    headers = {"content-type": "application/json"}
+    data = {
+        "order": "published_date",
+        "search_for": f"{query}",
+        "page": page,
+        "page_size": hits_per_page,
+        "item_type": 3,  # datasets
+        "order_direction": "desc"
+    }
+    #f'\u007b"search_for": "{query}", "page_size":{hits_per_page}, "item_type":3, "page":{page}\u007d',
+    response = httpx.post(
+        url="https://api.figshare.com/v2/articles/search",
+        data=data,
+        headers=headers,
     )
+    print(response.status_code, response.headers, response.content, sep="\n\n")
+    sys.exit(1)
     if response.status_code == 200:
         return response.json()
     else:
-        return None
+        log.warning(f"Status code is {response.status_code}")
+        return {}
 
 
 def request_figshare_dataset_with_id(datasetID):
@@ -323,26 +339,24 @@ def extract_records(hit):
     return datasets, texts, files
 
 
-def main_scrap_figshare(arg, scrap_zip=False):
+def main_scrap_figshare(api: FigshareAPI, arg, scrap_zip:bool=False):
     """Scrap Figshare."""
     # Read parameter file
     FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(
         arg.query
     )
-    # Query with keywords are build in the loop as Figshare has a character limit in query
+    # Query with keywords are build in the loop as Figshare has a character limit in query.
 
-    # Verify results output directory
-    toolbox.verify_output_directory(arg.output)
-
-    # The best strategy is to use paging.
-    MAX_HITS_PER_PAGE = 1_000
+    # We use paging to fetch all results.
+    # we query MAX_HITS_PER_PAGE hits per page.
+    MAX_HITS_PER_PAGE = 100
 
     datasets_df = pd.DataFrame()
     texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
-    print("-" * 30)
+    log.info("-" * 30)
     for file_type in FILE_TYPES:
-        print(f"Looking for filetype: {file_type['type']}")
+        log.info(f"Looking for filetype: {file_type['type']}")
         base_query = f":extension: {file_type['type']}"
         target_keywords = [""]
         if file_type["keywords"] == "keywords":
@@ -357,20 +371,43 @@ def main_scrap_figshare(arg, scrap_zip=False):
                 )
             else:
                 query = base_query
-            print("Query:")
-            print(f"{query}")
+            log.info("Query:")
+            log.info(f"{query}")
             page = 1
             found_datasets_per_keyword = []
+            data_query = {
+                "order": "published_date",
+                "search_for": query,
+                "page": page,
+                "page_size": MAX_HITS_PER_PAGE,
+                "order_direction": "desc",
+                "item_type": 3,  # datasets
+            }
+            # Search endpoint:
+            # https://docs.figshare.com/#articles_search
             while True:
-                resp_json = search_figshare_with_query(
-                    query, page=page, hits_per_page=MAX_HITS_PER_PAGE
-                )
-                if len(resp_json) == 0:
+                results = api.query(endpoint="/articles/search", data=data_query)
+                if results["status_code"] != 200:
+                    log.warning(f"Failed to fetch page {page} for file extension {file_type['type']}")
+                    log.warning(f"Status code: {results['status_code']}")
+                    log.warning(f"Response headers: {results['headers']}")
+                    log.warning(f"Response body: {results['response']}")
+                    break
+                response = results["response"]
+                if not response or len(response) == 0:
                     break
                 # Extract datasets ids.
-                found_datasets_per_keyword += [hit["id"] for hit in resp_json]
+                found_datasets_per_keyword_per_page = [hit["id"] for hit in response]
+                found_datasets_per_keyword += found_datasets_per_keyword_per_page
+                log.info(f"Page {page} fetched successfully (new datasets: {len(found_datasets_per_keyword_per_page)} / total:{len(found_datasets_per_keyword)}).")
                 page += 1
+                # Be gentle with Figshare servers
+                # https://docs.figshare.com/#figshare_documentation_api_description_rate_limiting
+                # "We recommend that clients use the API responsibly
+                # and do not make more than one request per second."
+                time.sleep(1)
             found_datasets.update(found_datasets_per_keyword)
+            sys.exit(1)
         # Extract info for all datasets.
         datasets_lst = []
         texts_lst = []
@@ -449,26 +486,32 @@ if __name__ == "__main__":
     # Parse input arguments.
     ARGS = toolbox.get_scraper_cli_arguments()
 
+    # Create output directory.
+    toolbox.verify_output_directory(ARGS.output)
+
     # Create logger.
-    log_file = logging.FileHandler(f"{ARGS.output}/scrap_figshare.log", mode="w")
-    log_file.setLevel(logging.INFO)
-    log_stream = logging.StreamHandler()
-    logging.basicConfig(
-        handlers=[log_file, log_stream],
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG,
-    )
-    # Rewire the print function to logging.info.
-    print = logging.info
+    log = create_logger(f"{ARGS.output}/scrap_figshare.log")
 
     # Print script name and doctring.
-    print(__file__)
-    print(__doc__)
-   
+    log.info(__file__)
+    log.info(__doc__)
+
+    # Load tokens.
+    toolbox.load_token()
+
+    # Create API object.
+    api = FigshareAPI(token=os.getenv("FIGSHARE_TOKEN"))
+    # Test token validity.
+    if api.is_token_valid():
+        log.info("Figshare token is valid!")
+    else:
+        log.error("Figshare token is invalid!")
+        log.error("Exiting script.")
+        sys.exit(1)
+
     # Scrap Figshare
     FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, TEXTS_EXPORT_PATH = main_scrap_figshare(
-        ARGS, scrap_zip=True
+        api, ARGS, scrap_zip=True
     )
 
     # Remove datasets that contain non-MD related files
