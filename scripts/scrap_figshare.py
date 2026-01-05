@@ -339,7 +339,7 @@ def extract_records(hit):
     return datasets, texts, files
 
 
-def main_scrap_figshare(api: FigshareAPI, arg, scrap_zip:bool=False):
+def main_scrap_figshare(api: FigshareAPI, arg, scrap_zip: bool=False):
     """Scrap Figshare."""
     # Read parameter file
     FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS = toolbox.read_query_file(
@@ -375,17 +375,17 @@ def main_scrap_figshare(api: FigshareAPI, arg, scrap_zip:bool=False):
             log.info(f"{query}")
             page = 1
             found_datasets_per_keyword = []
-            data_query = {
-                "order": "published_date",
-                "search_for": query,
-                "page": page,
-                "page_size": MAX_HITS_PER_PAGE,
-                "order_direction": "desc",
-                "item_type": 3,  # datasets
-            }
             # Search endpoint:
             # https://docs.figshare.com/#articles_search
             while True:
+                data_query = {
+                    "order": "published_date",
+                    "search_for": query,
+                    "page": page,
+                    "page_size": MAX_HITS_PER_PAGE,
+                    "order_direction": "desc",
+                    "item_type": 3,  # datasets
+                }
                 results = api.query(endpoint="/articles/search", data=data_query)
                 if results["status_code"] != 200:
                     log.warning(f"Failed to fetch page {page} for file extension {file_type['type']}")
@@ -401,6 +401,11 @@ def main_scrap_figshare(api: FigshareAPI, arg, scrap_zip:bool=False):
                 found_datasets_per_keyword += found_datasets_per_keyword_per_page
                 log.info(f"Page {page} fetched successfully (new datasets: {len(found_datasets_per_keyword_per_page)} / total:{len(found_datasets_per_keyword)}).")
                 page += 1
+                for hit in response:
+                    log.debug(hit["id"])
+                    log.debug(hit["title"])
+                    log.debug(hit["url"])
+                    log.debug(hit["created_date"])
                 # Be gentle with Figshare servers
                 # https://docs.figshare.com/#figshare_documentation_api_description_rate_limiting
                 # "We recommend that clients use the API responsibly
@@ -490,7 +495,7 @@ if __name__ == "__main__":
     toolbox.verify_output_directory(ARGS.output)
 
     # Create logger.
-    log = create_logger(f"{ARGS.output}/scrap_figshare.log")
+    log = create_logger(logpath=f"{ARGS.output}/scrap_figshare.log", level="DEBUG")
 
     # Print script name and doctring.
     log.info(__file__)
