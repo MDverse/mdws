@@ -593,7 +593,8 @@ def fetch_and_validate_file_metadatas(
     )
     logger.success(
         f"Parsing completed: {percentage:.2f}% validated "
-        f"({len(validated_files)}/{total_files}) files successfully! \n"
+        f"({len(validated_files) - len(non_validated_files)}/"
+        f"{total_files}) files successfully! \n"
     )
     return validated_files, non_validated_files
 
