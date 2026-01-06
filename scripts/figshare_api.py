@@ -2,6 +2,7 @@
 
 import json
 from io import BytesIO
+import time
 
 import certifi
 import pycurl
@@ -21,7 +22,13 @@ class FigshareAPI:
 
     @staticmethod
     def parse_response_headers(headers_bytes: bytes) -> dict:
-        """Parse HTTP response header from bytes to a dictionary."""
+        """Parse HTTP response header from bytes to a dictionary.
+
+        Returns
+        -------
+        dict
+            A dictionary of HTTP response headers.
+        """
         headers = {}
         headers_text = headers_bytes.decode("utf-8")
         for line in headers_text.split("\r\n"):
@@ -31,7 +38,22 @@ class FigshareAPI:
         return headers
 
     def query(self, endpoint: str, data: dict = None) -> dict:
-        """Query the Figshare API and return the JSON response."""
+        """Query the Figshare API and return the JSON response.
+
+        Returns
+        -------
+        dict
+            A dictionary with the following keys:
+            - status_code: HTTP status code of the response.
+            - elapsed_time: Time taken to perform the request.
+            - headers: Dictionary of response headers.
+            - response: JSON response from the API.
+        """
+        # First, we wait.
+        # https://docs.figshare.com/#figshare_documentation_api_description_rate_limiting
+        # "We recommend that clients use the API responsibly
+        # and do not make more than one request per second."
+        time.sleep(1)
         results = {}
         # Initialize a Curl object.
         curl = pycurl.Curl()
