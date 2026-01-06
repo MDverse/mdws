@@ -351,7 +351,7 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
             print(f"Dataset {dataset_id} is probably a false positive:")
             print(dataset_url)
             print(
-                f"Dataset will be removed with its {number_files} files)"
+                f"Dataset will be removed with its {number_files} files."
             )
             print("List of the first file types:")
             print(" ".join(dataset_file_types[:20]))
