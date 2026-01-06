@@ -66,7 +66,9 @@ def extract_files_from_json_response(json_dic, file_list):
     return file_list
 
 
-def extract_files_from_zip_file(file_id: str) -> tuple[list[str], dict]:
+def extract_files_from_zip_file(
+    file_id: str, ctx: ContextManager, max_attempts: int = 3
+) -> list[str]:
     """Extract files from a zip file content.
 
     We don't here Figshare API because no endpoint is available.
@@ -76,21 +78,22 @@ def extract_files_from_zip_file(file_id: str) -> tuple[list[str], dict]:
     ----------
     file_id : str
         ID of the zip file to get content from.
+    ctx : ContextManager
+        ContextManager object.
+    max_attempts : int
+        Maximum number of attempts to fetch the zip file content.
 
     Returns
     -------
     list
         List of file names contained in the zip file.
-    dict
-        Additional information about the extraction process.
     """
     file_names = []
-    info = {}
     url = (
         f"https://figshare.com/ndownloader/files/{file_id}"
         f"/preview/{file_id}/structure.json"
     )
-    # Definie web browser-like user agent to avoid 403 errors.
+    # Define web browser-like user agent to avoid 403 errors.
     headers = {
         "Content-Type": "application/json",
         "User-Agent": (
@@ -98,23 +101,31 @@ def extract_files_from_zip_file(file_id: str) -> tuple[list[str], dict]:
             "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
         ),
     }
-    # Be gentle with Figshare servers.
-    time.sleep(1)
-    # 'follow_redirects=True' is necessary to follow the redirection of the zip content,
-    # generally in S3 AWS servers.
-    response = httpx.get(
-        url,
-        headers=headers,
-        follow_redirects=True,
-        timeout=10,
-    )
-    info["status_code"] = response.status_code
-    info["headers"] = dict(response.headers)
-    info["url"] = url
-    if response.status_code != 200:
-        return file_names, info
-    file_names = extract_files_from_json_response(response.json(), [])
-    return file_names, info
+    for attempt in range(max_attempts):
+        try:
+            # Be gentle with Figshare servers.
+            time.sleep(1 + attempt * 10)
+            # 'follow_redirects=True' is necessary to follow redirections,
+            # generally in AWS servers.
+            response = httpx.get(
+                url,
+                headers=headers,
+                follow_redirects=True,
+                timeout=10,
+            )
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            ctx.log.warning(f"HTTP Exception for {exc.request.url}")
+            ctx.log.warning(f"Status code: {exc.response.status_code}")
+            ctx.log.debug("Query headers:")
+            ctx.log.debug(exc.request.headers)
+            ctx.log.debug("Response headers:")
+            ctx.log.debug(exc.response.headers)
+            ctx.log.warning(f"Attempt {attempt + 1}/{max_attempts} failed. Retrying...")
+
+        else:
+            file_names = extract_files_from_json_response(response.json(), [])
+    return file_names
 
 
 def get_stats_for_dataset(dataset_id: str) -> dict:
@@ -193,12 +204,8 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
         #     print(f"Waiting for {SLEEP_TIME} seconds...")
         #     time.sleep(SLEEP_TIME)
 
-        file_names, info = extract_files_from_zip_file(file_id)
+        file_names = extract_files_from_zip_file(file_id, ctx)
         if file_names == []:
-            ctx.log.warning("Cannot extract files from zip file:")
-            ctx.log.warning(info["url"])
-            ctx.log.warning(f"Status code: {info['status_code']}")
-            ctx.log.debug(f"Response headers: {info['headers']}")
             continue
         # Add other metadata fields.
         for name in file_names:
@@ -369,7 +376,7 @@ def search_all_datasets(
                     "item_type": 3,  # datasets
                 }
                 results = api.query(endpoint="/articles/search", data=data_query)
-                if results["status_code"] != 200:
+                if results["status_code"] >= 400:
                     ctx.log.warning(
                         f"Failed to fetch page {page} "
                         f"for file extension {file_type['type']}"
@@ -394,10 +401,12 @@ def search_all_datasets(
             f"Found {len(found_datasets_per_filetype)} datasets "
             f"for filetype: {file_type['type']}"
         )
-        # We want unique datasets only, ordered by file types,
-        # so we use a list here, instead of a set (sets are unordered).
+        # For debugging purpose, we want unique datasets only, ordered by file types.
+        # Instead of a set (sets are unordered),
+        # we use a list and remove duplicates later.
         unique_datasets += list(found_datasets_per_filetype)
-    # Get unique datasets only.
+    # Get unique datasets.
+    # This trick preserves the order datasets were found.
     unique_datasets = list(dict.fromkeys(unique_datasets))
     ctx.log.success(f"Found {len(unique_datasets)} unique datasets.")
     return unique_datasets
@@ -438,7 +447,7 @@ def get_metadata_for_datasets(
             f"[{datasets_counter}/{len(found_datasets)}]"
         )
         results = api.query(endpoint=f"/articles/{dataset_id}")
-        if results["status_code"] != 200 or results["response"] is None:
+        if results["status_code"] >= 400 or results["response"] is None:
             ctx.log.warning("Failed to fetch dataset.")
             continue
         resp_json_article = results["response"]
@@ -537,7 +546,7 @@ def main() -> None:
     found_datasets = search_all_datasets(api, context)
     # Extract information for all found datasets.
     datasets_df, texts_df, files_df = get_metadata_for_datasets(
-        api, found_datasets[-10:], context
+        api, found_datasets, context
     )
     context.log.success(f"Total number of datasets found: {datasets_df.shape[0]}")
     context.log.success(f"Total number of files found: {files_df.shape[0]}")
