@@ -1,8 +1,8 @@
 """Query the Figshare API using pycurl."""
 
 import json
-from io import BytesIO
 import time
+from io import BytesIO
 
 import certifi
 import pycurl
@@ -16,7 +16,8 @@ class FigshareAPI:
         self.base_url = base_url
         self.headers = {
             "Authorization": f"token {token}",
-            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                           "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"),
             "Content-Type": "application/json",
         }
 
@@ -37,7 +38,7 @@ class FigshareAPI:
                 headers[key] = value
         return headers
 
-    def query(self, endpoint: str, data: dict = None) -> dict:
+    def query(self, endpoint: str, data: dict | None = None) -> dict:
         """Query the Figshare API and return the JSON response.
 
         Returns
@@ -118,7 +119,7 @@ class FigshareAPI:
 
 if __name__ == "__main__":
     api = FigshareAPI(
-        token="a10511e3d8c648afbeb7b700152241d8be86c7f9a93c1a68b068b62cffd519f3f0d60caf45c13baf10114e40ea95165f9454c5a5de4402c08344b6340f2af2e8",
+        token="XXX",
         base_url="https://api.figshare.com/v2/",
     )
 
