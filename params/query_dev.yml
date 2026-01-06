@@ -1,7 +1,6 @@
 keywords:
 - molecular dynamics
 - gromacs
-- amber96
 
 file_types:
 - type: gro
