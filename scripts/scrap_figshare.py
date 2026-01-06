@@ -5,7 +5,7 @@ import pathlib
 import sys
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 import loguru
@@ -122,7 +122,6 @@ def extract_files_from_zip_file(
             ctx.log.debug("Response headers:")
             ctx.log.debug(exc.response.headers)
             ctx.log.warning(f"Attempt {attempt + 1}/{max_attempts} failed. Retrying...")
-
         else:
             file_names = extract_files_from_json_response(response.json(), [])
     return file_names
@@ -518,6 +517,7 @@ def find_remove_false_possitive_datasets(
 
 def main() -> None:
     """Scrap Figshare datasets and files."""
+    scrap_start = time.perf_counter()
     # Parse input CLI arguments.
     args = toolbox.get_scraper_cli_arguments()
     # Create output directory for data and logs.
@@ -580,6 +580,9 @@ def main() -> None:
     files_export_path = pathlib.Path(args.output) / "figshare_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
     context.log.success(f"Results saved in {files_export_path!s}")
+    # Script duration.
+    elapsed_time = int(time.perf_counter() - scrap_start)
+    context.log.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":
