@@ -222,7 +222,7 @@ def clean_text(string):
     return text_decode
 
 
-def extract_file_extension(file_path):
+def extract_file_extension(file_path: str) -> str:
     """Extract file extension from file path.
 
     Parameters
