@@ -1,5 +1,6 @@
 """Scrap molecular dynamics datasets and files from Figshare."""
 
+import json
 import os
 import pathlib
 import sys
@@ -43,22 +44,29 @@ def extract_date(date_str):
     return f"{date:%Y-%m-%d}"
 
 
-def extract_files_from_json_response(json_dic, file_list):
+def extract_files_from_json_response(json_dic: dict, file_list: list | None = None) -> list[str]:
     """Walk recursively through the json directory tree structure.
+
+    Examples
+    --------
+    https://figshare.com/ndownloader/files/3788686/preview/3788686/structure.json
+    has 14 files in 2 levels of directories.
 
     Parameters
     ----------
     json_dic : dict
-        json dictionary of zip file preview
+        JSON dictionary of zip file listing.
 
     file_list : list
-        list with filenames
+        List with filenames
 
     Returns
     -------
     list
-        List of filenames extracted from zip preview.
+        List of filenames extracted from zip listing.
     """
+    if file_list is None:
+        file_list = []
     for value in json_dic["files"]:
         file_list.append(value["path"])
     for dir_list in json_dic["dirs"]:
@@ -124,8 +132,13 @@ def extract_files_from_zip_file(
             ctx.log.debug(exc.response.headers)
             ctx.log.warning(f"Attempt {attempt + 1}/{max_attempts} failed. Retrying...")
         else:
-            file_names = extract_files_from_json_response(response.json(), [])
-            return file_names
+            break
+    # Extract file names from JSON response.
+    try:
+        file_names = extract_files_from_json_response(response.json())
+    except (json.decoder.JSONDecodeError, ValueError) as exc:
+        ctx.log.warning(f"Cannot extract files from JSON response: {exc}")
+    ctx.log.info(f"Found {len(file_names)} files.")
     return file_names
 
 
@@ -224,7 +237,6 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
             file_metadata["containing_zip_file_name"] = zip_file["file_name"]
             file_metadata["file_url"] = zip_file["file_url"]
             files_in_zip_lst.append(file_metadata)
-        ctx.log.info(f"Found {len(files_in_zip_lst)} files.")
         ctx.log.info(
             f"{zip_files_counter} zip files processed -> "
             f"{zip_files_df.shape[0] - zip_files_counter} remaining"
