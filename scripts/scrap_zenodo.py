@@ -478,7 +478,7 @@ if __name__ == "__main__":
         page_max = total_hits // MAX_HITS_PER_PAGE + 1
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
-            print(f"Page: {page}")
+            print(f"Page {page}/{page_max} for filetype: {file_type['type']}")
             resp_json = search_zenodo_with_query(
                 query, ZENODO_TOKEN, page=page, hits_per_page=MAX_HITS_PER_PAGE
             )
