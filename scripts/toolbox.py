@@ -340,7 +340,7 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
         dataset_file_types = list(
             unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"]
         )
-        number_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
+        number_of_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
         dataset_url = files_df.query(f"dataset_id == '{dataset_id}'").iloc[0]["dataset_url"]
         # For a given dataset, if there is no MD file types in the entire set
         # of the dataset file types, then we probably have a false-positive dataset,
@@ -351,7 +351,7 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
             print(f"Dataset {dataset_id} is probably a false positive:")
             print(dataset_url)
             print(
-                f"Dataset will be removed with its {number_files} files."
+                f"Dataset will be removed with its {number_of_files} files."
             )
             print("List of the first file types:")
             print(" ".join(dataset_file_types[:20]))
