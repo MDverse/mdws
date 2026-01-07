@@ -34,6 +34,7 @@ dev = [
     "matplotlib>=3.10.1",
     "plotly>=6.0.0",
     "pysankeybeta>=1.4.2",
+    "pytest>=9.0.2",
     "ruff>=0.11.0",
     "upsetplot>=0.9.0",
     "watermark>=2.5.0",
