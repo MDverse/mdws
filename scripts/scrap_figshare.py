@@ -481,8 +481,8 @@ def get_metadata_for_datasets(
 
 def find_remove_false_possitive_datasets(
     datasets_df: pd.DataFrame,
-    files_df: pd.DataFrame,
     texts_df: pd.DataFrame,
+    files_df: pd.DataFrame,
     ctx: ContextManager,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Find and remove false-positive datasets.
@@ -493,10 +493,11 @@ def find_remove_false_possitive_datasets(
     ----------
     datasets_df : pd.DataFrame
         Dataframe with information about datasets.
-    files_df : pd.DataFrame
-        Dataframe with information about files.
     texts_df : pd.DataFrame
         Dataframe with textual information about datasets.
+    files_df : pd.DataFrame
+        Dataframe with information about files.
+
     ctx : ContextManager
         ContextManager object.
 
@@ -578,21 +579,21 @@ def main() -> None:
     files_df = toolbox.remove_excluded_files(files_df, exclude_files, exclude_paths)
     context.log.info("-" * 30)
 
-    # Remove datasets that contain non-MD related files
-    datasets_df, files_df, texts_df = find_remove_false_possitive_datasets(
-        datasets_df, files_df, texts_df, context
+    # Remove datasets that contain non-MD related files.
+    datasets_df, texts_df, files_df = find_remove_false_possitive_datasets(
+        datasets_df, texts_df, files_df, context
     )
 
-    # Save dataframes to disk
-    datasets_export_path = pathlib.Path(args.output) / "figshare_datasets.tsv"
+    # Save dataframes to disk.
+    datasets_export_path = context.output_path / "figshare_datasets.tsv"
     datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
     context.log.success(f"Results saved in {datasets_export_path!s}")
     #
-    texts_export_path = pathlib.Path(args.output) / "figshare_datasets_text.tsv"
+    texts_export_path = context.output_path / "figshare_datasets_text.tsv"
     texts_df.to_csv(texts_export_path, sep="\t", index=False)
     context.log.success(f"Results saved in {texts_export_path!s}")
     #
-    files_export_path = pathlib.Path(args.output) / "figshare_files.tsv"
+    files_export_path = context.output_path / "figshare_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
     context.log.success(f"Results saved in {files_export_path!s}")
     # Script duration.
