@@ -15,7 +15,7 @@ from figshare_api import FigshareAPI
 from logger import create_logger
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class ContextManager:
     """ContextManager dataclass."""
 
@@ -101,6 +101,7 @@ def extract_files_from_zip_file(
             "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
         ),
     }
+    ctx.log.info(f"Parsing URL: {url}")
     for attempt in range(max_attempts):
         try:
             # Be gentle with Figshare servers.
@@ -124,6 +125,7 @@ def extract_files_from_zip_file(
             ctx.log.warning(f"Attempt {attempt + 1}/{max_attempts} failed. Retrying...")
         else:
             file_names = extract_files_from_json_response(response.json(), [])
+            return file_names
     return file_names
 
 
@@ -202,11 +204,12 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
         #     )
         #     print(f"Waiting for {SLEEP_TIME} seconds...")
         #     time.sleep(SLEEP_TIME)
-
+        ctx.log.info("Extracting files from zip file:")
+        ctx.log.info(zip_file["file_url"])
         file_names = extract_files_from_zip_file(file_id, ctx)
         if file_names == []:
             continue
-        # Add other metadata fields.
+        # Add other metadata.
         for name in file_names:
             file_metadata = {}
             file_metadata["dataset_origin"] = zip_file["dataset_origin"]
@@ -220,10 +223,9 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
             file_metadata["containing_zip_file_name"] = zip_file["file_name"]
             file_metadata["file_url"] = zip_file["file_url"]
             files_in_zip_lst.append(file_metadata)
-        ctx.log.info(f"Extracted {len(files_in_zip_lst)} files from zip file:")
-        ctx.log.info(zip_file["file_url"])
+        ctx.log.info(f"Found {len(files_in_zip_lst)} files.")
         ctx.log.info(
-            f"{zip_files_counter} zip files processed - "
+            f"{zip_files_counter} zip files processed -> "
             f"{zip_files_df.shape[0] - zip_files_counter} remaining"
         )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
