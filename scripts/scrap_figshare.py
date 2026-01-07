@@ -82,6 +82,9 @@ def extract_files_from_zip_file(
     No endpoint is available in the Figshare API.
     We perform a direct HTTP GET request to the zip file content url.
 
+    Known issue with:
+    https://figshare.com/ndownloader/files/31660220/preview/31660220/structure.json
+
     Parameters
     ----------
     file_id : str
