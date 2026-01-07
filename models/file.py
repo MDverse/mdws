@@ -20,17 +20,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from scripts.toolbox import (
-    DatasetRepository,
-    format_date,
-    validate_http_url,
-)
+from scripts.toolbox import DatasetRepository, format_date
 
 
 # =====================================================================
 # Base file class
 # =====================================================================
-class FileModel(BaseModel):
+class FileMetadata(BaseModel):
     """
     Base Pydantic model for scraped molecular dynamics files.
 
@@ -55,6 +51,10 @@ class FileModel(BaseModel):
         ...,
         description="Unique identifier of the dataset in the source repository.",
     )
+    dataset_url_in_repository: str = Field(
+        ...,
+        description="Canonical URL to access the dataset in the repository.",
+    )
     file_url_in_repository: str = Field(
         ...,
         description="Direct URL to access the file.",
@@ -78,7 +78,7 @@ class FileModel(BaseModel):
     date_last_fetched: str = Field(
         ..., description="Date when the file was last fetched."
     )
-    containing_archive_fie_name: str | None = Field(
+    containing_archive_file_name: str | None = Field(
         None,
         description="Archive file name this file was extracted from, if applicable."
     )
@@ -104,29 +104,9 @@ class FileModel(BaseModel):
         """
         return format_date(v)
 
-    # To uncomment if u won't take time to valid all the file urls
-    # @field_validator("file_url_in_repository", mode="before")
-    def valid_url(cls, v: str) -> str:  # noqa: N805
-        """
-        Validate that the URL field is a properly formatted HTTP/HTTPS URL.
-
-        Parameters
-        ----------
-        cls : type[NomadFiles]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'url' field to validate.
-
-        Returns
-        -------
-        str
-            The validated URL string.
-        """
-        return validate_http_url(v)
-
     @computed_field
     @property
-    def file_size_with_readable_unit(self) -> str | None:
+    def file_size_with_human_readable_unit(self) -> str | None:
         """
         Convert the file size in bytes into a human-readable format.
 
@@ -143,3 +123,5 @@ class FileModel(BaseModel):
                 size /= 1024
                 idx += 1
             return f"{size:.2f} {units[idx]}"
+        else:
+            return None

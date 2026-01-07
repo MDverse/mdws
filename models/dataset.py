@@ -21,12 +21,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from scripts.toolbox import (
-    DatasetProject,
-    DatasetRepository,
-    format_date,
-    validate_http_url,
-)
+from scripts.toolbox import DatasetProject, DatasetRepository, format_date
 
 DOI = Annotated[
     str,
@@ -39,7 +34,7 @@ DOI = Annotated[
 # =====================================================================
 # Base dataset class
 # =====================================================================
-class DatasetModel(BaseModel):
+class DatasetMetadata(BaseModel):
     """
     Base Pydantic model for scraped molecular dynamics datasets.
 
@@ -142,7 +137,7 @@ class DatasetModel(BaseModel):
             "Must start with '10.' and follow the standard DOI format."
         ),
     )
-    links: list[str] | None = Field(
+    external_links: list[str] | None = Field(
         None,
         description="External links to papers or other databases.",
     )
@@ -150,19 +145,19 @@ class DatasetModel(BaseModel):
     # ------------------------------------------------------------------
     # File-level metadata
     # ------------------------------------------------------------------
-    nb_files: int = Field(
-        ...,
+    nb_files: int | None = Field(
+        None,
         description="Total number of files in the dataset.",
     )
 
     # ------------------------------------------------------------------
     # Simulation metadata
     # ------------------------------------------------------------------
-    simulation_program_name: str | None = Field(
+    software_name: str | None = Field(
         None,
         description="Molecular dynamics engine used (e.g. GROMACS, NAMD).",
     )
-    simulation_program_version: str | None = Field(
+    software_version: str | None = Field(
         None,
         description="Version of the simulation engine.",
     )
@@ -182,14 +177,14 @@ class DatasetModel(BaseModel):
         None,
         description="Version of the forcefield model.",
     )
-    timestep: float | None = Field(
+    simulation_timestep: float | None = Field(
         None, description="The time interval between new positions computation (in fs)."
     )
-    delta: float | None = Field(
-        None, description="The time gap between frames (in ns)."
-    )
-    simulation_time: str | None = Field(
+    simulation_time: list[str] | None = Field(
         None, description="The accumulated simulation time (in μs)."
+    )
+    simulation_temperature: list[str] | None = Field(
+        None, description="The temperature chosen for the simulations (in K ou °C)."
     )
 
     # ------------------------------------------------------------------
@@ -215,28 +210,8 @@ class DatasetModel(BaseModel):
         """
         return format_date(v)
 
-    # To uncomment if u won't take time to valid all the dataset urls
-    # @field_validator("url", mode="before")
-    def validate_url(cls, v: str) -> str:  # noqa: N805
-        """
-        Validate that the URL field is a properly formatted HTTP/HTTPS URL.
-
-        Parameters
-        ----------
-        cls : type[BaseDataset]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'url' field to validate.
-
-        Returns
-        -------
-        str
-            The validated URL string.
-        """
-        return validate_http_url(v)
-
     @field_validator(
-        "description", "keywords", "links", "license", "author_names",
+        "description", "keywords", "external_links", "license", "author_names",
     "molecule_names", mode="before")
     def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
         """
