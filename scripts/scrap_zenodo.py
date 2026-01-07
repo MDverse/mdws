@@ -262,7 +262,7 @@ def search_zenodo_with_query(query, token, page=1, hits_per_page=10):
     """
     time.sleep(1)
     response = httpx.get(
-        "https://zenodo.org/api/records",
+        url="https://zenodo.org/api/records",
         params={
             "q": query,
             "size": hits_per_page,
@@ -270,7 +270,7 @@ def search_zenodo_with_query(query, token, page=1, hits_per_page=10):
             "status": "published",
             "access_token": token,
         },
-        timeout=30.0,
+        timeout=60.0,
         follow_redirects=True,
     )
     return response.json()
