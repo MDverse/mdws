@@ -79,7 +79,7 @@ def extract_files_from_zip_file(
 ) -> list[str]:
     """Extract files from a zip file content.
 
-    We don't here Figshare API because no endpoint is available.
+    No endpoint is available in the Figshare API.
     We perform a direct HTTP GET request to the zip file content url.
 
     Parameters
@@ -138,6 +138,8 @@ def extract_files_from_zip_file(
         file_names = extract_files_from_json_response(response.json())
     except (json.decoder.JSONDecodeError, ValueError) as exc:
         ctx.log.warning(f"Cannot extract files from JSON response: {exc}")
+        ctx.log.debug(f"Status code: {response.status_code}")
+        ctx.log.debug(response.text)
     ctx.log.info(f"Found {len(file_names)} files.")
     return file_names
 
@@ -427,7 +429,7 @@ def search_all_datasets(
 
 
 def get_metadata_for_datasets(
-    api: FigshareAPI, found_datasets: set[str], ctx: ContextManager
+    api: FigshareAPI, found_datasets: list[str], ctx: ContextManager
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Get metadata for all selected datasets.
 
@@ -435,8 +437,8 @@ def get_metadata_for_datasets(
     ----------
     api : FigshareAPI
         Figshare API object.
-    found_datasets : set[str]
-        Set of Figshare dataset ids.
+    found_datasets : list[str]
+        List of Figshare dataset ids.
     ctx : ContextManager
         ContextManager object.
 
@@ -533,14 +535,14 @@ def find_remove_false_possitive_datasets(
 
 def main() -> None:
     """Scrap Figshare datasets and files."""
-    scrap_start = time.perf_counter()
+    start_time = time.perf_counter()
     # Parse input CLI arguments.
     args = toolbox.get_scraper_cli_arguments()
     # Create output directory for data and logs.
     toolbox.verify_output_directory(args.output)
     # Create context manager.
     context = ContextManager(
-        log=create_logger(logpath=f"{args.output}/scrap_figshare.log"),
+        log=create_logger(logpath=f"{args.output}/figshare_scraping.log"),
         output_path=pathlib.Path(args.output),
         query_file_name=pathlib.Path(args.query),
     )
@@ -597,7 +599,7 @@ def main() -> None:
     files_df.to_csv(files_export_path, sep="\t", index=False)
     context.log.success(f"Results saved in {files_export_path!s}")
     # Script duration.
-    elapsed_time = int(time.perf_counter() - scrap_start)
+    elapsed_time = int(time.perf_counter() - start_time)
     context.log.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
 
 
