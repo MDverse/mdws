@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
 import requests
+import httpx
 
 import toolbox
 
@@ -259,7 +260,8 @@ def search_zenodo_with_query(query, token, page=1, hits_per_page=10):
     dict
         Zenodo response as a JSON object.
     """
-    response = requests.get(
+    time.sleep(1)
+    response = httpx.get(
         "https://zenodo.org/api/records",
         params={
             "q": query,
@@ -268,6 +270,8 @@ def search_zenodo_with_query(query, token, page=1, hits_per_page=10):
             "status": "published",
             "access_token": token,
         },
+        timeout=30.0,
+        follow_redirects=True,
     )
     return response.json()
 
@@ -354,7 +358,7 @@ def extract_records(response_json):
             if hit["metadata"]["access_right"] != "open":
                 continue
             dataset_id = str(hit["id"])
-            print(f"Extracting data for dataset: {dataset_id}")
+            print(f"Extracting metadata for dataset: {dataset_id}")
             dataset_dict = {
                 "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
