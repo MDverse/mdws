@@ -208,6 +208,7 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
         ctx.log.info(zip_file["file_url"])
         file_names = extract_files_from_zip_file(file_id, ctx)
         if file_names == []:
+            ctx.log.warning("No file found!")
             continue
         # Add other metadata.
         for name in file_names:
