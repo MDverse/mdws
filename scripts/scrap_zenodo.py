@@ -473,8 +473,11 @@ if __name__ == "__main__":
         print(f"{query}")
         # First get the total number of hits for a given query.
         resp_json = search_zenodo_with_query(query, ZENODO_TOKEN, hits_per_page=1)
-        total_hits = resp_json["hits"]["total"]
+        total_hits = int(resp_json["hits"]["total"])
         print(f"Number of hits: {total_hits}")
+        if total_hits == 0:
+            print("-" * 30)
+            continue
         page_max = total_hits // MAX_HITS_PER_PAGE + 1
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
