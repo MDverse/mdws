@@ -113,10 +113,10 @@ def extract_files_from_zip_file(
         ),
     }
     ctx.log.info(f"Parsing URL: {url}")
-    for attempt in range(max_attempts):
+    for attempt in range(1, max_attempts + 1):
         try:
             # Be gentle with Figshare servers.
-            time.sleep(1 + attempt * 10)
+            time.sleep(1 + (attempt - 1) * 10)
             # 'follow_redirects=True' is necessary to follow redirections,
             # generally in AWS servers.
             response = httpx.get(
@@ -133,8 +133,13 @@ def extract_files_from_zip_file(
             ctx.log.debug(exc.request.headers)
             ctx.log.debug("Response headers:")
             ctx.log.debug(exc.response.headers)
-            ctx.log.warning(f"Attempt {attempt + 1}/{max_attempts} failed. Retrying...")
+            ctx.log.warning(f"Attempt {attempt}/{max_attempts} failed.")
+            if attempt == max_attempts:
+                ctx.log.warning("Maximum number of attempts reached. Giving up.")
+                return file_names
+            ctx.log.info("Retrying...")
         else:
+            # No error. Leave the retry loop.
             break
     # Extract file names from JSON response.
     try:
