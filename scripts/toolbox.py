@@ -4,11 +4,14 @@ import argparse
 import pathlib
 import re
 import warnings
+import time
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
+import httpx
+import loguru
 from dotenv import load_dotenv
 import httpx
 import pandas as pd
@@ -44,6 +47,65 @@ class DatasetProject(StrEnum):
     NOMAD = "NOMAD"
     ATLAS = "ATLAS"
     GPCRMD = "GPCRMD"
+
+
+def make_http_get_request_with_retries(
+        url: str,
+        max_attempts: int = 3,
+        logger: "loguru.Logger" = loguru.logger
+    ) -> httpx.Response | None:
+    """Make HTTP GET request with retries on failure.
+
+    Parameters
+    ----------
+    url : str
+        The URL to send the GET request to.
+    max_attempts : int
+        Maximum number of attempts to make.
+    logger : "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    httpx.Response | None
+        The HTTP response if successful, None otherwise.
+    """
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
+        ),
+    }
+    logger.info("Getting URL:")
+    logger.info(url)
+    for attempt in range(1, max_attempts + 1):
+        try:
+            # Fist attempt, wait 1 second,
+            # Second attempt, wait 11 seconds,
+            # Third attempt, wait 21 seconds, etc.
+            time.sleep(1 + (attempt - 1) * 10)
+            response = httpx.get(
+                url,
+                headers=headers,
+                follow_redirects=True,
+                timeout=10
+            )
+            response.raise_for_status()
+            return response
+        except httpx.RequestError as exc:
+            logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
+            logger.warning(f"Status code: {exc.response.status_code}")
+            logger.debug("Query headers:")
+            logger.debug(exc.request.headers)
+            logger.debug("Response headers:")
+            logger.debug(exc.response.headers)
+            if attempt == max_attempts:
+                logger.warning(f"Maximum attempts ({max_attempts}) reached for URL:")
+                logger.warning(url)
+                logger.warning("Giving up!")
+                return None
+            logger.info("Retrying...")
+    return None
 
 
 def load_token() -> None:

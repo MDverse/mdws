@@ -1,6 +1,6 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 from json import tool
 import os
@@ -144,7 +144,7 @@ def get_files_structure_from_zip(ul):
 def extract_data_from_zip_file(url):
     """Extract data from zip file preview.
 
-    Examples:
+    Examples of zip file previews:
     - https://zenodo.org/records/4444751/preview/code.zip
     - https://zenodo.org/records/16412906/preview/DPPS200_HN45_0.25M-NaCl_TIP3P_353.15K_prod.zip
 
@@ -156,29 +156,14 @@ def extract_data_from_zip_file(url):
     list
         List of dictionnaries with data extracted from zip preview.
     """
-    print(f"Parsing {url}")
-    response = requests.get(url)
-
     file_lst = []
-    attempt_max = 5
-    time_between_attempts = 10
-
-    for attempt_id in range(1, attempt_max + 1):
-        if response.status_code != 200:
-            print(f"Attempt: {attempt_id}/{attempt_max}")
-            print(f"Error with URL: {url}")
-            print(f"Status code: {response.status_code}")
-            print(response.headers)
-            print(f"Waiting {time_between_attempts} seconds before retrying...")
-            time.sleep(time_between_attempts)
-        else:
-            break
+    response = toolbox.make_http_get_request_with_retries(url, max_attempts=5)
+    if response is None:
         return file_lst
-
     if "Zipfile is not previewable" in response.text:
         print(f"No preview available for {url}")
         return file_lst
-
+    # Scrap HTML content.
     soup = BeautifulSoup(response.content, "html5lib")
     table = soup.find("ul", attrs={"class": "tree list-unstyled"})
     files_structure = get_files_structure_from_zip(table)
@@ -309,32 +294,21 @@ def scrap_zip_content(files_df):
     files_in_zip_lst = []
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
-    print("Number of zip files to scrap: " f"{zip_files_df.shape[0]}")
-    # According to Zenodo documentation.
-    # https://developers.zenodo.org/#rate-limiting
-    # One can run 100 requests per minute with authentication.
-    # Because Zenodo API does not provide the content of zip files,
-    # we need to scrap the HTML preview.
-    # The global limit of 60 requests per minute applies.
-    SLEEP_TIME = 90
-    # Sleep once to reset the request counter.
-    time.sleep(SLEEP_TIME)
+    print(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
+    # The Zenodo API does not provide any endpoint to get the content of zip files.
+    # We use direct GET requests on the HTML preview of the zip files.
+    # We wait 1.5 seconds between each request,
+    # to be gentle with the Zenodo servers.
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         zip_counter += 1
-        if zip_counter % 60 == 0:
-            print(
-                f"Scraped {zip_counter} zip files "
-                f"({zip_files_df.shape[0] - zip_counter} remaining)"
-            )
-            print(f"Waiting for {SLEEP_TIME} seconds...")
-            time.sleep(SLEEP_TIME)
-        URL = (
+        url = (
             f"https://zenodo.org/records/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
         )
         # print(zip_counter, URL)
-        files_tmp = extract_data_from_zip_file(URL)
+        time.sleep(1.5)
+        files_tmp = extract_data_from_zip_file(url)
         if files_tmp == []:
             continue
         # Add common extra fields
@@ -346,6 +320,10 @@ def scrap_zip_content(files_df):
             files_tmp[idx]["file_url"] = ""
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
+        print(
+                f"Scraped {zip_counter} zip files "
+                f"({zip_files_df.shape[0] - zip_counter} remaining)"
+            )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     return files_in_zip_df
 
@@ -432,6 +410,7 @@ def extract_records(response_json):
 
 
 if __name__ == "__main__":
+    start_time = time.perf_counter()
     ARGS = toolbox.get_scraper_cli_arguments()
 
     # Create logger
@@ -475,8 +454,7 @@ if __name__ == "__main__":
     MAX_HITS_PER_QUERY = 10_000
 
     # The best strategy is to use paging.
-    # MAX_HITS_PER_PAGE = 1_000
-    MAX_HITS_PER_PAGE = 200
+    MAX_HITS_PER_PAGE = 100
     print(f"Max hits per page: {MAX_HITS_PER_PAGE}")
 
     datasets_df = pd.DataFrame()
@@ -582,3 +560,6 @@ if __name__ == "__main__":
     toolbox.remove_false_positive_datasets(
         TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS
     )
+    # Script duration.
+    elapsed_time = int(time.perf_counter() - start_time)
+    print(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
