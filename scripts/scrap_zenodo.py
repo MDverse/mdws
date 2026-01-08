@@ -339,7 +339,7 @@ def extract_records(
     datasets: list
         List of dictionnaries. Information on datasets.
     files: list
-        List of dictionnaies. Information on files.
+        List of dictionaries. Information on files.
     """
     datasets = []
     files = []
