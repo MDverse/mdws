@@ -210,7 +210,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
     soup = BeautifulSoup(response.content, "html5lib")
     table = soup.find("ul", attrs={"class": "tree list-unstyled"})
     files_structure = get_files_structure_from_zip(table)
-    # Convert nested dictionnary files structure to a flat dictionnary.
+    # Convert nested dictionary files structure to a flat dictionary.
     df = pd.json_normalize(files_structure, sep="/")
     # Handle case with zip file with no files.
     # For instance:
