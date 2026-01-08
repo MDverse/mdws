@@ -320,8 +320,8 @@ def search_all_datasets(
 
     Returns
     -------
-    set
-        Set of Figshare datasets ids.
+    list of str
+        List of Figshare datasets ids.
     """
     # Read parameter file
     file_types, keywords, _, _ = toolbox.read_query_file(
