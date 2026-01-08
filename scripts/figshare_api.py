@@ -50,6 +50,13 @@ class FigshareAPI:
     def query(self, endpoint: str, data: dict | None = None) -> dict:
         """Query the Figshare API and return the JSON response.
 
+        Parameters
+        ----------
+        endpoint : str
+            The API endpoint to query (e.g., "/articles").
+        data : dict, optional
+            Data to send in the request body (for POST requests).
+
         Returns
         -------
         dict
