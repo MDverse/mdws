@@ -473,7 +473,7 @@ def find_remove_false_positive_datasets(
     datasets_df: pd.DataFrame,
     files_df: pd.DataFrame,
     ctx: ContextManager,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Find and remove false-positive datasets.
 
     False-positive datasets do not contain MD-related files.
