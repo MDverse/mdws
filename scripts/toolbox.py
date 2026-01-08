@@ -515,7 +515,7 @@ def export_dataframe_to_parquet(
         suffix: DataType,
         df: pd.DataFrame,
         ctx: ContextManager) -> None:
-    """Save dataframes to parquet.
+    """Export dataframes to parquet file.
 
     Parameters
     ----------
@@ -524,13 +524,14 @@ def export_dataframe_to_parquet(
     suffix : DataType
         Suffix for the parquet file name.
     df : pd.DataFrame
-        Dataframe to save.
+        Dataframe to export.
     ctx : ContextManager
         ContextManager object.
     """
-    export_name = ctx.output_path / f"{repository_name}_{suffix}.parquet"
-    df.to_parquet(export_name, index=False)
-    ctx.logger.success(f"Results saved to {export_name}")
+    parquet_name = ctx.output_path / f"{repository_name}_{suffix}.parquet"
+    df.to_parquet(parquet_name, index=False)
+    ctx.logger.success(f"Dataframe with {len(df):,} rows exported to:")
+    ctx.logger.success(parquet_name)
 
 
 def validate_http_url(v: str) -> str:
