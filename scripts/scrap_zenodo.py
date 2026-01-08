@@ -586,7 +586,7 @@ def main():
 
     # Scrap zip files content.
     context.logger.info("-" * 30)
-    zip_df = scrap_zip_content(files_df, logger=context.log)
+    zip_df = scrap_zip_content(files_df, logger=context.logger)
     # We don't remove duplicates here because
     # one zip file can contain several files with the same name
     # but within different folders.
