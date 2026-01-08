@@ -482,7 +482,7 @@ def main() -> None:
         context.logger.error("Figshare token is invalid!")
         context.logger.error("Exiting.")
         sys.exit(1)
-    # Seach datasets.
+    # Search datasets.
     found_datasets = search_all_datasets(api, context)
     # Extract information for all found datasets.
     datasets_df, files_df = get_metadata_for_datasets(api, found_datasets, context)
