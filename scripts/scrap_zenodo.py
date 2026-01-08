@@ -328,7 +328,7 @@ def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger) -> pd.D
 def extract_records(
         response_json,
         logger: "loguru.Logger" = loguru.logger
-    ) -> tuple[list, list, list]:
+    ) -> tuple[list, list]:
     """Extract information from the Zenodo records.
 
     Arguments
@@ -340,13 +340,10 @@ def extract_records(
     -------
     datasets: list
         List of dictionnaries. Information on datasets.
-    texts: list
-        List of dictionnaries. Textual information on datasets
     files: list
         List of dictionnaies. Information on files.
     """
     datasets = []
-    texts = []
     files = []
     if response_json["hits"]["hits"]:
         for hit in response_json["hits"]["hits"]:
@@ -367,12 +364,6 @@ def extract_records(
                 "view_number": int(hit["stats"]["views"]),
                 "license": extract_license(hit["metadata"]),
                 "dataset_url": hit["links"]["self_html"],
-            }
-            logger.info(f"Dataset URL: {dataset_dict['dataset_url']}")
-            datasets.append(dataset_dict)
-            text_dict = {
-                "dataset_origin": dataset_dict["dataset_origin"],
-                "dataset_id": dataset_dict["dataset_id"],
                 "title": toolbox.clean_text(hit["metadata"]["title"]),
                 "author": toolbox.clean_text(hit["metadata"]["creators"][0]["name"]),
                 "keywords": "none",
@@ -381,18 +372,20 @@ def extract_records(
                 ),
             }
             if "keywords" in hit["metadata"]:
-                text_dict["keywords"] = ";".join(
+                dataset_dict["keywords"] = ";".join(
                     [str(keyword) for keyword in hit["metadata"]["keywords"]]
                 )
             # Handle existing but empty keywords.
             # For instance: https://zenodo.org/records/3741678
-            if text_dict["keywords"] == "":
-                text_dict["keywords"] = "none"
-            texts.append(text_dict)
+            if dataset_dict["keywords"] == "":
+                dataset_dict["keywords"] = "none"
+            datasets.append(dataset_dict)
+            logger.info(f"Dataset URL: {dataset_dict['dataset_url']}")
             for file_in in hit["files"]:
                 file_dict = {
                     "dataset_origin": dataset_dict["dataset_origin"],
                     "dataset_id": dataset_dict["dataset_id"],
+                    "dataset_url": dataset_dict["dataset_url"],
                     "file_size": int(file_in["size"]),  # File size in bytes.
                     "file_md5": file_in["checksum"].removeprefix("md5:"),
                     "from_zip_file": False,
@@ -409,7 +402,7 @@ def extract_records(
                 if file_dict["file_type"] == "":
                     file_dict["file_type"] = "none"
                 files.append(file_dict)
-    return datasets, texts, files
+    return datasets, files
 
 
 def search_zenodo(
@@ -446,7 +439,7 @@ def search_zenodo(
         timeout=60.0,
         logger=ctx.logger,
         delay_before_request=2,
-        attempts=5,
+        max_attempts=5,
     )
     if response is None:
         ctx.logger.warning("Failed to get response from the Zenodo API.")
@@ -503,7 +496,7 @@ def search_all_datasets(
         file_types: list[dict],
         keywords: list[str],
         ctx: toolbox.ContextManager,
-    ) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Search all datasets on Zenodo.
 
     Parameters
@@ -521,9 +514,7 @@ def search_all_datasets(
     Returns
     -------
     datasets_df : pd.DataFrame
-        Dataframe with information on datasets. Not used currently.
-    texts_df : pd.DataFrame
-        Dataframe with textual information on datasets. Not used currently.
+        Dataframe with information on datasets.
     files_df : pd.DataFrame
         Dataframe with information on files.
     """
@@ -537,18 +528,17 @@ def search_all_datasets(
     query_keywords = ' AND ("' + '" OR "'.join(keywords) + '")'
     # Create empty dataframes to store results.
     datasets_df = pd.DataFrame()
-    texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
-    ctx.logger.logger.info("-" * 30)
+    ctx.logger.info("-" * 30)
     for file_type in file_types:
-        ctx.logger.logger.info(f"Looking for filetype: {file_type['type']}")
+        ctx.logger.info(f"Looking for filetype: {file_type['type']}")
         datasets_count_old = datasets_df.shape[0]
         # Build query with file type and optional keywords.
         query = f"""resource_type.type:"dataset" AND filetype:"{file_type["type"]}" """
         if file_type["keywords"] == "keywords":
             query += query_keywords
-        ctx.logger.logger.info("Query:")
-        ctx.logger.logger.info(f"{query}")
+        ctx.logger.info("Query:")
+        ctx.logger.info(f"{query}")
         # First, get the total number of hits for a given query.
         # This is needed to compute the number of pages of results to get.
         json_response = search_zenodo(query, ctx, page=1, number_of_results=1)
@@ -574,7 +564,7 @@ def search_all_datasets(
                 ctx.logger.warning("Failed to get response from the Zenodo API.")
                 ctx.logger.warning("Getting next page...")
                 continue
-            datasets_tmp, texts_tmp, files_tmp = extract_records(
+            datasets_tmp, files_tmp = extract_records(
                 json_response, logger=ctx.logger
             )
             # Merge dataframes
@@ -583,15 +573,14 @@ def search_all_datasets(
                 pd.DataFrame(datasets_tmp),
                 on_columns=["dataset_origin", "dataset_id"],
             )
-            texts_df = merge_dataframes_remove_duplicates(
-                texts_df,
-                pd.DataFrame(texts_tmp),
-                on_columns=["dataset_origin", "dataset_id"],
-            )
             files_df = merge_dataframes_remove_duplicates(
                 files_df,
                 pd.DataFrame(files_tmp),
                 on_columns=["dataset_id", "file_name"],
+            )
+            ctx.logger.success(
+                f"Found so far: {datasets_df.shape[0]} datasets, "
+                f"{files_df.shape[0]} files"
             )
             if page * max_hits_per_page >= max_hits_per_query:
                 ctx.logger.info("Max hits per query reached!")
@@ -604,19 +593,23 @@ def search_all_datasets(
         ctx.logger.info("-" * 30)
     ctx.logger.info(f"Total number of datasets found: {datasets_df.shape[0]}")
     ctx.logger.info(f"Total number of files found: {files_df.shape[0]}")
-    return datasets_df, texts_df, files_df
+    return datasets_df, files_df
 
 
 def main():
     """Scrap Zenodo datasets and files."""
+    # Define data repository name.
+    repository_name = "zenodo"
     # Keep track of script duration.
     start_time = time.perf_counter()
     # Parse input CLI arguments.
     args = toolbox.get_scraper_cli_arguments()
     # Create context manager.
+    output_path = pathlib.Path(args.output) / repository_name
+    output_path.mkdir(parents=True, exist_ok=True)
     context = toolbox.ContextManager(
-        logger=logger.create_logger(logpath=f"{args.output}/zenodo_scraping.log"),
-        output_path=pathlib.Path(args.output),
+        logger=logger.create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
+        output_path=output_path,
         query_file_name=pathlib.Path(args.query),
     )
     # Log script name and doctring.
@@ -656,21 +649,7 @@ def main():
     # Verify output directory exists
     toolbox.verify_output_directory(context.output_path)
 
-    datasets_df, texts_df, files_df = search_all_datasets(file_types, keywords, context)
-
-    # Save datasets dataframe to disk
-    datasets_export_path = context.output_path / "zenodo_datasets.tsv"
-    datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
-    context.logger.info(f"Results saved in {datasets_export_path}")
-    # Save text datasets dataframe to disk
-    texts_export_path = context.output_path / "zenodo_datasets_text.tsv"
-    texts_df.to_csv(texts_export_path, sep="\t", index=False)
-    context.logger.info(f"Results saved in {texts_export_path}")
-    # Save files dataframe to disk
-    files_df = toolbox.remove_excluded_files(files_df, excluded_files, excluded_paths)
-    files_export_path = context.output_path / "zenodo_files.tsv"
-    files_df.to_csv(files_export_path, sep="\t", index=False)
-    context.logger.info(f"Results saved in {files_export_path}")
+    datasets_df, files_df = search_all_datasets(file_types, keywords, context)
 
     # Scrap zip files content.
     context.logger.info("-" * 30)
@@ -682,30 +661,28 @@ def main():
     context.logger.info(f"Number of files found inside zip files: {zip_df.shape[0]}")
     context.logger.info(f"Total number of files found: {files_df.shape[0]}")
     files_df = toolbox.remove_excluded_files(files_df, excluded_files, excluded_paths)
-    files_df.to_csv(files_export_path, sep="\t", index=False)
-    context.logger.info(f"Results saved in {files_export_path}")
     context.logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
-    # List file types from the query parameter file.
-    file_types_lst = [file_type["type"] for file_type in file_types]
-    # Zip is not a MD-specific file type.
-    file_types_lst.remove("zip")
-    # Find false-positive datasets.
-    false_positive_datasets = toolbox.find_false_positive_datasets(
-        files_export_path, datasets_export_path, file_types_lst
+    datasets_df, files_df = toolbox.find_remove_false_positive_datasets(
+        datasets_df, files_df, context
     )
-    # Clean files.
-    toolbox.remove_false_positive_datasets(
-        files_export_path, "files", false_positive_datasets
+
+    # Save dataframes to disk.
+    toolbox.export_dataframe_to_parquet(
+        "zenodo",
+        toolbox.DataType.DATASETS,
+        datasets_df,
+        context
     )
-    toolbox.remove_false_positive_datasets(
-        datasets_export_path, "datasets", false_positive_datasets
+    toolbox.export_dataframe_to_parquet(
+        "zenodo",
+        toolbox.DataType.FILES,
+        files_df,
+        context
     )
-    toolbox.remove_false_positive_datasets(
-        texts_export_path, "texts", false_positive_datasets
-    )
+
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
     context.logger.info(f"Scraping Zenodo in: {timedelta(seconds=elapsed_time)}")

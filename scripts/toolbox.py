@@ -26,6 +26,11 @@ warnings.filterwarnings(
 )
 
 
+class DataType(StrEnum):
+    """Supported data types."""
+
+    DATASETS = "datasets"
+    FILES = "files"
 
 class DatasetRepository(StrEnum):
     """Supported repositories from which molecular dynamics datasets are scraped."""
@@ -138,38 +143,6 @@ def make_http_get_request_with_retries(
 def load_token() -> None:
     """Load API token from .env file."""
     load_dotenv()
-
-
-def load_database(filename, database_type):
-    """Load datasets database.
-
-    Parameters
-    ----------
-    filename : str
-        Path to the database CVS file.
-    database : str
-        Type of database ("datasets", "texts" or "files").
-
-    Returns
-    -------
-    pd.DataFrame
-        Datasets in a Pandas dataframe.
-    """
-    df = pd.DataFrame()
-    if database_type == "datasets" or database_type == "texts":
-        df = pd.read_csv(filename, sep="\t", dtype={"dataset_id": str})
-    elif database_type == "files":
-        df = pd.read_csv(
-            filename,
-            sep="\t",
-            dtype={
-                "dataset_id": str,
-                "file_type": str,
-                "file_md5": str,
-                "file_url": str,
-            },
-        )
-    return df
 
 
 def get_scraper_cli_arguments():
@@ -482,6 +455,75 @@ def remove_false_positive_datasets(df_to_clean: pd.DataFrame, dataset_ids_to_rem
         f"({records_count_old} -> {records_count_clean}) in dataframe."
     )
     return df_clean
+
+
+def find_remove_false_positive_datasets(
+    datasets_df: pd.DataFrame,
+    files_df: pd.DataFrame,
+    ctx: ContextManager,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Find and remove false-positive datasets.
+
+    False-positive datasets do not contain MD-related files.
+
+    Parameters
+    ----------
+    datasets_df : pd.DataFrame
+        Dataframe with information about datasets.
+    files_df : pd.DataFrame
+        Dataframe with information about files.
+
+    ctx : toolbox.ContextManager
+        ContextManager object.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        Cleaned dataframes for:
+        - datasets
+        - files
+    """
+    # Read parameter file.
+    file_types, _, _, _ = read_query_file(ctx.query_file_name)
+    # List file types from the query parameter file.
+    file_types_lst = [file_type["type"] for file_type in file_types]
+    # Zip is not a MD-specific file type.
+    file_types_lst.remove("zip")
+    # Find false-positive datasets.
+    false_positive_datasets = find_false_positive_datasets(
+        files_df, file_types_lst
+    )
+    # Remove false-positive datasets from all dataframes.
+    ctx.logger.info("Removing false-positive datasets in the datasets dataframe...")
+    datasets_df = remove_false_positive_datasets(
+        datasets_df, false_positive_datasets
+    )
+    ctx.logger.info("Removing false-positive datasets in the files dataframe...")
+    files_df = remove_false_positive_datasets(files_df, false_positive_datasets)
+    return datasets_df, files_df
+
+
+def save_dataframe_to_parquet(
+        repository_name: str,
+        suffix: DataType,
+        df: pd.DataFrame,
+        ctx: ContextManager) -> None:
+    """Save dataframes to parquet.
+
+    Parameters
+    ----------
+    repository_name : str
+        Name of the data repository.
+    suffix : DataType
+        Suffix for the parquet file name.
+    df : pd.DataFrame
+        Dataframe to save.
+    ctx : ContextManager
+        ContextManager object.
+    """
+    export_name = ctx.output_path / f"{repository_name}_{suffix}.parquet"
+    df.to_parquet(export_name, index=False)
+    ctx.logger.success(f"Results saved to {export_name}")
 
 
 def validate_http_url(v: str) -> str:
