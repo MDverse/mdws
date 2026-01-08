@@ -490,7 +490,7 @@ def find_remove_false_positive_datasets(
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]
+    tuple[pd.DataFrame, pd.DataFrame]
         Cleaned dataframes for:
         - datasets
         - files
