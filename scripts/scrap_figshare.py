@@ -329,7 +329,6 @@ def search_all_datasets(
     )
     # We use paging to fetch all results.
     # we query max_hits_per_page hits per page.
-    max_hits_per_page = 100
 
     unique_datasets = []
     ctx.logger.info("-" * 30)
