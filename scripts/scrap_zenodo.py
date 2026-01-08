@@ -546,10 +546,12 @@ def search_all_datasets(
         page_max = total_hits // max_hits_per_page + 1
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
+            ctx.logger.info(
+                f"Starting page {page}/{page_max} for filetype: {file_type['type']}"
+            )
             json_response = search_zenodo(
                 query, ctx, page=page, number_of_results=max_hits_per_page
             )
-            ctx.logger.info(f"Page {page}/{page_max} for filetype: {file_type['type']}")
             if json_response is None:
                 ctx.logger.warning("Failed to get response from the Zenodo API.")
                 ctx.logger.warning("Getting next page...")
