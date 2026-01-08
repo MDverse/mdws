@@ -152,11 +152,6 @@ def make_http_get_request_with_retries(
     return None
 
 
-def load_token() -> None:
-    """Load API token from .env file."""
-    load_dotenv()
-
-
 def get_scraper_cli_arguments():
     """Parse scraper scripts command line.
 

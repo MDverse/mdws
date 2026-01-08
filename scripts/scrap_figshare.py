@@ -11,6 +11,7 @@ from logger import create_logger
 import loguru
 import pandas as pd
 import toolbox
+from dotenv import load_dotenv
 from figshare_api import FigshareAPI
 
 
@@ -472,7 +473,7 @@ def main() -> None:
     context.logger.info(__file__)
     context.logger.info(__doc__)
     # Load API tokens.
-    toolbox.load_token()
+    load_dotenv()
     # Create API object.
     api = FigshareAPI(
             token=os.getenv("FIGSHARE_TOKEN"),
