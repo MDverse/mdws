@@ -432,7 +432,7 @@ def get_metadata_for_datasets(
         datasets_counter += 1
         ctx.logger.info(
             f"Fetching metadata for dataset id: {dataset_id} "
-            f"[{datasets_counter}/{len(found_datasets)}]"
+            f"({datasets_counter}/{len(found_datasets)})"
         )
         results = api.query(endpoint=f"/articles/{dataset_id}")
         if results["status_code"] >= 400 or results["response"] is None:
