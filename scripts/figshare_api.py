@@ -5,24 +5,33 @@ import time
 from io import BytesIO
 
 import certifi
+import loguru
 import pycurl
 
 
 class FigshareAPI:
     """Class to interact with the Figshare API."""
 
-    def __init__(self, token, base_url: str = "https://api.figshare.com/v2/"):
+    def __init__(
+        self,
+        token,
+        base_url: str = "https://api.figshare.com/v2/",
+        logger: "loguru.Logger" = loguru.logger,
+    ):
         self.token = token
         self.base_url = base_url
         self.headers = {
             "Authorization": f"token {token}",
-            "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-                           "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"),
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
+            ),
             "Content-Type": "application/json",
         }
+        self.logger = logger
 
     @staticmethod
-    def parse_response_headers(headers_bytes: bytes) -> dict:
+    def parse_response_headers(headers_bytes: bytes) -> dict[str, str]:
         """Parse HTTP response header from bytes to a dictionary.
 
         Returns
@@ -100,8 +109,8 @@ class FigshareAPI:
         try:
             response = json.loads(response)
         except json.JSONDecodeError:
-            print("Error decoding JSON response:")
-            print(response[:100])
+            self.logger.error("Error decoding JSON response:")
+            self.logger.error(response[:100])
             response = None
         results["response"] = response
         return results
@@ -119,14 +128,14 @@ class FigshareAPI:
 
 if __name__ == "__main__":
     api = FigshareAPI(
-        token="XXX",
+        token="<place_your_token_here>",  # noqa: S106
         base_url="https://api.figshare.com/v2/",
     )
 
     if api.is_token_valid():
-        print("API token is valid.")
+        api.logger.info("API token is valid.")
 
     response = api.query(
         endpoint="/token",
     )
-    print(response)
+    api.logger.info(response)

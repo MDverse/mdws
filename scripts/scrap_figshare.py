@@ -475,7 +475,10 @@ def main() -> None:
     # Load API tokens.
     toolbox.load_token()
     # Create API object.
-    api = FigshareAPI(token=os.getenv("FIGSHARE_TOKEN"))
+    api = FigshareAPI(
+            token=os.getenv("FIGSHARE_TOKEN"),
+            logger=context.logger,
+        )
     # Test API token validity.
     if api.is_token_valid():
         context.logger.success("Figshare token is valid!")
