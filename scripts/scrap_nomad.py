@@ -163,7 +163,7 @@ def fetch_nomad_md_related_by_batch(
         - A list of tuples (entries_list, fetch_time) for each batch.
     """
     logger.info(
-        f"Fetching Molecular Dynamics related {tag} from NOMAD API"
+        f"Fetching Molecular Dynamics related {tag} from NOMAD API "
         f"by batch of {page_size} entries..."
     )
     all_entries_with_time = []
@@ -187,6 +187,8 @@ def fetch_nomad_md_related_by_batch(
             timeout=100,
         )
         response.raise_for_status()
+        # Sleep briefly to avoid overwhelming the remote server
+        time.sleep(0.1)
         # Get the formated response with request metadatas in JSON format
         first_entries_with_request_md = response.json()
         # Get the total entries from the request md
@@ -229,6 +231,8 @@ def fetch_nomad_md_related_by_batch(
                 timeout=100,
             )
             response.raise_for_status()
+            # Sleep briefly to avoid overwhelming the remote server
+            time.sleep(0.1)
             next_batch = response.json()
             all_entries_with_time.append((next_batch["data"], fetch_time))
 
@@ -249,7 +253,7 @@ def fetch_nomad_md_related_by_batch(
         len(entry["files"]) for batch, _ in all_entries_with_time for entry in batch
     )
     logger.success(
-        f"Fetched {total_datasets if tag == 'entries' else total_files} molecular"
+        f"Fetched {total_datasets if tag == 'entries' else total_files} molecular "
         f"dynamics related {tag} from NOMAD successfully! \n"
     )
     return all_entries_with_time
