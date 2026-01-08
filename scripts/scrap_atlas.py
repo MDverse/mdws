@@ -95,9 +95,9 @@ HTML_LIST_URL: str = "https://www.dsimb.inserm.fr/ATLAS/"
 API_BASE: str = "https://www.dsimb.inserm.fr/ATLAS/api/ATLAS/metadata/"
 BASE_URL: str = "https://www.dsimb.inserm.fr/ATLAS/database/ATLAS/"
 
-FILES_PARQUET = "ATLAS_files.parquet"
-METADATA_PARQUET = "ATLAS_metadata.parquet"
-OUTPUT_DIR = "output"
+FILES_PARQUET = "atlas_files.parquet"
+METADATA_PARQUET = "atlas_datasets.parquet"
+OUTPUT_DIR = "data/atlas"
 
 MAX_CONCURRENT_REQUESTS: int = 10
 REQUEST_DELAY: float = 0.05  # polite delay (seconds)
@@ -125,7 +125,7 @@ logger = logging.getLogger("atlas_scraper")
 SequenceStr = Annotated[str, StringConstraints(pattern=r"^[ACDEFGHIKLMNPQRSTVWY]+$")]
 
 class DatasetRecord(BaseModel):
-    source: constr(min_length=1) = "ATLAS"
+    source: str = "ATLAS"
     source_id: constr(min_length=1)
     data_set_url: HttpUrl
     title: constr(min_length=1)
