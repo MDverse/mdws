@@ -317,7 +317,7 @@ def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger):
         files_in_zip_lst += files_tmp
         logger.info(
             f"Scraped {zip_counter} zip files "
-            f"({zip_files_df.shape[0] - zip_counter} remaining)"
+            f"({zip_files_df.shape[0] - zip_counter} remaining)."
         )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     return files_in_zip_df
