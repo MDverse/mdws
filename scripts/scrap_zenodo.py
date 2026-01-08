@@ -563,8 +563,8 @@ def search_all_datasets(
                 on_columns=["dataset_id", "file_name"],
             )
             ctx.logger.success(
-                f"Found so far: {datasets_df.shape[0]} datasets, "
-                f"{files_df.shape[0]} files"
+                f"Found so far: {datasets_df.shape[0]:,} datasets "
+                f"and {files_df.shape[0]:,} files"
             )
             if page * max_hits_per_page >= max_hits_per_query:
                 ctx.logger.info("Max hits per query reached!")
