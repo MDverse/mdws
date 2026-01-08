@@ -18,6 +18,33 @@ import toolbox
 toolbox.print = logging.info
 
 
+def get_rate_limit_info(url_lst: list[str], token: str) -> None:
+    """Get rate limit information from Zenodo API endpoints.
+
+    Parameters
+    ----------
+    url_lst : list of str
+        List of URLs to send HEAD requests to.
+    token : str
+        Zenodo API token.
+    """
+    for url in url_lst:
+        response = toolbox.make_http_get_request_with_retries(
+            url=url,
+            params={"token": token},
+            timeout=10.0,
+            max_attempts=1,
+            initial_delay=2,
+        )
+        if response is None:
+            print(f"Cannot get rate limit info from {url}")
+            continue
+        print(f"Rate limit info from {url}:")
+        print(f"X-RateLimit-Limit: {response.headers.get('X-RateLimit-Limit', None)}")
+        print(f"X-RateLimit-Remaining: {response.headers.get('X-RateLimit-Remaining', None)}")
+        print(f"X-RateLimit-Reset: {response.headers.get('X-RateLimit-Reset', None)}")
+        print(f"retry-after: {response.headers.get('retry-after', None)}")
+
 def normalize_file_size(file_str):
     """Normalize file size in bytes.
 
@@ -400,6 +427,10 @@ if __name__ == "__main__":
         sys.exit(1)
     is_zenodo_connection_working(ZENODO_TOKEN, show_headers=True)
 
+    get_rate_limit_info(
+        ["https://zenodo.org/api/records", "https://zenodo.org/records/4444751/preview/code.zip"],
+        ZENODO_TOKEN
+    )
     # Read parameter file
     (FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS) = toolbox.read_query_file(
         ARGS.query
@@ -484,6 +515,7 @@ if __name__ == "__main__":
                 url="https://zenodo.org/api/records",
                 params=params,
                 timeout=60.0,
+                initial_delay=2,
             )
             if response is None:
                 print("Failed to get response from the Zenodo API.")

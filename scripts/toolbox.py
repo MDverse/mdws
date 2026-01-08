@@ -53,6 +53,7 @@ def make_http_get_request_with_retries(
         url: str,
         params: dict | None = None,
         timeout: int = 10,
+        initial_delay: int = 1,
         max_attempts: int = 3,
         logger: "loguru.Logger" = loguru.logger
     ) -> httpx.Response | None:
@@ -86,10 +87,10 @@ def make_http_get_request_with_retries(
     logger.info(url)
     for attempt in range(1, max_attempts + 1):
         try:
-            # Fist attempt, wait 1 second,
-            # Second attempt, wait 11 seconds,
-            # Third attempt, wait 21 seconds, etc.
-            time.sleep(1 + (attempt - 1) * 10)
+            # Fist attempt, wait initial_delay seconds,
+            # Second attempt, wait initial_delay + 10 seconds,
+            # Third attempt, wait initial_delay + 20 seconds, etc.
+            time.sleep(initial_delay + (attempt - 1) * 10)
             response = httpx.get(
                 url,
                 params=params,
