@@ -320,8 +320,8 @@ def search_all_datasets(
 
     Returns
     -------
-    set
-        Set of Figshare datasets ids.
+    list of str
+        List of Figshare datasets ids.
     """
     # Read parameter file
     file_types, keywords, _, _ = toolbox.read_query_file(
@@ -329,7 +329,6 @@ def search_all_datasets(
     )
     # We use paging to fetch all results.
     # we query max_hits_per_page hits per page.
-    max_hits_per_page = 100
 
     unique_datasets = []
     ctx.logger.info("-" * 30)
@@ -486,7 +485,7 @@ def main() -> None:
         context.logger.error("Figshare token is invalid!")
         context.logger.error("Exiting.")
         sys.exit(1)
-    # Seach datasets.
+    # Search datasets.
     found_datasets = search_all_datasets(api, context)
     # Extract information for all found datasets.
     datasets_df, files_df = get_metadata_for_datasets(api, found_datasets, context)
