@@ -5,7 +5,7 @@ import os
 import pathlib
 import sys
 import time
-from dataclasses import dataclass
+
 from datetime import datetime, timedelta
 
 import httpx
@@ -13,16 +13,7 @@ import loguru
 import pandas as pd
 import toolbox
 from figshare_api import FigshareAPI
-from logger import create_logger
-
-
-@dataclass(frozen=True, kw_only=True)
-class ContextManager:
-    """ContextManager dataclass."""
-
-    log: "loguru.Logger"
-    output_path: pathlib.Path
-    query_file_name: pathlib.Path
+import logger
 
 
 def extract_date(date_str):
@@ -112,7 +103,7 @@ def extract_files_from_zip_file(
             "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
         ),
     }
-    ctx.log.info(f"Parsing URL: {url}")
+    ctx.logger.info(f"Parsing URL: {url}")
     for attempt in range(1, max_attempts + 1):
         try:
             # Be gentle with Figshare servers.
@@ -127,17 +118,17 @@ def extract_files_from_zip_file(
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            ctx.log.warning(f"HTTP Exception for {exc.request.url}")
-            ctx.log.warning(f"Status code: {exc.response.status_code}")
-            ctx.log.debug("Query headers:")
-            ctx.log.debug(exc.request.headers)
-            ctx.log.debug("Response headers:")
-            ctx.log.debug(exc.response.headers)
-            ctx.log.warning(f"Attempt {attempt}/{max_attempts} failed.")
+            ctx.logger.warning(f"HTTP Exception for {exc.request.url}")
+            ctx.logger.warning(f"Status code: {exc.response.status_code}")
+            ctx.logger.debug("Query headers:")
+            ctx.logger.debug(exc.request.headers)
+            ctx.logger.debug("Response headers:")
+            ctx.logger.debug(exc.response.headers)
+            ctx.logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
             if attempt == max_attempts:
-                ctx.log.warning("Maximum number of attempts reached. Giving up.")
+                ctx.logger.warning("Maximum number of attempts reached. Giving up.")
                 return file_names
-            ctx.log.info("Retrying...")
+            ctx.logger.info("Retrying...")
         else:
             # No error. Leave the retry loop.
             break
@@ -145,10 +136,10 @@ def extract_files_from_zip_file(
     try:
         file_names = extract_files_from_json_response(response.json())
     except (json.decoder.JSONDecodeError, ValueError) as exc:
-        ctx.log.warning(f"Cannot extract files from JSON response: {exc}")
-        ctx.log.debug(f"Status code: {response.status_code}")
-        ctx.log.debug(response.text)
-    ctx.log.info(f"Found {len(file_names)} files.")
+        ctx.logger.warning(f"Cannot extract files from JSON response: {exc}")
+        ctx.logger.debug(f"Status code: {response.status_code}")
+        ctx.logger.debug(response.text)
+    ctx.logger.info(f"Found {len(file_names)} files.")
     return file_names
 
 
@@ -188,7 +179,10 @@ def get_stats_for_dataset(dataset_id: str) -> dict:
     return stats
 
 
-def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame:
+def scrap_zip_files(
+        files_df: pd.DataFrame,
+        logger: "loguru.Logger" = loguru.logger
+    ) -> pd.DataFrame:
     """Scrap information from files contained in zip archives.
 
     Uncertain how many files can be fetched from the preview.
@@ -210,7 +204,7 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
     files_in_zip_lst = []
     zip_files_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
-    ctx.log.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
+    logger.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
     for zip_idx in zip_files_df.index:
         zip_file = zip_files_df.loc[zip_idx]
         file_id = zip_file["file_url"].split("/")[-1]
@@ -227,11 +221,11 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
         #     )
         #     print(f"Waiting for {SLEEP_TIME} seconds...")
         #     time.sleep(SLEEP_TIME)
-        ctx.log.info("Extracting files from zip file:")
-        ctx.log.info(zip_file["file_url"])
-        file_names = extract_files_from_zip_file(file_id, ctx)
+        logger.info("Extracting files from zip file:")
+        logger.info(zip_file["file_url"])
+        file_names = extract_files_from_zip_file(file_id, logger)
         if file_names == []:
-            ctx.log.warning("No file found!")
+            logger.warning("No file found!")
             continue
         # Add other metadata.
         for name in file_names:
@@ -247,12 +241,12 @@ def scrap_zip_files(files_df: pd.DataFrame, ctx: ContextManager) -> pd.DataFrame
             file_metadata["containing_zip_file_name"] = zip_file["file_name"]
             file_metadata["file_url"] = zip_file["file_url"]
             files_in_zip_lst.append(file_metadata)
-        ctx.log.info(
+        logger.info(
             f"{zip_files_counter} zip files processed -> "
             f"{zip_files_df.shape[0] - zip_files_counter} remaining"
         )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
-    ctx.log.success("Done extracting files from zip archives.")
+    logger.success("Done extracting files from zip archives.")
     return files_in_zip_df
 
 
@@ -366,9 +360,9 @@ def search_all_datasets(
     max_hits_per_page = 100
 
     unique_datasets = []
-    ctx.log.info("-" * 30)
+    ctx.logger.info("-" * 30)
     for file_type in file_types:
-        ctx.log.info(f"Looking for filetype: {file_type['type']}")
+        ctx.logger.info(f"Looking for filetype: {file_type['type']}")
         base_query = f":extension: {file_type['type']}"
         target_keywords = [""]
         if file_type["keywords"] == "keywords":
@@ -383,8 +377,8 @@ def search_all_datasets(
                 )
             else:
                 query = base_query
-            ctx.log.info("Search query:")
-            ctx.log.info(query)
+            ctx.logger.info("Search query:")
+            ctx.logger.info(query)
             page = 1
             found_datasets_per_keyword = []
             # Search endpoint:
@@ -401,13 +395,13 @@ def search_all_datasets(
                 }
                 results = api.query(endpoint="/articles/search", data=data_query)
                 if results["status_code"] >= 400:
-                    ctx.log.warning(
+                    ctx.logger.warning(
                         f"Failed to fetch page {page} "
                         f"for file extension {file_type['type']}"
                     )
-                    ctx.log.warning(f"Status code: {results['status_code']}")
-                    ctx.log.warning(f"Response headers: {results['headers']}")
-                    ctx.log.warning(f"Response body: {results['response']}")
+                    ctx.logger.warning(f"Status code: {results['status_code']}")
+                    ctx.logger.warning(f"Response headers: {results['headers']}")
+                    ctx.logger.warning(f"Response body: {results['response']}")
                     break
                 response = results["response"]
                 if not response or len(response) == 0:
@@ -415,13 +409,13 @@ def search_all_datasets(
                 # Extract datasets ids.
                 found_datasets_per_keyword_per_page = [hit["id"] for hit in response]
                 found_datasets_per_keyword += found_datasets_per_keyword_per_page
-                ctx.log.info(
+                ctx.logger.info(
                     f"Page {page} fetched "
                     f"({len(found_datasets_per_keyword_per_page)} datasets)."
                 )
                 page += 1
             found_datasets_per_filetype.update(found_datasets_per_keyword)
-        ctx.log.success(
+        ctx.logger.success(
             f"Found {len(found_datasets_per_filetype)} datasets "
             f"for filetype: {file_type['type']}"
         )
@@ -432,7 +426,7 @@ def search_all_datasets(
     # Get unique datasets.
     # This trick preserves the order datasets were found.
     unique_datasets = list(dict.fromkeys(unique_datasets))
-    ctx.log.success(f"Found {len(unique_datasets)} unique datasets.")
+    ctx.logger.success(f"Found {len(unique_datasets)} unique datasets.")
     return unique_datasets
 
 
@@ -466,19 +460,19 @@ def get_metadata_for_datasets(
     datasets_counter = 0
     for dataset_id in found_datasets:
         datasets_counter += 1
-        ctx.log.info(
+        ctx.logger.info(
             f"Fetching metadata for dataset id: {dataset_id} "
             f"[{datasets_counter}/{len(found_datasets)}]"
         )
         results = api.query(endpoint=f"/articles/{dataset_id}")
         if results["status_code"] >= 400 or results["response"] is None:
-            ctx.log.warning("Failed to fetch dataset.")
+            ctx.logger.warning("Failed to fetch dataset.")
             continue
         resp_json_article = results["response"]
         dataset_info, text_info, files_info = extract_info_from_dataset_record(
             resp_json_article
         )
-        ctx.log.info("Done.")
+        ctx.logger.info("Done.")
         datasets_lst.append(dataset_info)
         texts_lst.append(text_info)
         files_lst += files_info
@@ -530,43 +524,44 @@ def find_remove_false_possitive_datasets(
         files_df, file_types_lst
     )
     # Remove false-positive datasets from all dataframes.
-    ctx.log.info("Removing false-positive datasets in the datasets dataframe...")
+    ctx.logger.info("Removing false-positive datasets in the datasets dataframe...")
     datasets_df = toolbox.remove_false_positive_datasets(
         datasets_df, false_positive_datasets
     )
-    ctx.log.info("Removing false-positive datasets in the files dataframe...")
+    ctx.logger.info("Removing false-positive datasets in the files dataframe...")
     files_df = toolbox.remove_false_positive_datasets(files_df, false_positive_datasets)
-    ctx.log.info("Removing false-positive datasets in the texts dataframe...")
+    ctx.logger.info("Removing false-positive datasets in the texts dataframe...")
     texts_df = toolbox.remove_false_positive_datasets(texts_df, false_positive_datasets)
     return datasets_df, texts_df, files_df
 
 
 def main() -> None:
     """Scrap Figshare datasets and files."""
+    # Keep track of script duration.
     start_time = time.perf_counter()
     # Parse input CLI arguments.
     args = toolbox.get_scraper_cli_arguments()
     # Create output directory for data and logs.
     toolbox.verify_output_directory(args.output)
     # Create context manager.
-    context = ContextManager(
-        log=create_logger(logpath=f"{args.output}/figshare_scraping.log"),
+    context = toolbox.ContextManager(
+        logger=logger.create_logger(logpath=f"{args.output}/figshare_scraping.log"),
         output_path=pathlib.Path(args.output),
         query_file_name=pathlib.Path(args.query),
     )
     # Log script name and doctring.
-    context.log.info(__file__)
-    context.log.info(__doc__)
+    context.logger.info(__file__)
+    context.logger.info(__doc__)
     # Load API tokens.
     toolbox.load_token()
     # Create API object.
     api = FigshareAPI(token=os.getenv("FIGSHARE_TOKEN"))
     # Test API token validity.
     if api.is_token_valid():
-        context.log.success("Figshare token is valid!")
+        context.logger.success("Figshare token is valid!")
     else:
-        context.log.error("Figshare token is invalid!")
-        context.log.error("Exiting.")
+        context.logger.error("Figshare token is invalid!")
+        context.logger.error("Exiting.")
         sys.exit(1)
     # Seach datasets.
     found_datasets = search_all_datasets(api, context)
@@ -574,20 +569,20 @@ def main() -> None:
     datasets_df, texts_df, files_df = get_metadata_for_datasets(
         api, found_datasets, context
     )
-    context.log.success(f"Total number of datasets found: {datasets_df.shape[0]}")
-    context.log.success(f"Total number of files found: {files_df.shape[0]}")
+    context.logger.success(f"Total number of datasets found: {datasets_df.shape[0]}")
+    context.logger.success(f"Total number of files found: {files_df.shape[0]}")
 
     # Add files inside zip archives.
-    zip_df = scrap_zip_files(files_df, context)
-    context.log.success(f"Number of files found inside zip files: {zip_df.shape[0]}")
+    zip_df = scrap_zip_files(files_df, context.logger)
+    context.logger.success(f"Number of files found inside zip files: {zip_df.shape[0]}")
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
-    context.log.success(f"Total number of files found: {files_df.shape[0]}")
+    context.logger.success(f"Total number of files found: {files_df.shape[0]}")
 
     # Remove unwanted files based on exclusion lists.
-    context.log.info("Removing unwanted files...")
+    context.logger.info("Removing unwanted files...")
     _, _, exclude_files, exclude_paths = toolbox.read_query_file(args.query)
     files_df = toolbox.remove_excluded_files(files_df, exclude_files, exclude_paths)
-    context.log.info("-" * 30)
+    context.logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files.
     datasets_df, texts_df, files_df = find_remove_false_possitive_datasets(
@@ -597,18 +592,18 @@ def main() -> None:
     # Save dataframes to disk.
     datasets_export_path = context.output_path / "figshare_datasets.tsv"
     datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
-    context.log.success(f"Results saved in {datasets_export_path!s}")
+    context.logger.success(f"Results saved in {datasets_export_path!s}")
     #
     texts_export_path = context.output_path / "figshare_datasets_text.tsv"
     texts_df.to_csv(texts_export_path, sep="\t", index=False)
-    context.log.success(f"Results saved in {texts_export_path!s}")
+    context.logger.success(f"Results saved in {texts_export_path!s}")
     #
     files_export_path = context.output_path / "figshare_files.tsv"
     files_df.to_csv(files_export_path, sep="\t", index=False)
-    context.log.success(f"Results saved in {files_export_path!s}")
+    context.logger.success(f"Results saved in {files_export_path!s}")
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    context.log.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":

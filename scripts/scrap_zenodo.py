@@ -11,14 +11,19 @@ from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
 import httpx
+import loguru
 
 import toolbox
+import logger
 
-# Rewire the print function from the toolbox module to logging.info
-toolbox.print = logging.info
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
-def get_rate_limit_info(url_lst: list[str], token: str) -> None:
+def get_rate_limit_info(
+    url_lst: list[str],
+    token: str,
+    logger: "loguru.Logger" = loguru.logger
+    ) -> None:
     """Get rate limit information from Zenodo API endpoints.
 
     Parameters
@@ -32,18 +37,19 @@ def get_rate_limit_info(url_lst: list[str], token: str) -> None:
         response = toolbox.make_http_get_request_with_retries(
             url=url,
             params={"token": token},
-            timeout=10.0,
+            timeout=60,  # Zenodo serveur can be sometimes slow to respond.
             max_attempts=1,
             initial_delay=2,
         )
         if response is None:
-            print(f"Cannot get rate limit info from {url}")
+            logger.error(f"Cannot connect to: {url}")
             continue
-        print(f"Rate limit info from {url}:")
-        print(f"X-RateLimit-Limit: {response.headers.get('X-RateLimit-Limit', None)}")
-        print(f"X-RateLimit-Remaining: {response.headers.get('X-RateLimit-Remaining', None)}")
-        print(f"X-RateLimit-Reset: {response.headers.get('X-RateLimit-Reset', None)}")
-        print(f"retry-after: {response.headers.get('retry-after', None)}")
+        logger.info(f"Rate limit info from {url}:")
+        logger.info(f"Header X-RateLimit-Limit: {response.headers.get('X-RateLimit-Limit', None)}")
+        logger.info(f"Header X-RateLimit-Remaining: {response.headers.get('X-RateLimit-Remaining', None)}")
+        logger.info(f"Header X-RateLimit-Reset: {response.headers.get('X-RateLimit-Reset', None)}")
+        logger.info(f"Header retry-after: {response.headers.get('retry-after', None)}")
+
 
 def normalize_file_size(file_str):
     """Normalize file size in bytes.
@@ -164,7 +170,7 @@ def get_files_structure_from_zip(ul):
     return structure
 
 
-def extract_data_from_zip_file(url):
+def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
     """Extract data from zip file preview.
 
     Examples of zip file previews:
@@ -184,7 +190,8 @@ def extract_data_from_zip_file(url):
     if response is None:
         return file_lst
     if "Zipfile is not previewable" in response.text:
-        print(f"No preview available for {url}")
+        logger.warning(f"No preview available for: {url}")
+        logger.warning("Skipping zip file.")
         return file_lst
     # Scrap HTML content.
     soup = BeautifulSoup(response.content, "html5lib")
@@ -208,11 +215,11 @@ def extract_data_from_zip_file(url):
                 "file_type": toolbox.extract_file_extension(path),
             }
             file_lst.append(file_dict)
-    print(f"Found {len(file_lst)} files.")
+    logger.info(f"Found {len(file_lst)} files.")
     return file_lst
 
 
-def read_zenodo_token():
+def read_zenodo_token(logger: "loguru.Logger" = loguru.logger):
     """Read Zenodo token from disk.
 
     Returns
@@ -222,13 +229,17 @@ def read_zenodo_token():
     """
     dotenv.load_dotenv(".env")
     if "ZENODO_TOKEN" in os.environ:
-        print("Found Zenodo token.")
+        logger.info("Found Zenodo token.")
     else:
-        print("Zenodo token is missing.")
+        logger.error("Zenodo token is missing.")
     return os.environ.get("ZENODO_TOKEN", "")
 
 
-def is_zenodo_connection_working(token: str, show_headers: bool = False) -> bool:
+def is_zenodo_connection_working(
+        token: str,
+        show_headers: bool = False,
+        logger: "loguru.Logger" = loguru.logger
+    ) -> bool:
     """Test connection to Zenodo API.
 
     Zenodo HTTP status codes are listed here:
@@ -247,7 +258,7 @@ def is_zenodo_connection_working(token: str, show_headers: bool = False) -> bool
     bool
         True if connection is successful, False otherwise.
     """
-    print("Trying connection to Zenodo...")
+    logger.info("Trying connection to Zenodo...")
     response = toolbox.make_http_get_request_with_retries(
         url="https://zenodo.org/api/deposit/depositions",
         params={"access_token": token},
@@ -255,14 +266,14 @@ def is_zenodo_connection_working(token: str, show_headers: bool = False) -> bool
         max_attempts=2,
     )
     if not response:
-        print("Cannot connect to the Zenodo API.")
+        logger.error("Cannot connect to the Zenodo API.")
         return False
     if show_headers:
-        print(response.headers)
+        logger.info(response.headers)
     return True
 
 
-def scrap_zip_content(files_df):
+def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger):
     """Scrap information from files contained in zip archives.
 
     Zenodo provides a preview only for the first 1000 files within a zip file.
@@ -284,7 +295,7 @@ def scrap_zip_content(files_df):
     files_in_zip_lst = []
     zip_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
-    print(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
+    logger.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
     # The Zenodo API does not provide any endpoint to get the content of zip files.
     # We use direct GET requests on the HTML preview of the zip files.
     # We wait 1.5 seconds between each request,
@@ -296,9 +307,8 @@ def scrap_zip_content(files_df):
             f"https://zenodo.org/records/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
         )
-        # print(zip_counter, URL)
         time.sleep(1.5)
-        files_tmp = extract_data_from_zip_file(url)
+        files_tmp = extract_data_from_zip_file(url, logger=logger)
         if files_tmp == []:
             continue
         # Add common extra fields
@@ -310,7 +320,7 @@ def scrap_zip_content(files_df):
             files_tmp[idx]["file_url"] = ""
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
-        print(
+        logger.info(
                 f"Scraped {zip_counter} zip files "
                 f"({zip_files_df.shape[0] - zip_counter} remaining)"
             )
@@ -318,7 +328,7 @@ def scrap_zip_content(files_df):
     return files_in_zip_df
 
 
-def extract_records(response_json):
+def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
     """Extract information from the Zenodo records.
 
     Arguments
@@ -344,7 +354,7 @@ def extract_records(response_json):
             if hit["metadata"]["access_right"] != "open":
                 continue
             dataset_id = str(hit["id"])
-            print(f"Extracting metadata for dataset: {dataset_id}")
+            logger.info(f"Extracting metadata for dataset: {dataset_id}")
             dataset_dict = {
                 "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
@@ -398,73 +408,66 @@ def extract_records(response_json):
                 files.append(file_dict)
     return datasets, texts, files
 
-
-if __name__ == "__main__":
+def main():
+    """Scrap Zenodo datasets and files."""
+    # Keep track of script duration.
     start_time = time.perf_counter()
-    ARGS = toolbox.get_scraper_cli_arguments()
-
-    # Create logger
-    log_file = logging.FileHandler(f"{ARGS.output}/scrap_zenodo.log", mode="w")
-    log_file.setLevel(logging.INFO)
-    log_stream = logging.StreamHandler()
-    logging.basicConfig(
-        handlers=[log_file, log_stream],
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG,
+    # Parse input CLI arguments.
+    args = toolbox.get_scraper_cli_arguments()
+    # Create context manager.
+    context = toolbox.ContextManager(
+        logger=logger.create_logger(logpath=f"{args.output}/zenodo_scraping.log"),
+        output_path=pathlib.Path(args.output),
+        query_file_name=pathlib.Path(args.query),
     )
-    # Rewire the print function to logging.info
-    print = logging.info
-
-    # Print script name and doctring
-    print(__file__)
-    print(__doc__)
-
+    # Log script name and doctring.
+    context.logger.info(__file__)
+    context.logger.info(__doc__)
     # Read Zenodo token
-    ZENODO_TOKEN = read_zenodo_token()
-    if ZENODO_TOKEN == "":
-        print("No Zenodo token found.")
+    zenodo_token = read_zenodo_token(logger=context.logger)
+    if zenodo_token == "":
+        context.logger.error("No Zenodo token found.")
+        context.logger.error("Aborting.")
         sys.exit(1)
-    is_zenodo_connection_working(ZENODO_TOKEN, show_headers=True)
-
+    is_zenodo_connection_working(
+        zenodo_token,
+        logger=context.logger)
     get_rate_limit_info(
         ["https://zenodo.org/api/records", "https://zenodo.org/records/4444751/preview/code.zip"],
-        ZENODO_TOKEN
+        zenodo_token
     )
     # Read parameter file
-    (FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS) = toolbox.read_query_file(
-        ARGS.query
+    (file_types, keywords, excluded_files, excluded_paths) = toolbox.read_query_file(
+        context.query_file_name
     )
     # Build query part with keywords.
     # We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
-    QUERY_KEYWORDS = ' AND ("' + '" OR "'.join(KEYWORDS) + '")'
+    query_keywords = ' AND ("' + '" OR "'.join(keywords) + '")'
 
     # Verify output directory exists
-    toolbox.verify_output_directory(ARGS.output)
+    toolbox.verify_output_directory(context.output_path)
 
     # There is a hard limit of the number of hits
     # one can get from a single query.
-    MAX_HITS_PER_QUERY = 10_000
+    max_hits_per_query = 10_000
 
-    # The best strategy is to use paging.
-    MAX_HITS_PER_PAGE = 100
-    print(f"Max hits per page: {MAX_HITS_PER_PAGE}")
+    # We used paging with max_hits_per_page per page.
+    max_hits_per_page = 100
+    context.logger.info(f"Max hits per page: {max_hits_per_page}")
 
     datasets_df = pd.DataFrame()
     texts_df = pd.DataFrame()
     files_df = pd.DataFrame()
-    print("-" * 30)
-    for file_type in FILE_TYPES:
-        print(f"Looking for filetype: {file_type['type']}")
+    context.logger.info("-" * 30)
+    for file_type in file_types:
+        context.logger.info(f"Looking for filetype: {file_type['type']}")
         datasets_count_old = datasets_df.shape[0]
-        query_records = []
-        query_files = []
         query = f"""resource_type.type:"dataset" AND filetype:"{file_type['type']}" """
         if file_type["keywords"] == "keywords":
-            query += QUERY_KEYWORDS
-        print("Query:")
-        print(f"{query}")
+            query += query_keywords
+        context.logger.info("Query:")
+        context.logger.info(f"{query}")
         # First, get the total number of hits for a given query.
         # This is needed to compute the number of pages of results to get.
         params = {
@@ -472,63 +475,72 @@ if __name__ == "__main__":
             "size": 1,
             "page": 1,
             "status": "published",
-            "access_token": ZENODO_TOKEN,
+            "access_token": zenodo_token,
         }
         response = toolbox.make_http_get_request_with_retries(
             url="https://zenodo.org/api/records",
             params=params,
             timeout=60.0,
+            logger=context.logger,
         )
         if response is None:
-            print("Failed to get response from the Zenodo API.")
-            print("Getting next file type...")
+            context.logger.warning("Failed to get response from the Zenodo API.")
+            context.logger.warning("Getting next file type...")
             continue
         try:
             resp_json = response.json()
         except (json.decoder.JSONDecodeError, ValueError) as exc:
-            print("Failed to decode JSON response from the Zenodo API.")
-            print(f"Error: {exc}")
-            print("Getting next file type...")
+            context.logger.warning("Failed to decode JSON response from the Zenodo API.")
+            context.logger.warning(f"Error: {exc}")
+            context.logger.warning("Getting next file type...")
             continue
         try:
             total_hits = int(resp_json["hits"]["total"])
         except KeyError:
-            print("Cannot extract total number of hits.")
-            print("Getting next file type...")
+            context.logger.warning("Cannot extract total number of hits.")
+            context.logger.warning("Getting next file type...")
             continue
-        print(f"Number of hits: {total_hits}")
+        context.logger.info(f"Number of hits: {total_hits}")
         if total_hits == 0:
-            print("-" * 30)
+            context.logger.info("-" * 30)
             continue
-        page_max = total_hits // MAX_HITS_PER_PAGE + 1
+        page_max = total_hits // max_hits_per_page + 1
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
-            print(f"Page {page}/{page_max} for filetype: {file_type['type']}")
+            context.logger.info(
+                f"Page {page}/{page_max} for filetype: {file_type['type']}"
+            )
             params = {
                 "q": query,
-                "size": MAX_HITS_PER_PAGE,
+                "size": max_hits_per_page,
                 "page": page,
                 "status": "published",
-                "access_token": ZENODO_TOKEN,
+                "access_token": zenodo_token,
             }
             response = toolbox.make_http_get_request_with_retries(
                 url="https://zenodo.org/api/records",
                 params=params,
                 timeout=60.0,
                 initial_delay=2,
+                logger=context.logger,
             )
             if response is None:
-                print("Failed to get response from the Zenodo API.")
-                print("Getting next page...")
+                context.logger.warning("Failed to get response from the Zenodo API.")
+                context.logger.warning("Getting next page...")
                 continue
             try:
                 resp_json = response.json()
             except (json.decoder.JSONDecodeError, ValueError) as exc:
-                print("Failed to decode JSON response from the Zenodo API.")
-                print(f"Error: {exc}")
-                print("Getting next page...")
+                context.logger.warning(
+                    "Failed to decode JSON response from the Zenodo API."
+                )
+                context.logger.warning(f"Error: {exc}")
+                context.logger.warning("Getting next page...")
                 continue
-            datasets_tmp, texts_tmp, files_tmp = extract_records(resp_json)
+            datasets_tmp, texts_tmp, files_tmp = extract_records(
+                resp_json,
+                logger=context.logger
+            )
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_tmp)
             datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
@@ -547,65 +559,69 @@ if __name__ == "__main__":
             files_df.drop_duplicates(
                 subset=["dataset_id", "file_name"], keep="first", inplace=True
             )
-            if page * MAX_HITS_PER_PAGE >= MAX_HITS_PER_QUERY:
-                print("Max hits per query reached!")
+            if page * max_hits_per_page >= max_hits_per_query:
+                context.logger.info("Max hits per query reached!")
                 break
-        print(
-            f"Number of datasets found: {len(datasets_tmp)} ({datasets_df.shape[0] - datasets_count_old} new)"
+        context.logger.info(
+            f"Number of datasets found: {len(datasets_tmp)} "
+            f"({datasets_df.shape[0] - datasets_count_old} new)"
         )
-        print(f"Number of files found: {len(files_tmp)}")
-        print("-" * 30)
-
-    print(f"Total number of datasets found: {datasets_df.shape[0]}")
-    print(f"Total number of files found: {files_df.shape[0]}")
+        context.logger.info(f"Number of files found: {len(files_tmp)}")
+        context.logger.info("-" * 30)
+    context.logger.info(f"Total number of datasets found: {datasets_df.shape[0]}")
+    context.logger.info(f"Total number of files found: {files_df.shape[0]}")
     # Save datasets dataframe to disk
-    DATASETS_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
-    datasets_df.to_csv(DATASETS_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {DATASETS_EXPORT_PATH}")
+    datasets_export_path = context.output_path / "zenodo_datasets.tsv"
+    datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
+    context.logger.info(f"Results saved in {datasets_export_path}")
     # Save text datasets dataframe to disk
-    TEXTS_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_datasets_text.tsv"
-    texts_df.to_csv(TEXTS_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {TEXTS_EXPORT_PATH}")
+    texts_export_path = context.output_path / "zenodo_datasets_text.tsv"
+    texts_df.to_csv(texts_export_path, sep="\t", index=False)
+    context.logger.info(f"Results saved in {texts_export_path}")
     # Save files dataframe to disk
-    files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
-    FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
-    files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {FILES_EXPORT_PATH}")
+    files_df = toolbox.remove_excluded_files(files_df, excluded_files, excluded_paths)
+    files_export_path = context.output_path / "zenodo_files.tsv"
+    files_df.to_csv(files_export_path, sep="\t", index=False)
+    context.logger.info(f"Results saved in {files_export_path}")
 
     # Scrap zip files content.
-    print("-" * 30)
-    zip_df = scrap_zip_content(files_df)
+    context.logger.info("-" * 30)
+    zip_df = scrap_zip_content(files_df, logger=context.log)
     # We don't remove duplicates here because
     # one zip file can contain several files with the same name
     # but within different folders.
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
-    print(f"Number of files found inside zip files: {zip_df.shape[0]}")
-    print(f"Total number of files found: {files_df.shape[0]}")
-    files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
-    files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {FILES_EXPORT_PATH}")
-    print("-" * 30)
+    context.logger.info(f"Number of files found inside zip files: {zip_df.shape[0]}")
+    context.logger.info(f"Total number of files found: {files_df.shape[0]}")
+    files_df = toolbox.remove_excluded_files(files_df, excluded_files, excluded_paths)
+    files_df.to_csv(files_export_path, sep="\t", index=False)
+    context.logger.info(f"Results saved in {files_export_path}")
+    context.logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
     # List file types from the query parameter file.
-    FILE_TYPES_LST = [file_type["type"] for file_type in FILE_TYPES]
+    file_types_lst = [file_type["type"] for file_type in file_types]
     # Zip is not a MD-specific file type.
-    FILE_TYPES_LST.remove("zip")
+    file_types_lst.remove("zip")
     # Find false-positive datasets.
-    FALSE_POSITIVE_DATASETS = toolbox.find_false_positive_datasets(
-        FILES_EXPORT_PATH, DATASETS_EXPORT_PATH, FILE_TYPES_LST
+    false_positive_datasets = toolbox.find_false_positive_datasets(
+        files_export_path, datasets_export_path, file_types_lst
     )
     # Clean files.
     toolbox.remove_false_positive_datasets(
-        FILES_EXPORT_PATH, "files", FALSE_POSITIVE_DATASETS
+        files_export_path, "files", false_positive_datasets
     )
     toolbox.remove_false_positive_datasets(
-        DATASETS_EXPORT_PATH, "datasets", FALSE_POSITIVE_DATASETS
+        datasets_export_path, "datasets", false_positive_datasets
     )
     toolbox.remove_false_positive_datasets(
-        TEXTS_EXPORT_PATH, "texts", FALSE_POSITIVE_DATASETS
+        texts_export_path, "texts", false_positive_datasets
     )
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    print(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
+
+
+if __name__ == "__main__":
+    main()

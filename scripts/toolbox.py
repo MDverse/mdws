@@ -9,11 +9,11 @@ from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
+from dataclasses import dataclass
 
 import httpx
 import loguru
 from dotenv import load_dotenv
-import httpx
 import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
@@ -47,6 +47,16 @@ class DatasetProject(StrEnum):
     NOMAD = "NOMAD"
     ATLAS = "ATLAS"
     GPCRMD = "GPCRMD"
+
+
+@dataclass(frozen=True, kw_only=True)
+class ContextManager:
+    """ContextManager dataclass."""
+
+    logger: "loguru.Logger" = loguru.logger
+    output_path: pathlib.Path = pathlib.Path("")
+    query_file_name: pathlib.Path = pathlib.Path("")
+    token: str = ""
 
 
 def make_http_get_request_with_retries(
@@ -83,7 +93,7 @@ def make_http_get_request_with_retries(
             "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
         ),
     }
-    logger.info("Getting URL:")
+    logger.info("Making GET request to:")
     logger.info(url)
     for attempt in range(1, max_attempts + 1):
         try:
@@ -100,7 +110,16 @@ def make_http_get_request_with_retries(
             )
             response.raise_for_status()
             return response
-        except httpx.RequestError as exc:
+        except httpx.TimeoutException as exc:
+            logger.warning(f"Attempt {attempt}/{max_attempts} timed out.")
+            logger.warning(f"Timetout: {timeout} seconds.")
+            if attempt == max_attempts:
+                logger.warning(f"Maximum attempts ({max_attempts}) reached for URL:")
+                logger.warning(url)
+                logger.warning("Giving up!")
+                return None
+            logger.info("Retrying...")
+        except httpx.HTTPError as exc:
             logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
             logger.warning(f"Status code: {exc.response.status_code}")
             logger.debug("Query headers:")
