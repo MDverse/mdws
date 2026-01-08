@@ -1,4 +1,6 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
+from jedi.inference.base_value import Value
+from PIL.Image import merge
 from joblib.externals.loky import wait
 
 import json
@@ -266,7 +268,7 @@ def is_zenodo_connection_working(
     return True
 
 
-def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger):
+def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger) -> pd.DataFrame:
     """Scrap information from files contained in zip archives.
 
     Zenodo provides a preview only for the first 1000 files within a zip file.
@@ -323,7 +325,10 @@ def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger):
     return files_in_zip_df
 
 
-def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
+def extract_records(
+        response_json,
+        logger: "loguru.Logger" = loguru.logger
+    ) -> tuple[list, list, list]:
     """Extract information from the Zenodo records.
 
     Arguments
@@ -407,6 +412,201 @@ def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
     return datasets, texts, files
 
 
+def search_zenodo(
+        query: str,
+        ctx: toolbox.ContextManager,
+        page: int = 1,
+        number_of_results: int = 1,
+    ) -> dict | None:
+    """Get total number of hits for a given query.
+
+    Parameters
+    ----------
+    query : str
+        The search query string.
+    ctx : toolbox.ContextManager
+        Context manager containing configuration and logger.
+
+    Returns
+    -------
+    response_json : dict
+        JSON response from the Zenodo API.
+    """
+    params = {
+        "q": query,
+        "size": number_of_results,
+        "page": page,
+        "status": "published",
+        "access_token": ctx.token,
+    }
+    response_json = None
+    response = toolbox.make_http_get_request_with_retries(
+        url="https://zenodo.org/api/records",
+        params=params,
+        timeout=60.0,
+        logger=ctx.logger,
+        delay_before_request=2,
+        attempts=5,
+    )
+    if response is None:
+        ctx.logger.warning("Failed to get response from the Zenodo API.")
+        ctx.logger.warning("Getting next file type...")
+        return None
+    # Try to decode JSON response.
+    try:
+        response_json = response.json()
+    except (json.decoder.JSONDecodeError, ValueError) as exc:
+        ctx.logger.warning(
+            "Failed to decode JSON response from the Zenodo API."
+        )
+        ctx.logger.warning(f"Error: {exc}")
+        return None
+    # Try to extract hits (= results).
+    try:
+        _ = response_json["hits"]
+        _ = int(response_json["hits"]["total"])
+    except (KeyError, ValueError):
+        ctx.logger.warning("Cannot extract hits for HTTP response.")
+        ctx.logger.debug("Response JSON")
+        ctx.logger.debug(response_json)
+        return None
+    return response_json
+
+
+def merge_dataframes_remove_duplicates(
+        df1: pd.DataFrame,
+        df2: pd.DataFrame,
+        on_columns: list[str] | None = None
+    ) -> pd.DataFrame:
+    """Merge two dataframes and remove duplicates.
+
+    Parameters
+    ----------
+    df1 : pd.DataFrame
+        First dataframe.
+    df2 : pd.DataFrame
+        Second dataframe.
+    on_columns : list of str, optional
+        List of columns to consider for duplicates.
+        If None, all columns are considered.
+
+    Returns
+    -------
+    pd.DataFrame
+        Merged dataframe with duplicates removed.
+    """
+    df_concat = pd.concat([df1, df2], ignore_index=True)
+    return df_concat.drop_duplicates(subset=on_columns, keep="first")
+
+
+def search_all_datasets(
+        file_types: list[dict],
+        keywords: list[str],
+        ctx: toolbox.ContextManager,
+    ) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
+    """Search all datasets on Zenodo.
+
+    Parameters
+    ----------
+    file_types : list of dict
+        List of file types to search for.
+        Each dict contains:
+        - type: str, file extension
+        - keywords: str, "keywords" or "none"
+    keywords : list of str
+        List of keywords to use in the search.
+    ctx : toolbox.ContextManager
+        Context manager containing configuration and logger.
+
+    Returns
+    -------
+    datasets_df : pd.DataFrame
+        Dataframe with information on datasets. Not used currently.
+    texts_df : pd.DataFrame
+        Dataframe with textual information on datasets. Not used currently.
+    files_df : pd.DataFrame
+        Dataframe with information on files.
+    """
+    # There is a hard limit of the number of hits
+    # one can get from a single query.
+    max_hits_per_query = 10_000
+    # We used paging with max_hits_per_page per page.
+    max_hits_per_page = 100
+    # Build query part with keywords. We want something like:
+    # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
+    query_keywords = ' AND ("' + '" OR "'.join(keywords) + '")'
+    # Create empty dataframes to store results.
+    datasets_df = pd.DataFrame()
+    texts_df = pd.DataFrame()
+    files_df = pd.DataFrame()
+    ctx.logger.logger.info("-" * 30)
+    for file_type in file_types:
+        ctx.logger.logger.info(f"Looking for filetype: {file_type['type']}")
+        datasets_count_old = datasets_df.shape[0]
+        # Build query with file type and optional keywords.
+        query = f"""resource_type.type:"dataset" AND filetype:"{file_type["type"]}" """
+        if file_type["keywords"] == "keywords":
+            query += query_keywords
+        ctx.logger.logger.info("Query:")
+        ctx.logger.logger.info(f"{query}")
+        # First, get the total number of hits for a given query.
+        # This is needed to compute the number of pages of results to get.
+        json_response = search_zenodo(query, ctx, page=1, number_of_results=1)
+        if json_response is None or int(json_response["hits"]["total"]) == 0:
+            ctx.logger.error("Getting next file type...")
+            ctx.logger.info("-" * 30)
+            continue
+        total_hits = int(json_response["hits"]["total"])
+        ctx.logger.info(f"Total hits for this query: {total_hits}")
+        page_max = total_hits // max_hits_per_page + 1
+        # Then, slice the query by page.
+        for page in range(1, page_max + 1):
+            json_response = search_zenodo(
+                query,
+                ctx,
+                page=page,
+                number_of_results=max_hits_per_page
+            )
+            ctx.logger.info(
+                f"Page {page}/{page_max} for filetype: {file_type['type']}"
+            )
+            if json_response is None:
+                ctx.logger.warning("Failed to get response from the Zenodo API.")
+                ctx.logger.warning("Getting next page...")
+                continue
+            datasets_tmp, texts_tmp, files_tmp = extract_records(
+                json_response, logger=ctx.logger
+            )
+            # Merge dataframes
+            datasets_df = merge_dataframes_remove_duplicates(
+                datasets_df,
+                pd.DataFrame(datasets_tmp),
+                on_columns=["dataset_origin", "dataset_id"],
+            )
+            texts_df = merge_dataframes_remove_duplicates(
+                texts_df,
+                pd.DataFrame(texts_tmp),
+                on_columns=["dataset_origin", "dataset_id"],
+            )
+            files_df = merge_dataframes_remove_duplicates(
+                files_df,
+                pd.DataFrame(files_tmp),
+                on_columns=["dataset_id", "file_name"],
+            )
+            if page * max_hits_per_page >= max_hits_per_query:
+                ctx.logger.info("Max hits per query reached!")
+                break
+        ctx.logger.info(
+            f"Number of datasets found: {len(datasets_tmp)} "
+            f"({datasets_df.shape[0] - datasets_count_old} new)"
+        )
+        ctx.logger.info(f"Number of files found: {len(files_tmp)}")
+        ctx.logger.info("-" * 30)
+    ctx.logger.info(f"Total number of datasets found: {datasets_df.shape[0]}")
+    ctx.logger.info(f"Total number of files found: {files_df.shape[0]}")
+    return datasets_df, texts_df, files_df
+
+
 def main():
     """Scrap Zenodo datasets and files."""
     # Keep track of script duration.
@@ -431,8 +631,9 @@ def main():
         sys.exit(1)
     else:
         context.logger.success("Found Zenodo token.")
+        context.token = zenodo_token
     # Test connection to Zenodo API.
-    if is_zenodo_connection_working(zenodo_token, logger=context.logger):
+    if is_zenodo_connection_working(context.token, logger=context.logger):
         context.logger.success("Connection to Zenodo API successful.")
     else:
         context.logger.critical("Connection to Zenodo API failed.")
@@ -452,137 +653,11 @@ def main():
         context.query_file_name,
         logger=context.logger,
     )
-    # Build query part with keywords.
-    # We want something like:
-    # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
-    query_keywords = ' AND ("' + '" OR "'.join(keywords) + '")'
-
     # Verify output directory exists
     toolbox.verify_output_directory(context.output_path)
 
-    # There is a hard limit of the number of hits
-    # one can get from a single query.
-    max_hits_per_query = 10_000
+    datasets_df, texts_df, files_df = search_all_datasets(file_types, keywords, context)
 
-    # We used paging with max_hits_per_page per page.
-    max_hits_per_page = 100
-    context.logger.info(f"Max hits per page: {max_hits_per_page}")
-
-    datasets_df = pd.DataFrame()
-    texts_df = pd.DataFrame()
-    files_df = pd.DataFrame()
-    context.logger.info("-" * 30)
-    for file_type in file_types:
-        context.logger.info(f"Looking for filetype: {file_type['type']}")
-        datasets_count_old = datasets_df.shape[0]
-        query = f"""resource_type.type:"dataset" AND filetype:"{file_type["type"]}" """
-        if file_type["keywords"] == "keywords":
-            query += query_keywords
-        context.logger.info("Query:")
-        context.logger.info(f"{query}")
-        # First, get the total number of hits for a given query.
-        # This is needed to compute the number of pages of results to get.
-        params = {
-            "q": query,
-            "size": 1,
-            "page": 1,
-            "status": "published",
-            "access_token": zenodo_token,
-        }
-        response = toolbox.make_http_get_request_with_retries(
-            url="https://zenodo.org/api/records",
-            params=params,
-            timeout=60.0,
-            logger=context.logger,
-        )
-        if response is None:
-            context.logger.warning("Failed to get response from the Zenodo API.")
-            context.logger.warning("Getting next file type...")
-            continue
-        try:
-            resp_json = response.json()
-        except (json.decoder.JSONDecodeError, ValueError) as exc:
-            context.logger.warning(
-                "Failed to decode JSON response from the Zenodo API."
-            )
-            context.logger.warning(f"Error: {exc}")
-            context.logger.warning("Getting next file type...")
-            continue
-        try:
-            total_hits = int(resp_json["hits"]["total"])
-        except KeyError:
-            context.logger.warning("Cannot extract total number of hits.")
-            context.logger.warning("Getting next file type...")
-            continue
-        context.logger.info(f"Number of hits: {total_hits}")
-        if total_hits == 0:
-            context.logger.info("-" * 30)
-            continue
-        page_max = total_hits // max_hits_per_page + 1
-        # Then, slice the query by page.
-        for page in range(1, page_max + 1):
-            context.logger.info(
-                f"Page {page}/{page_max} for filetype: {file_type['type']}"
-            )
-            params = {
-                "q": query,
-                "size": max_hits_per_page,
-                "page": page,
-                "status": "published",
-                "access_token": zenodo_token,
-            }
-            response = toolbox.make_http_get_request_with_retries(
-                url="https://zenodo.org/api/records",
-                params=params,
-                timeout=60.0,
-                delay_before_request=2,
-                logger=context.logger,
-            )
-            if response is None:
-                context.logger.warning("Failed to get response from the Zenodo API.")
-                context.logger.warning("Getting next page...")
-                continue
-            try:
-                resp_json = response.json()
-            except (json.decoder.JSONDecodeError, ValueError) as exc:
-                context.logger.warning(
-                    "Failed to decode JSON response from the Zenodo API."
-                )
-                context.logger.warning(f"Error: {exc}")
-                context.logger.warning("Getting next page...")
-                continue
-            datasets_tmp, texts_tmp, files_tmp = extract_records(
-                resp_json, logger=context.logger
-            )
-            # Merge datasets
-            datasets_df_tmp = pd.DataFrame(datasets_tmp)
-            datasets_df = pd.concat([datasets_df, datasets_df_tmp], ignore_index=True)
-            datasets_df.drop_duplicates(
-                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
-            )
-            # Merge dataset texts
-            texts_df_tmp = pd.DataFrame(texts_tmp)
-            texts_df = pd.concat([texts_df, texts_df_tmp], ignore_index=True)
-            texts_df.drop_duplicates(
-                subset=["dataset_origin", "dataset_id"], keep="first", inplace=True
-            )
-            # Merge files
-            files_df_tmp = pd.DataFrame(files_tmp)
-            files_df = pd.concat([files_df, files_df_tmp], ignore_index=True)
-            files_df.drop_duplicates(
-                subset=["dataset_id", "file_name"], keep="first", inplace=True
-            )
-            if page * max_hits_per_page >= max_hits_per_query:
-                context.logger.info("Max hits per query reached!")
-                break
-        context.logger.info(
-            f"Number of datasets found: {len(datasets_tmp)} "
-            f"({datasets_df.shape[0] - datasets_count_old} new)"
-        )
-        context.logger.info(f"Number of files found: {len(files_tmp)}")
-        context.logger.info("-" * 30)
-    context.logger.info(f"Total number of datasets found: {datasets_df.shape[0]}")
-    context.logger.info(f"Total number of files found: {files_df.shape[0]}")
     # Save datasets dataframe to disk
     datasets_export_path = context.output_path / "zenodo_datasets.tsv"
     datasets_df.to_csv(datasets_export_path, sep="\t", index=False)
