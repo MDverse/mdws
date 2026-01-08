@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-import logger
+from logger import create_logger
 import loguru
 import pandas as pd
 import toolbox
@@ -256,6 +256,7 @@ def is_zenodo_connection_working(
         params={"access_token": token},
         timeout=10.0,
         max_attempts=2,
+        logger=logger,
     )
     if not response:
         logger.error("Cannot connect to the Zenodo API.")
@@ -386,11 +387,11 @@ def extract_records(
                     "dataset_url": dataset_dict["dataset_url"],
                     "file_size": int(file_in["size"]),  # File size in bytes.
                     "file_md5": file_in["checksum"].removeprefix("md5:"),
-                    "from_zip_file": False,
+                    "is_from_zip_file": False,
                     "file_name": file_in["key"],
                     "file_type": toolbox.extract_file_extension(file_in["key"]),
                     "file_url": file_in["links"]["self"],
-                    "origin_zip_file": "none",
+                    "containing_zip_file_name": "none",
                 }
                 # Some file types could be empty.
                 # See for instance file "lmp_mpi" in:
@@ -595,7 +596,7 @@ def main():
     output_path = pathlib.Path(args.output) / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = toolbox.ContextManager(
-        logger=logger.create_logger(
+        logger=create_logger(
             logpath=f"{output_path}/{repository_name}_scraping.log"
         ),
         output_path=output_path,

@@ -7,7 +7,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-import logger
+from logger import create_logger
 import loguru
 import pandas as pd
 import toolbox
@@ -462,7 +462,7 @@ def main() -> None:
     output_path = pathlib.Path(args.output) / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = toolbox.ContextManager(
-        logger=logger.create_logger(
+        logger=create_logger(
             logpath=f"{output_path}/{repository_name}_scraping.log"
         ),
         output_path=output_path,
