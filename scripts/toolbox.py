@@ -95,7 +95,7 @@ def make_http_get_request_with_retries(
     Raises
     ------
     httpx.HTTPError
-        If the request send a 202 code,
+        If the request returns a 202 code,
         indicating the request is accepted but not ready yet.
         This error is caught and retried.
     """
