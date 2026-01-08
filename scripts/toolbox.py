@@ -484,7 +484,6 @@ def find_remove_false_positive_datasets(
         Dataframe with information about datasets.
     files_df : pd.DataFrame
         Dataframe with information about files.
-
     ctx : toolbox.ContextManager
         ContextManager object.
 
