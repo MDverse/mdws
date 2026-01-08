@@ -1,8 +1,7 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
-
 from datetime import datetime, timedelta
 import logging
-from json import tool
+import json
 import os
 import pathlib
 import sys
@@ -11,7 +10,6 @@ import time
 from bs4 import BeautifulSoup
 import dotenv
 import pandas as pd
-import requests
 import httpx
 
 import toolbox
@@ -85,21 +83,18 @@ def get_files_structure_from_zip(ul):
           <i class="folder icon"></i> <a href="#tree_item0">Glycerol020 </a>
         </div>
       </div><ul id="tree_item0">
-          
       <li>
         <div class="ui equal width grid">
           <div class="row">
           <i class="folder icon"></i> <a href="#tree_item3">Em2 </a>
         </div>
       </div><ul id="tree_item3">
-          
       <li>
         <div class="ui equal width grid">
           <div class="row">
           <i class="folder icon"></i> <a href="#tree_item15">Flow </a>
         </div>
       </div><ul id="tree_item15">
-          
       <li>
         <div class="ui equal width grid">
         <div class="row">
@@ -206,8 +201,11 @@ def read_zenodo_token():
     return os.environ.get("ZENODO_TOKEN", "")
 
 
-def test_zenodo_connection(token, show_headers=False):
+def is_zenodo_connection_working(token: str, show_headers: bool = False) -> bool:
     """Test connection to Zenodo API.
+
+    Zenodo HTTP status codes are listed here:
+    https://developers.zenodo.org/#http-status-codes
 
     Parameters
     ----------
@@ -217,63 +215,24 @@ def test_zenodo_connection(token, show_headers=False):
         Default: False
         If true, prints HTTP response headers
 
-    Zenodo HTTP status codes are listed here:
-    https://developers.zenodo.org/#http-status-codes
-
-    Parameters
-    ----------
-    token : str
-        Token for Zenodo API
-    """
-    print("Trying connection to Zenodo...")
-    # Basic Zenodo query
-    response = requests.get(
-        "https://zenodo.org/api/deposit/depositions",
-        params={"access_token": token},
-    )
-    # Status code should be 200
-    print(f"Status code: {response.status_code}")
-    if response.status_code == 200:
-        print("-> success!")
-    else:
-        print("-> failed!")
-    if show_headers:
-        print(response.headers)
-
-
-def search_zenodo_with_query(query, token, page=1, hits_per_page=10):
-    """Search for datasets.
-
-    Arguments
-    ---------
-    query: str
-        Query.
-    token : str
-        Zenodo token.
-    page: int
-        Page number.
-    hits_per_page: int
-        Number of hits per pages.
-
     Returns
     -------
-    dict
-        Zenodo response as a JSON object.
+    bool
+        True if connection is successful, False otherwise.
     """
-    time.sleep(1)
-    response = httpx.get(
-        url="https://zenodo.org/api/records",
-        params={
-            "q": query,
-            "size": hits_per_page,
-            "page": page,
-            "status": "published",
-            "access_token": token,
-        },
-        timeout=60.0,
-        follow_redirects=True,
+    print("Trying connection to Zenodo...")
+    response = toolbox.make_http_get_request_with_retries(
+        url="https://zenodo.org/api/deposit/depositions",
+        params={"access_token": token},
+        timeout=10.0,
+        max_attempts=2,
     )
-    return response.json()
+    if not response:
+        print("Cannot connect to the Zenodo API.")
+        return False
+    if show_headers:
+        print(response.headers)
+    return True
 
 
 def scrap_zip_content(files_df):
@@ -439,7 +398,7 @@ if __name__ == "__main__":
     if ZENODO_TOKEN == "":
         print("No Zenodo token found.")
         sys.exit(1)
-    test_zenodo_connection(ZENODO_TOKEN)
+    is_zenodo_connection_working(ZENODO_TOKEN, show_headers=True)
 
     # Read parameter file
     (FILE_TYPES, KEYWORDS, EXCLUDED_FILES, EXCLUDED_PATHS) = toolbox.read_query_file(
@@ -475,9 +434,37 @@ if __name__ == "__main__":
             query += QUERY_KEYWORDS
         print("Query:")
         print(f"{query}")
-        # First get the total number of hits for a given query.
-        resp_json = search_zenodo_with_query(query, ZENODO_TOKEN, hits_per_page=1)
-        total_hits = int(resp_json["hits"]["total"])
+        # First, get the total number of hits for a given query.
+        # This is needed to compute the number of pages of results to get.
+        params = {
+            "q": query,
+            "size": 1,
+            "page": 1,
+            "status": "published",
+            "access_token": ZENODO_TOKEN,
+        }
+        response = toolbox.make_http_get_request_with_retries(
+            url="https://zenodo.org/api/records",
+            params=params,
+            timeout=60.0,
+        )
+        if response is None:
+            print("Failed to get response from the Zenodo API.")
+            print("Getting next file type...")
+            continue
+        try:
+            resp_json = response.json()
+        except (json.decoder.JSONDecodeError, ValueError) as exc:
+            print("Failed to decode JSON response from the Zenodo API.")
+            print(f"Error: {exc}")
+            print("Getting next file type...")
+            continue
+        try:
+            total_hits = int(resp_json["hits"]["total"])
+        except KeyError:
+            print("Cannot extract total number of hits.")
+            print("Getting next file type...")
+            continue
         print(f"Number of hits: {total_hits}")
         if total_hits == 0:
             print("-" * 30)
@@ -486,9 +473,29 @@ if __name__ == "__main__":
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
             print(f"Page {page}/{page_max} for filetype: {file_type['type']}")
-            resp_json = search_zenodo_with_query(
-                query, ZENODO_TOKEN, page=page, hits_per_page=MAX_HITS_PER_PAGE
+            params = {
+                "q": query,
+                "size": MAX_HITS_PER_PAGE,
+                "page": page,
+                "status": "published",
+                "access_token": ZENODO_TOKEN,
+            }
+            response = toolbox.make_http_get_request_with_retries(
+                url="https://zenodo.org/api/records",
+                params=params,
+                timeout=60.0,
             )
+            if response is None:
+                print("Failed to get response from the Zenodo API.")
+                print("Getting next page...")
+                continue
+            try:
+                resp_json = response.json()
+            except (json.decoder.JSONDecodeError, ValueError) as exc:
+                print("Failed to decode JSON response from the Zenodo API.")
+                print(f"Error: {exc}")
+                print("Getting next page...")
+                continue
             datasets_tmp, texts_tmp, files_tmp = extract_records(resp_json)
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_tmp)
@@ -522,16 +529,16 @@ if __name__ == "__main__":
     # Save datasets dataframe to disk
     DATASETS_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_datasets.tsv"
     datasets_df.to_csv(DATASETS_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {str(DATASETS_EXPORT_PATH)}")
+    print(f"Results saved in {DATASETS_EXPORT_PATH}")
     # Save text datasets dataframe to disk
     TEXTS_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_datasets_text.tsv"
     texts_df.to_csv(TEXTS_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {str(TEXTS_EXPORT_PATH)}")
+    print(f"Results saved in {TEXTS_EXPORT_PATH}")
     # Save files dataframe to disk
     files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
     FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "zenodo_files.tsv"
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {str(FILES_EXPORT_PATH)}")
+    print(f"Results saved in {FILES_EXPORT_PATH}")
 
     # Scrap zip files content.
     print("-" * 30)
@@ -544,7 +551,7 @@ if __name__ == "__main__":
     print(f"Total number of files found: {files_df.shape[0]}")
     files_df = toolbox.remove_excluded_files(files_df, EXCLUDED_FILES, EXCLUDED_PATHS)
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {str(FILES_EXPORT_PATH)}")
+    print(f"Results saved in {FILES_EXPORT_PATH}")
     print("-" * 30)
 
     # Remove datasets that contain non-MD related files
