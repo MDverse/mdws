@@ -40,7 +40,7 @@ class FileMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_repository: DatasetRepository = Field(
+    dataset_repository_name: DatasetRepository = Field(
         ...,
         description=(
             "Name of the source repository. "

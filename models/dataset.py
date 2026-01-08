@@ -48,15 +48,15 @@ class DatasetMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_repository: DatasetRepository = Field(
+    dataset_repository_name: DatasetRepository = Field(
         ...,
         description=(
             "Name of the source repository. "
             "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
         ),
     )
-    dataset_project: DatasetProject = Field(
-        ...,
+    dataset_project_name: DatasetProject | None = Field(
+        None,
         description=(
             "Name of the project."
             "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
@@ -66,8 +66,8 @@ class DatasetMetadata(BaseModel):
         ...,
         description="Unique identifier of the dataset in the source repository.",
     )
-    dataset_id_in_project: str = Field(
-        ...,
+    dataset_id_in_project: str | None = Field(
+        None,
         description="Unique identifier of the dataset in the project.",
     )
     dataset_url_in_repository: str = Field(
