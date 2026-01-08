@@ -500,7 +500,7 @@ def main() -> None:
 
     # Remove unwanted files based on exclusion lists.
     context.logger.info("Removing unwanted files...")
-    _, _, exclude_files, exclude_paths = toolbox.read_query_file(args.query)
+    _, _, exclude_files, exclude_paths = toolbox.read_query_file(args.query, context.logger)
     files_df = toolbox.remove_excluded_files(files_df, exclude_files, exclude_paths)
     context.logger.info("-" * 30)
 
