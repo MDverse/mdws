@@ -29,6 +29,8 @@ def get_rate_limit_info(
         List of URLs to send HEAD requests to.
     token : str
         Zenodo API token.
+    logger : loguru.Logger, optional
+        Logger for logging messages.
     """
     for url in url_lst:
         response = toolbox.make_http_get_request_with_retries(
@@ -37,6 +39,7 @@ def get_rate_limit_info(
             timeout=60,  # Zenodo serveur can be sometimes slow to respond.
             max_attempts=1,
             delay_before_request=2,
+            logger=logger,
         )
         if response is None:
             logger.error(f"Cannot connect to: {url}")
