@@ -1,7 +1,4 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
-from jedi.inference.base_value import Value
-from PIL.Image import merge
-from joblib.externals.loky import wait
 
 import json
 import logging
@@ -11,12 +8,12 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-from dotenv import load_dotenv
 import logger
 import loguru
 import pandas as pd
 import toolbox
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -47,7 +44,7 @@ def get_rate_limit_info(
         logger.info(f"Rate limit info from {url}:")
         logger.info(
             "Header x-ratelimit-limit: "
-             f"{response.headers.get('X-ratelimit-limit', None)}"
+            f"{response.headers.get('X-ratelimit-limit', None)}"
         )
         logger.info(
             "Header x-ratelimit-remaining: "
@@ -198,10 +195,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
     """
     file_lst = []
     response = toolbox.make_http_get_request_with_retries(
-        url,
-        delay_before_request=2,
-        timeout=30,
-        max_attempts=5
+        url, delay_before_request=2, timeout=30, max_attempts=5
     )
     if response is None:
         return file_lst
@@ -268,7 +262,9 @@ def is_zenodo_connection_working(
     return True
 
 
-def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger) -> pd.DataFrame:
+def scrap_zip_content(
+    files_df, logger: "loguru.Logger" = loguru.logger
+) -> pd.DataFrame:
     """Scrap information from files contained in zip archives.
 
     Zenodo provides a preview only for the first 1000 files within a zip file.
@@ -326,9 +322,8 @@ def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger) -> pd.D
 
 
 def extract_records(
-        response_json,
-        logger: "loguru.Logger" = loguru.logger
-    ) -> tuple[list, list]:
+    response_json, logger: "loguru.Logger" = loguru.logger
+) -> tuple[list, list]:
     """Extract information from the Zenodo records.
 
     Arguments
@@ -406,11 +401,11 @@ def extract_records(
 
 
 def search_zenodo(
-        query: str,
-        ctx: toolbox.ContextManager,
-        page: int = 1,
-        number_of_results: int = 1,
-    ) -> dict | None:
+    query: str,
+    ctx: toolbox.ContextManager,
+    page: int = 1,
+    number_of_results: int = 1,
+) -> dict | None:
     """Get total number of hits for a given query.
 
     Parameters
@@ -449,9 +444,7 @@ def search_zenodo(
     try:
         response_json = response.json()
     except (json.decoder.JSONDecodeError, ValueError) as exc:
-        ctx.logger.warning(
-            "Failed to decode JSON response from the Zenodo API."
-        )
+        ctx.logger.warning("Failed to decode JSON response from the Zenodo API.")
         ctx.logger.warning(f"Error: {exc}")
         return None
     # Try to extract hits (= results).
@@ -467,10 +460,8 @@ def search_zenodo(
 
 
 def merge_dataframes_remove_duplicates(
-        df1: pd.DataFrame,
-        df2: pd.DataFrame,
-        on_columns: list[str] | None = None
-    ) -> pd.DataFrame:
+    df1: pd.DataFrame, df2: pd.DataFrame, on_columns: list[str] | None = None
+) -> pd.DataFrame:
     """Merge two dataframes and remove duplicates.
 
     Parameters
@@ -493,10 +484,10 @@ def merge_dataframes_remove_duplicates(
 
 
 def search_all_datasets(
-        file_types: list[dict],
-        keywords: list[str],
-        ctx: toolbox.ContextManager,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    file_types: list[dict],
+    keywords: list[str],
+    ctx: toolbox.ContextManager,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Search all datasets on Zenodo.
 
     Parameters
@@ -552,21 +543,14 @@ def search_all_datasets(
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
             json_response = search_zenodo(
-                query,
-                ctx,
-                page=page,
-                number_of_results=max_hits_per_page
+                query, ctx, page=page, number_of_results=max_hits_per_page
             )
-            ctx.logger.info(
-                f"Page {page}/{page_max} for filetype: {file_type['type']}"
-            )
+            ctx.logger.info(f"Page {page}/{page_max} for filetype: {file_type['type']}")
             if json_response is None:
                 ctx.logger.warning("Failed to get response from the Zenodo API.")
                 ctx.logger.warning("Getting next page...")
                 continue
-            datasets_tmp, files_tmp = extract_records(
-                json_response, logger=ctx.logger
-            )
+            datasets_tmp, files_tmp = extract_records(json_response, logger=ctx.logger)
             # Merge dataframes
             datasets_df = merge_dataframes_remove_duplicates(
                 datasets_df,
@@ -608,7 +592,9 @@ def main():
     output_path = pathlib.Path(args.output) / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = toolbox.ContextManager(
-        logger=logger.create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
+        logger=logger.create_logger(
+            logpath=f"{output_path}/{repository_name}_scraping.log"
+        ),
         output_path=output_path,
         query_file_name=pathlib.Path(args.query),
     )
@@ -671,16 +657,10 @@ def main():
 
     # Save dataframes to disk.
     toolbox.export_dataframe_to_parquet(
-        "zenodo",
-        toolbox.DataType.DATASETS,
-        datasets_df,
-        context
+        "zenodo", toolbox.DataType.DATASETS, datasets_df, context
     )
     toolbox.export_dataframe_to_parquet(
-        "zenodo",
-        toolbox.DataType.FILES,
-        files_df,
-        context
+        "zenodo", toolbox.DataType.FILES, files_df, context
     )
 
     # Script duration.

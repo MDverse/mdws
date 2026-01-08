@@ -5,15 +5,13 @@ import os
 import pathlib
 import sys
 import time
-
 from datetime import datetime, timedelta
 
-import httpx
+import logger
 import loguru
 import pandas as pd
 import toolbox
 from figshare_api import FigshareAPI
-import logger
 
 
 def extract_date(date_str):
@@ -35,7 +33,9 @@ def extract_date(date_str):
     return f"{date:%Y-%m-%d}"
 
 
-def extract_files_from_json_response(json_dic: dict, file_list: list | None = None) -> list[str]:
+def extract_files_from_json_response(
+    json_dic: dict, file_list: list | None = None
+) -> list[str]:
     """Walk recursively through the json directory tree structure.
 
     Examples
@@ -66,9 +66,7 @@ def extract_files_from_json_response(json_dic: dict, file_list: list | None = No
 
 
 def extract_files_from_zip_file(
-    file_id: str,
-    logger: "loguru.Logger" = loguru.logger,
-    max_attempts: int = 3
+    file_id: str, logger: "loguru.Logger" = loguru.logger, max_attempts: int = 3
 ) -> list[str]:
     """Extract files from a zip file content.
 
@@ -97,43 +95,16 @@ def extract_files_from_zip_file(
         f"https://figshare.com/ndownloader/files/{file_id}"
         f"/preview/{file_id}/structure.json"
     )
-    # Define web browser-like user agent to avoid 403 errors.
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
-        ),
-    }
-    logger.info(f"Parsing URL: {url}")
-    for attempt in range(1, max_attempts + 1):
-        try:
-            # Be gentle with Figshare servers.
-            time.sleep(1 + (attempt - 1) * 10)
-            # 'follow_redirects=True' is necessary to follow redirections,
-            # generally in AWS servers.
-            response = httpx.get(
-                url,
-                headers=headers,
-                follow_redirects=True,
-                timeout=10,
-            )
-            response.raise_for_status()
-        except httpx.HTTPError as exc:
-            logger.warning(f"HTTP Exception for {exc.request.url}")
-            logger.warning(f"Status code: {exc.response.status_code}")
-            logger.debug("Query headers:")
-            logger.debug(exc.request.headers)
-            logger.debug("Response headers:")
-            logger.debug(exc.response.headers)
-            logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
-            if attempt == max_attempts:
-                logger.warning("Maximum number of attempts reached. Giving up.")
-                return file_names
-            logger.info("Retrying...")
-        else:
-            # No error. Leave the retry loop.
-            break
+    response = toolbox.make_http_get_request_with_retries(
+        url=url,
+        logger=logger,
+        max_attempts=max_attempts,
+        timeout=30,
+        delay_before_request=2,
+    )
+    if response is None:
+        logger.warning("Cannot get zip file content.")
+        return file_names
     # Extract file names from JSON response.
     try:
         file_names = extract_files_from_json_response(response.json())
@@ -141,7 +112,7 @@ def extract_files_from_zip_file(
         logger.warning(f"Cannot extract files from JSON response: {exc}")
         logger.debug(f"Status code: {response.status_code}")
         logger.debug(response.text)
-    logger.info(f"Found {len(file_names)} files.")
+    logger.success(f"Found {len(file_names)} files.")
     return file_names
 
 
@@ -167,24 +138,27 @@ def get_stats_for_dataset(dataset_id: str) -> dict:
     """
     stats = {"downloads": None, "views": None}
     for stat in stats:
-        time.sleep(1)  # Be gentle with Figshare servers.
+        response = toolbox.make_http_get_request_with_retries(
+            url=f"https://stats.figshare.com/total/{stat}/article/{dataset_id}",
+            logger=logger,
+            max_attempts=2,
+            timeout=30,
+            delay_before_request=2,
+        )
+        if response is None:
+            continue
+        # Extract stats from JSON response.
         try:
-            response = httpx.get(
-                url=f"https://stats.figshare.com/total/{stat}/article/{dataset_id}"
-            )
-            response.raise_for_status()
             stats[stat] = response.json()["totals"]
-        except httpx.HTTPError as exc:
-            print(f"HTTP Exception for {exc.request.url} - {exc}")
-        except KeyError:
-            print(f"KeyError for dataset id: {dataset_id}")
+        except (json.decoder.JSONDecodeError, ValueError):
+            logger.warning(f"Cannot extract '{stat}' for dataset id: {dataset_id}")
+            continue
     return stats
 
 
 def scrap_zip_files(
-        files_df: pd.DataFrame,
-        logger: "loguru.Logger" = loguru.logger
-    ) -> pd.DataFrame:
+    files_df: pd.DataFrame, logger: "loguru.Logger" = loguru.logger
+) -> pd.DataFrame:
     """Scrap information from files contained in zip archives.
 
     Uncertain how many files can be fetched from the preview.
@@ -252,7 +226,9 @@ def scrap_zip_files(
     return files_in_zip_df
 
 
-def extract_metadata_from_single_dataset_record(record_json: dict) -> tuple[dict, list[dict]]:
+def extract_metadata_from_single_dataset_record(
+    record_json: dict,
+) -> tuple[dict, list[dict]]:
     """Extract information from a Figshare dataset/article record.
 
     Example of record:
@@ -348,7 +324,9 @@ def search_all_datasets(
         Set of Figshare datasets ids.
     """
     # Read parameter file
-    file_types, keywords, _, _ = toolbox.read_query_file(ctx.query_file_name, logger=ctx.logger)
+    file_types, keywords, _, _ = toolbox.read_query_file(
+        ctx.query_file_name, logger=ctx.logger
+    )
     # We use paging to fetch all results.
     # we query max_hits_per_page hits per page.
     max_hits_per_page = 100
@@ -485,7 +463,9 @@ def main() -> None:
     output_path = pathlib.Path(args.output) / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = toolbox.ContextManager(
-        logger=logger.create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
+        logger=logger.create_logger(
+            logpath=f"{output_path}/{repository_name}_scraping.log"
+        ),
         output_path=output_path,
         query_file_name=pathlib.Path(args.query),
     )
@@ -506,9 +486,7 @@ def main() -> None:
     # Seach datasets.
     found_datasets = search_all_datasets(api, context)
     # Extract information for all found datasets.
-    datasets_df, files_df = get_metadata_for_datasets(
-        api, found_datasets, context
-    )
+    datasets_df, files_df = get_metadata_for_datasets(api, found_datasets, context)
     context.logger.success(f"Total number of datasets found: {datasets_df.shape[0]}")
     context.logger.success(f"Total number of files found: {files_df.shape[0]}")
 
@@ -531,16 +509,10 @@ def main() -> None:
 
     # Save dataframes to disk.
     toolbox.export_dataframe_to_parquet(
-        "figshare",
-        toolbox.DataType.DATASETS,
-        datasets_df,
-        context
+        "figshare", toolbox.DataType.DATASETS, datasets_df, context
     )
     toolbox.export_dataframe_to_parquet(
-        "figshare",
-        toolbox.DataType.FILES,
-        files_df,
-        context
+        "figshare", toolbox.DataType.FILES, files_df, context
     )
 
     # Script duration.

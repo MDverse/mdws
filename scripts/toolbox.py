@@ -91,6 +91,13 @@ def make_http_get_request_with_retries(
     -------
     httpx.Response | None
         The HTTP response if successful, None otherwise.
+
+    Raises
+    ------
+    httpx.HTTPError
+        If the request send a 202 code,
+        indicating the request is accepted but not ready yet.
+        This error is caught and retried.
     """
     headers = {
         "User-Agent": (
@@ -114,6 +121,11 @@ def make_http_get_request_with_retries(
                 timeout=timeout,
             )
             response.raise_for_status()
+            # Raise an error if status code is 202,
+            # indicating the request is accepted but not ready yet.
+            if response.status_code == 202:
+                msg = "Request accepted but not ready yet."
+                raise httpx.HTTPError(msg)
             return response
         except httpx.TimeoutException as exc:
             logger.warning(f"Attempt {attempt}/{max_attempts} timed out.")
@@ -503,7 +515,7 @@ def find_remove_false_positive_datasets(
     return datasets_df, files_df
 
 
-def save_dataframe_to_parquet(
+def export_dataframe_to_parquet(
         repository_name: str,
         suffix: DataType,
         df: pd.DataFrame,
