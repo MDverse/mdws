@@ -63,7 +63,7 @@ def make_http_get_request_with_retries(
         url: str,
         params: dict | None = None,
         timeout: int = 10,
-        initial_delay: int = 1,
+        delay_before_request: int = 1,
         max_attempts: int = 3,
         logger: "loguru.Logger" = loguru.logger
     ) -> httpx.Response | None:
@@ -97,10 +97,10 @@ def make_http_get_request_with_retries(
     logger.info(url)
     for attempt in range(1, max_attempts + 1):
         try:
-            # Fist attempt, wait initial_delay seconds,
-            # Second attempt, wait initial_delay + 10 seconds,
-            # Third attempt, wait initial_delay + 20 seconds, etc.
-            time.sleep(initial_delay + (attempt - 1) * 10)
+            # Fist attempt, wait delay_before_request seconds,
+            # Second attempt, wait delay_before_request + 10 seconds,
+            # Third attempt, wait delay_before_request + 20 seconds, etc.
+            time.sleep(delay_before_request + (attempt - 1) * 10)
             response = httpx.get(
                 url,
                 params=params,
@@ -112,11 +112,11 @@ def make_http_get_request_with_retries(
             return response
         except httpx.TimeoutException as exc:
             logger.warning(f"Attempt {attempt}/{max_attempts} timed out.")
-            logger.warning(f"Timetout: {timeout} seconds.")
+            logger.warning(f"Timeout: {timeout} seconds.")
             if attempt == max_attempts:
-                logger.warning(f"Maximum attempts ({max_attempts}) reached for URL:")
-                logger.warning(url)
-                logger.warning("Giving up!")
+                logger.error(f"Maximum attempts ({max_attempts}) reached for URL:")
+                logger.error(url)
+                logger.error("Giving up!")
                 return None
             logger.info("Retrying...")
         except httpx.HTTPError as exc:
@@ -127,9 +127,9 @@ def make_http_get_request_with_retries(
             logger.debug("Response headers:")
             logger.debug(exc.response.headers)
             if attempt == max_attempts:
-                logger.warning(f"Maximum attempts ({max_attempts}) reached for URL:")
-                logger.warning(url)
-                logger.warning("Giving up!")
+                logger.error(f"Maximum attempts ({max_attempts}) reached for URL:")
+                logger.error(url)
+                logger.error("Giving up!")
                 return None
             logger.info("Retrying...")
     return None
@@ -207,7 +207,7 @@ def get_scraper_cli_arguments():
     return parser.parse_args()
 
 
-def read_query_file(query_file_path):
+def read_query_file(query_file_path, logger: "loguru.Logger" = loguru.logger):
     """Read the query definition file.
 
     The query definition file is formatted in yaml.
@@ -216,26 +216,32 @@ def read_query_file(query_file_path):
     ----------
     query_file_path : str
         Path to the query definition file.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
     file_types : dict
         Dictionary with type, engine and keywords to use.
-    keywords : list
+    keywords : list[str]
         Keywords related to molecular dynamics.
-    exclusion_files : list
+    exclusion_file_patterns : list[str]
         Patterns for files exclusion.
-    exclusion_paths : list
+    exclusion_path_patterns : list[str]
         Patterns for path exclusion.
     """
     with open(query_file_path) as param_file:
-        print(f"Reading parameters from: {query_file_path}")
+        logger.info(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
     keywords = data_loaded["keywords"]
     file_types = data_loaded["file_types"]
-    exclusion_files = data_loaded["excluded_files_starting_with"]
-    exclusion_paths = data_loaded["excluded_paths_containing"]
-    return file_types, keywords, exclusion_files, exclusion_paths
+    exclusion_file_patterns = data_loaded["excluded_files_starting_with"]
+    exclusion_path_patterns = data_loaded["excluded_paths_containing"]
+    logger.success(f"Found {len(file_types)} file types.")
+    logger.success(f"Found {len(keywords)} keywords.")
+    logger.success(f"Found {len(exclusion_file_patterns)} exclusion file patterns.")
+    logger.success(f"Found {len(exclusion_path_patterns)} exclusion path patterns.")
+    return file_types, keywords, exclusion_file_patterns, exclusion_path_patterns
 
 
 def verify_file_exists(filename):
@@ -260,7 +266,7 @@ def verify_file_exists(filename):
         raise FileNotFoundError(msg)
 
 
-def verify_output_directory(directory):
+def verify_output_directory(directory, logger: "loguru.Logger" = loguru.logger):
     """Verify output directory exists.
 
     Create it if necessary.
@@ -269,6 +275,8 @@ def verify_output_directory(directory):
     ----------
     directory : str
         Path to directory to store results
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Raises
     ------
@@ -280,11 +288,10 @@ def verify_output_directory(directory):
         msg = f"{directory} is an existing file."
         raise FileNotFoundError(msg)
     if directory_path.is_dir():
-        msg = f"Output directory {directory} already exists."
-        print(msg)
+        logger.info(f"Output directory {directory} already exists.")
     else:
         directory_path.mkdir(parents=True, exist_ok=True)
-        print(f"Created output directory {directory}")
+        logger.info(f"Created output directory {directory}")
 
 
 def clean_text(string):

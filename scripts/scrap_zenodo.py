@@ -1,4 +1,5 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
+from joblib.externals.loky import wait
 
 import json
 import logging
@@ -8,7 +9,7 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-import dotenv
+from dotenv import load_dotenv
 import logger
 import loguru
 import pandas as pd
@@ -36,7 +37,7 @@ def get_rate_limit_info(
             params={"token": token},
             timeout=60,  # Zenodo serveur can be sometimes slow to respond.
             max_attempts=1,
-            initial_delay=2,
+            delay_before_request=2,
         )
         if response is None:
             logger.error(f"Cannot connect to: {url}")
@@ -194,7 +195,12 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
         List of dictionnaries with data extracted from zip preview.
     """
     file_lst = []
-    response = toolbox.make_http_get_request_with_retries(url, max_attempts=5)
+    response = toolbox.make_http_get_request_with_retries(
+        url,
+        delay_before_request=2,
+        timeout=30,
+        max_attempts=5
+    )
     if response is None:
         return file_lst
     if "Zipfile is not previewable" in response.text:
@@ -225,22 +231,6 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
             file_lst.append(file_dict)
     logger.success(f"Found {len(file_lst)} files.")
     return file_lst
-
-
-def read_zenodo_token(logger: "loguru.Logger" = loguru.logger):
-    """Read Zenodo token from disk.
-
-    Returns
-    -------
-    str
-        Zenodo token.
-    """
-    dotenv.load_dotenv(".env")
-    if "ZENODO_TOKEN" in os.environ:
-        logger.info("Found Zenodo token.")
-    else:
-        logger.error("Zenodo token is missing.")
-    return os.environ.get("ZENODO_TOKEN", "")
 
 
 def is_zenodo_connection_working(
@@ -310,8 +300,10 @@ def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger):
             f"https://zenodo.org/records/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
         )
-        time.sleep(1.5)
-        files_tmp = extract_data_from_zip_file(url, logger=logger)
+        files_tmp = extract_data_from_zip_file(
+            url,
+            logger=logger,
+        )
         if files_tmp == []:
             continue
         # Add common extra fields
@@ -357,7 +349,7 @@ def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
             if hit["metadata"]["access_right"] != "open":
                 continue
             dataset_id = str(hit["id"])
-            logger.info(f"Extracting metadata for dataset: {dataset_id}")
+            logger.info(f"Extracting metadata for dataset id: {dataset_id}")
             dataset_dict = {
                 "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
@@ -371,6 +363,7 @@ def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
                 "license": extract_license(hit["metadata"]),
                 "dataset_url": hit["links"]["self_html"],
             }
+            logger.info(f"Dataset URL: {dataset_dict['dataset_url']}")
             datasets.append(dataset_dict)
             text_dict = {
                 "dataset_origin": dataset_dict["dataset_origin"],
@@ -429,13 +422,23 @@ def main():
     # Log script name and doctring.
     context.logger.info(__file__)
     context.logger.info(__doc__)
-    # Read Zenodo token
-    zenodo_token = read_zenodo_token(logger=context.logger)
-    if zenodo_token == "":
-        context.logger.error("No Zenodo token found.")
-        context.logger.error("Aborting.")
+    # Read and verify Zenodo token.
+    load_dotenv()
+    zenodo_token = os.environ.get("ZENODO_TOKEN", "")
+    if not zenodo_token:
+        context.logger.critical("No Zenodo token found.")
+        context.logger.critical("Aborting.")
         sys.exit(1)
-    is_zenodo_connection_working(zenodo_token, logger=context.logger)
+    else:
+        context.logger.success("Found Zenodo token.")
+    # Test connection to Zenodo API.
+    if is_zenodo_connection_working(zenodo_token, logger=context.logger):
+        context.logger.success("Connection to Zenodo API successful.")
+    else:
+        context.logger.critical("Connection to Zenodo API failed.")
+        context.logger.critical("Aborting.")
+        sys.exit(1)
+    # Get rate limit information.
     get_rate_limit_info(
         [
             "https://zenodo.org/api/records",
@@ -446,7 +449,8 @@ def main():
     )
     # Read parameter file
     (file_types, keywords, excluded_files, excluded_paths) = toolbox.read_query_file(
-        context.query_file_name
+        context.query_file_name,
+        logger=context.logger,
     )
     # Build query part with keywords.
     # We want something like:
@@ -531,7 +535,7 @@ def main():
                 url="https://zenodo.org/api/records",
                 params=params,
                 timeout=60.0,
-                initial_delay=2,
+                delay_before_request=2,
                 logger=context.logger,
             )
             if response is None:

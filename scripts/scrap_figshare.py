@@ -66,7 +66,7 @@ def extract_files_from_json_response(json_dic: dict, file_list: list | None = No
 
 
 def extract_files_from_zip_file(
-    file_id: str, ctx: ContextManager, max_attempts: int = 3
+    file_id: str, ctx: toolbox.ContextManager, max_attempts: int = 3
 ) -> list[str]:
     """Extract files from a zip file content.
 
@@ -80,7 +80,7 @@ def extract_files_from_zip_file(
     ----------
     file_id : str
         ID of the zip file to get content from.
-    ctx : ContextManager
+    ctx : toolbox.ContextManager
         ContextManager object.
     max_attempts : int
         Maximum number of attempts to fetch the zip file content.
@@ -193,8 +193,8 @@ def scrap_zip_files(
     ---------
     files_df: Pandas dataframe
         Dataframe with information about files.
-    ctx : ContextManager
-        ContextManager object.
+    logger: loguru.Logger
+        Logger object.
 
     Returns
     -------
@@ -330,7 +330,7 @@ def extract_info_from_dataset_record(record_json: dict) -> tuple[dict, dict, lis
 
 
 def search_all_datasets(
-    api: FigshareAPI, ctx: ContextManager, max_hits_per_page: int = 100
+    api: FigshareAPI, ctx: toolbox.ContextManager, max_hits_per_page: int = 100
 ) -> list[str]:
     """Search all Figshare datasets.
 
@@ -343,7 +343,7 @@ def search_all_datasets(
     ----------
     api : FigshareAPI
         Figshare API object.
-    ctx : ContextManager
+    ctx : toolbox.ContextManager
         ContextManager object.
     max_hits_per_page : int
         Maximum number of hits per page.
@@ -354,7 +354,7 @@ def search_all_datasets(
         Set of Figshare datasets ids.
     """
     # Read parameter file
-    file_types, keywords, _, _ = toolbox.read_query_file(ctx.query_file_name)
+    file_types, keywords, _, _ = toolbox.read_query_file(ctx.query_file_name, logger=ctx.logger)
     # We use paging to fetch all results.
     # we query max_hits_per_page hits per page.
     max_hits_per_page = 100
@@ -431,7 +431,7 @@ def search_all_datasets(
 
 
 def get_metadata_for_datasets(
-    api: FigshareAPI, found_datasets: list[str], ctx: ContextManager
+    api: FigshareAPI, found_datasets: list[str], ctx: toolbox.ContextManager
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Get metadata for all selected datasets.
 
@@ -441,7 +441,7 @@ def get_metadata_for_datasets(
         Figshare API object.
     found_datasets : list[str]
         List of Figshare dataset ids.
-    ctx : ContextManager
+    ctx : toolbox.ContextManager
         ContextManager object.
 
     Returns
@@ -487,7 +487,7 @@ def find_remove_false_possitive_datasets(
     datasets_df: pd.DataFrame,
     texts_df: pd.DataFrame,
     files_df: pd.DataFrame,
-    ctx: ContextManager,
+    ctx: toolbox.ContextManager,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """Find and remove false-positive datasets.
 
@@ -502,7 +502,7 @@ def find_remove_false_possitive_datasets(
     files_df : pd.DataFrame
         Dataframe with information about files.
 
-    ctx : ContextManager
+    ctx : toolbox.ContextManager
         ContextManager object.
 
     Returns
