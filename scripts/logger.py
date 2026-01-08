@@ -23,7 +23,7 @@ def create_logger(logpath: str | None = None, level: str = "INFO") -> "loguru.Lo
     """
     # Define log format.
     logger_format = (
-        "{time:YYYY-MM-DD HH:mm:ss}"
+        "{time:YYYY-MM-DD HH:mm:ss} "
         "| <level>{level:<8}</level> "  # noqa: RUF027
         "| <level>{message}</level>"
     )
