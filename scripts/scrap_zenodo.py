@@ -311,8 +311,8 @@ def scrap_zip_content(
         for idx in range(len(files_tmp)):
             files_tmp[idx]["dataset_origin"] = zip_file["dataset_origin"]
             files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
-            files_tmp[idx]["from_zip_file"] = True
-            files_tmp[idx]["origin_zip_file"] = zip_file["file_name"]
+            files_tmp[idx]["is_from_zip_file"] = True
+            files_tmp[idx]["containing_zip_file_name"] = zip_file["file_name"]
             files_tmp[idx]["file_url"] = ""
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
