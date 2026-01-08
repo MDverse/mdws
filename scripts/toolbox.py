@@ -49,7 +49,7 @@ class DatasetProject(StrEnum):
     GPCRMD = "GPCRMD"
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class ContextManager:
     """ContextManager dataclass."""
 
