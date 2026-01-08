@@ -603,7 +603,7 @@ def main() -> None:
     context.logger.success(f"Results saved in {files_export_path!s}")
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraping Figshare in: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":

@@ -1,29 +1,26 @@
 """Scrap molecular dynamics datasets and files from Zenodo."""
-from datetime import datetime, timedelta
-import logging
+
 import json
+import logging
 import os
 import pathlib
 import sys
 import time
+from datetime import datetime, timedelta
 
-from bs4 import BeautifulSoup
 import dotenv
-import pandas as pd
-import httpx
-import loguru
-
-import toolbox
 import logger
+import loguru
+import pandas as pd
+import toolbox
+from bs4 import BeautifulSoup
 
 logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def get_rate_limit_info(
-    url_lst: list[str],
-    token: str,
-    logger: "loguru.Logger" = loguru.logger
-    ) -> None:
+    url_lst: list[str], token: str, logger: "loguru.Logger" = loguru.logger
+) -> None:
     """Get rate limit information from Zenodo API endpoints.
 
     Parameters
@@ -45,9 +42,18 @@ def get_rate_limit_info(
             logger.error(f"Cannot connect to: {url}")
             continue
         logger.info(f"Rate limit info from {url}:")
-        logger.info(f"Header X-RateLimit-Limit: {response.headers.get('X-RateLimit-Limit', None)}")
-        logger.info(f"Header X-RateLimit-Remaining: {response.headers.get('X-RateLimit-Remaining', None)}")
-        logger.info(f"Header X-RateLimit-Reset: {response.headers.get('X-RateLimit-Reset', None)}")
+        logger.info(
+            "Header x-ratelimit-limit: "
+             f"{response.headers.get('X-ratelimit-limit', None)}"
+        )
+        logger.info(
+            "Header x-ratelimit-remaining: "
+            f"{response.headers.get('X-ratelimit-remaining', None)}"
+        )
+        logger.info(
+            "Header x-ratelimit-reset: "
+            f"{response.headers.get('X-ratelimit-reset', None)}"
+        )
         logger.info(f"Header retry-after: {response.headers.get('retry-after', None)}")
 
 
@@ -81,7 +87,7 @@ def normalize_file_size(file_str):
 
 def extract_license(metadata):
     """Extract license from metadata.
-    
+
     Parameters
     ----------
     metadata : dict
@@ -94,10 +100,10 @@ def extract_license(metadata):
         Empty string if no license found.
     """
     try:
-        license = metadata["license"]["id"]
+        license_name = metadata["license"]["id"]
     except KeyError:
-        license = ""
-    return license
+        license_name = ""
+    return license_name
 
 
 def get_files_structure_from_zip(ul):
@@ -164,7 +170,9 @@ def get_files_structure_from_zip(ul):
             structure[key] = get_files_structure_from_zip(ul)
         # Extract file size.
         elif li.find("div", attrs={"class": "no-padding right aligned column"}):
-            structure[key] = li.find("div", attrs={"class": "no-padding right aligned column"}).text
+            structure[key] = li.find(
+                "div", attrs={"class": "no-padding right aligned column"}
+            ).text
         else:
             structure[key] = None
     return structure
@@ -215,7 +223,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
                 "file_type": toolbox.extract_file_extension(path),
             }
             file_lst.append(file_dict)
-    logger.info(f"Found {len(file_lst)} files.")
+    logger.success(f"Found {len(file_lst)} files.")
     return file_lst
 
 
@@ -236,10 +244,8 @@ def read_zenodo_token(logger: "loguru.Logger" = loguru.logger):
 
 
 def is_zenodo_connection_working(
-        token: str,
-        show_headers: bool = False,
-        logger: "loguru.Logger" = loguru.logger
-    ) -> bool:
+    token: str, logger: "loguru.Logger" = loguru.logger
+) -> bool:
     """Test connection to Zenodo API.
 
     Zenodo HTTP status codes are listed here:
@@ -249,9 +255,6 @@ def is_zenodo_connection_working(
     ----------
     token : str
         Token for Zenodo API
-    show_headers : bool
-        Default: False
-        If true, prints HTTP response headers
 
     Returns
     -------
@@ -268,8 +271,8 @@ def is_zenodo_connection_working(
     if not response:
         logger.error("Cannot connect to the Zenodo API.")
         return False
-    if show_headers:
-        logger.info(response.headers)
+    if response and hasattr(response, "headers"):
+        logger.debug(response.headers)
     return True
 
 
@@ -321,9 +324,9 @@ def scrap_zip_content(files_df, logger: "loguru.Logger" = loguru.logger):
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
         logger.info(
-                f"Scraped {zip_counter} zip files "
-                f"({zip_files_df.shape[0] - zip_counter} remaining)"
-            )
+            f"Scraped {zip_counter} zip files "
+            f"({zip_files_df.shape[0] - zip_counter} remaining)"
+        )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     return files_in_zip_df
 
@@ -375,7 +378,9 @@ def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
                 "title": toolbox.clean_text(hit["metadata"]["title"]),
                 "author": toolbox.clean_text(hit["metadata"]["creators"][0]["name"]),
                 "keywords": "none",
-                "description": toolbox.clean_text(hit["metadata"].get("description", "")),
+                "description": toolbox.clean_text(
+                    hit["metadata"].get("description", "")
+                ),
             }
             if "keywords" in hit["metadata"]:
                 text_dict["keywords"] = ";".join(
@@ -408,6 +413,7 @@ def extract_records(response_json, logger: "loguru.Logger" = loguru.logger):
                 files.append(file_dict)
     return datasets, texts, files
 
+
 def main():
     """Scrap Zenodo datasets and files."""
     # Keep track of script duration.
@@ -429,12 +435,14 @@ def main():
         context.logger.error("No Zenodo token found.")
         context.logger.error("Aborting.")
         sys.exit(1)
-    is_zenodo_connection_working(
-        zenodo_token,
-        logger=context.logger)
+    is_zenodo_connection_working(zenodo_token, logger=context.logger)
     get_rate_limit_info(
-        ["https://zenodo.org/api/records", "https://zenodo.org/records/4444751/preview/code.zip"],
-        zenodo_token
+        [
+            "https://zenodo.org/api/records",
+            "https://zenodo.org/records/4444751/preview/code.zip",
+        ],
+        zenodo_token,
+        logger=context.logger,
     )
     # Read parameter file
     (file_types, keywords, excluded_files, excluded_paths) = toolbox.read_query_file(
@@ -463,7 +471,7 @@ def main():
     for file_type in file_types:
         context.logger.info(f"Looking for filetype: {file_type['type']}")
         datasets_count_old = datasets_df.shape[0]
-        query = f"""resource_type.type:"dataset" AND filetype:"{file_type['type']}" """
+        query = f"""resource_type.type:"dataset" AND filetype:"{file_type["type"]}" """
         if file_type["keywords"] == "keywords":
             query += query_keywords
         context.logger.info("Query:")
@@ -490,7 +498,9 @@ def main():
         try:
             resp_json = response.json()
         except (json.decoder.JSONDecodeError, ValueError) as exc:
-            context.logger.warning("Failed to decode JSON response from the Zenodo API.")
+            context.logger.warning(
+                "Failed to decode JSON response from the Zenodo API."
+            )
             context.logger.warning(f"Error: {exc}")
             context.logger.warning("Getting next file type...")
             continue
@@ -538,8 +548,7 @@ def main():
                 context.logger.warning("Getting next page...")
                 continue
             datasets_tmp, texts_tmp, files_tmp = extract_records(
-                resp_json,
-                logger=context.logger
+                resp_json, logger=context.logger
             )
             # Merge datasets
             datasets_df_tmp = pd.DataFrame(datasets_tmp)
@@ -620,7 +629,7 @@ def main():
     )
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraping duration: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraping Zenodo in: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":
