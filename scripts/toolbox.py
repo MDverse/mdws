@@ -94,7 +94,7 @@ def make_http_get_request_with_retries(
 
     Raises
     ------
-    httpx.HTTPError
+    httpx.RequestError
         If the request returns a 202 code,
         indicating the request is accepted but not ready yet.
         This error is caught and retried.
@@ -124,30 +124,31 @@ def make_http_get_request_with_retries(
             # Raise an error if status code is 202,
             # indicating the request is accepted but not ready yet.
             if response.status_code == 202:
-                msg = "Request accepted but not ready yet."
-                raise httpx.HTTPError(msg)
+                msg = "Status code 202. Request accepted but not ready yet."
+                raise httpx.RequestError(msg)
             return response
         except httpx.TimeoutException as exc:
             logger.warning(f"Attempt {attempt}/{max_attempts} timed out.")
             logger.warning(f"Timeout: {timeout} seconds.")
-            if attempt == max_attempts:
-                logger.error(f"Maximum attempts ({max_attempts}) reached for URL:")
-                logger.error(url)
-                logger.error("Giving up!")
-                return None
-            logger.info("Retrying...")
-        except httpx.HTTPError as exc:
+        except httpx.RequestError as exc:
+            # httpx.RequestError only has a .request attribute.
+            logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
+            logger.debug("Query headers:")
+            logger.debug(exc.request.headers)
+            logger.warning(f"Error details: {exc}")
+        except httpx.HTTPStatusError as exc:
+            # httpx.HTTPStatusError has .request and .response attributes.
             logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
             logger.warning(f"Status code: {exc.response.status_code}")
             logger.debug("Query headers:")
             logger.debug(exc.request.headers)
             logger.debug("Response headers:")
             logger.debug(exc.response.headers)
-            if attempt == max_attempts:
-                logger.error(f"Maximum attempts ({max_attempts}) reached for URL:")
-                logger.error(url)
-                logger.error("Giving up!")
-                return None
+        if attempt == max_attempts:
+            logger.error(f"Maximum attempts ({max_attempts}) reached for URL:")
+            logger.error(url)
+            logger.error("Giving up!")
+        else:
             logger.info("Retrying...")
     return None
 
