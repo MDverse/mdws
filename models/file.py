@@ -51,10 +51,6 @@ class FileMetadata(BaseModel):
         ...,
         description="Unique identifier of the dataset in the source repository.",
     )
-    dataset_url_in_repository: str = Field(
-        ...,
-        description="Canonical URL to access the dataset in the repository.",
-    )
     file_url_in_repository: str = Field(
         ...,
         description="Direct URL to access the file.",
