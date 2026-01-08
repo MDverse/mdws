@@ -51,6 +51,7 @@ class DatasetProject(StrEnum):
 
 def make_http_get_request_with_retries(
         url: str,
+        params: dict | None = None,
         max_attempts: int = 3,
         logger: "loguru.Logger" = loguru.logger
     ) -> httpx.Response | None:
@@ -60,6 +61,8 @@ def make_http_get_request_with_retries(
     ----------
     url : str
         The URL to send the GET request to.
+    params : dict | None
+        Optional dictionary of query parameters to include in the request.
     max_attempts : int
         Maximum number of attempts to make.
     logger : "loguru.Logger"
@@ -86,6 +89,7 @@ def make_http_get_request_with_retries(
             time.sleep(1 + (attempt - 1) * 10)
             response = httpx.get(
                 url,
+                params=params,
                 headers=headers,
                 follow_redirects=True,
                 timeout=10
