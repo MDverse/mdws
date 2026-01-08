@@ -304,7 +304,7 @@ def search_all_datasets(
 ) -> list[str]:
     """Search all Figshare datasets.
 
-    We search datsets by itering on:
+    We search datasets by iterating on:
     - file types
     - keywords (if any), one by one
     - pages of results
