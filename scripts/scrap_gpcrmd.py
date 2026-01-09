@@ -12,11 +12,6 @@ and `File Model`) and saved locally in Parquet format:
 - "data/gpcrmd/gpcrmd_datasets.parquet"
 - "data/gpcrmd/gpcrmd_files.parquet"
 
-Datasets that fail validation are saved as:
-- "data/gpcrmd/not_validated_gpcrmd_datasets.parquet"
-- "data/gpcrmd/not_validated_gpcrmd_files.parquet"
-
-
 Usage:
 ======
     uv run -m scripts.scrap_gpcrmd [--out-path]
@@ -34,11 +29,9 @@ Example:
 This command will:
     1. Fetch all available datasets from GPCRMD.
     2. Parse their metadata and validate them using the Pydantic models
-    `DatasetMetadata` and `File Model`.
-    3. Save both the validated and unvalidated dataset datasets to
-       "data/gpcrmd/gpcrmd_datasets.parquet" and
-       "data/gpcrmd/not_validated_gpcrmd_datasets.parquet"
-    4. Save file metadata similarly for validated and unvalidated files.
+    `DatasetMetadata` and `FileMetadata`.
+    3. Save both the validated dataset datasets to "data/gpcrmd/gpcrmd_datasets.parquet"
+    4. Save file metadata similarly for validated files.
 """
 
 # METADATAS
@@ -297,7 +290,7 @@ def count_simulation_files(html: str) -> int | None:
 def validate_parsed_metadatas(
     parsed: dict[str, Any],
     out_model: type[FileMetadata | DatasetMetadata]
-) -> tuple[FileMetadata | DatasetMetadata | None, dict[str, Any] | None]:
+) -> tuple[FileMetadata | DatasetMetadata | None, str | None]:
     """Validate a parsed dataset using the pydantic model.
 
     Parameters
@@ -309,10 +302,9 @@ def validate_parsed_metadatas(
 
     Returns
     -------
-    tuple[FileMetadata | DatasetMetadata | None,  dict[str, Any] | None]
+    tuple[FileMetadata | DatasetMetadata | None,  str | None]
         A tuple containing the validated model instance if validation succeeds,
-        otherwise None, and the enriched parsed dataset containing validation
-        failure reasons if validation fails.
+        otherwise None, and the validation failure reasons if validation fails.
     """
     try:
         return out_model(**parsed), None
@@ -326,14 +318,14 @@ def validate_parsed_metadatas(
 
             reasons.append(f"{field}: {reason} (input={value!r})")
 
-        parsed["non_validation_reason"] = "; ".join(reasons)
-        return None, parsed
+        non_validation_reason = "; ".join(reasons)
+        return None, non_validation_reason
 
 
 def parse_and_validate_dataset_metadatas(
     datasets: list[dict[str, Any]],
     fetch_time: str
-) -> tuple[list[DatasetMetadata], list[dict[str, Any]]]:
+) -> list[DatasetMetadata]:
     """
     Parse and validate metadata fields for a list of GPCRMD datasets.
 
@@ -346,16 +338,14 @@ def parse_and_validate_dataset_metadatas(
 
     Returns
     -------
-    tuple[list[DatasetMetadata], list[dict[str, Any]]]
-        - List of successfully validated `DatasetMetadata` objects.
-        - List of parsed dataset that failed validation.
+    list[DatasetMetadata]
+        List of successfully validated `DatasetMetadata` objects.
     """
     logger.info("Starting parsing and validating GPCRMD datasets...")
     validated_datasets: list[DatasetMetadata] = []
-    non_validated_datasets: list[dict[str, Any]] = []
     total_datasets: int = len(datasets)
 
-    for i, dataset in enumerate(datasets):
+    for i, dataset in enumerate(datasets, start=1):
         dataset_id = str(dataset.get("dyn_id"))
 
         # Extract molecules and number total of atoms if available
@@ -375,6 +365,8 @@ def parse_and_validate_dataset_metadatas(
             refs: list[str] | None = retrieve_reference_links(html)
             nb_files: int | None = count_simulation_files(html)
         else:
+            logger.warning(f"Dataset `{dataset_id}` ({url}): "
+                           "page HTML missing; web metadata extraction skipped.")
             author_names = None
             description = None
             stime = None
@@ -408,21 +400,19 @@ def parse_and_validate_dataset_metadatas(
 
         # Validate and normalize data collected with pydantic model
         (parsed_dataset_model,
-            non_validated_parsed_dataset,
+            non_validation_reason,
         ) = validate_parsed_metadatas(parsed_dataset, DatasetMetadata)
         # If it return a DatasetMetadata object
         if isinstance(parsed_dataset_model, DatasetMetadata):
             # Validation succeed
-            logger.debug(f"Parsed {i}/{len(datasets)} datasets")
+            logger.debug(f"Parsed dataset id `{dataset_id}` ({i}/{len(datasets)})")
             validated_datasets.append(parsed_dataset_model)
-        # If not
-        if non_validated_parsed_dataset:
+        else:
             # Validation failed
             logger.error(f"Validation failed for dataset `{dataset_id}` ({url})"
                                 ". Invalid field(s) detected : "
-                                f"{non_validated_parsed_dataset["non_validation_reason"]}"
+                                f"{non_validation_reason}"
                     )
-            non_validated_datasets.append(non_validated_parsed_dataset)
 
     percentage = (
         (len(validated_datasets) / total_datasets) * 100
@@ -433,7 +423,7 @@ def parse_and_validate_dataset_metadatas(
         f"Parsing completed: {percentage:.2f}% validated "
         f"({len(validated_datasets)}/{total_datasets}) datasets successfully! \n"
     )
-    return validated_datasets, non_validated_datasets
+    return validated_datasets
 
 
 def make_base_parsed_file(
@@ -501,7 +491,7 @@ def fetch_file_size(file_path: str) -> int | None:
 def fetch_and_validate_file_metadatas(
     datasets: list[dict],
     fetch_time: str,
-) -> tuple[list[FileMetadata], list[dict[str, Any]]]:
+) -> list[FileMetadata]:
     """Fetch and validate metadata for GPCRMD files.
 
     Parameters
@@ -513,28 +503,33 @@ def fetch_and_validate_file_metadatas(
 
     Returns
     -------
-    tuple[list[DatasetMetadata], list[dict[str, Any]]]
-        - List of successfully validated `FileMetadata` objects.
-        - List of parsed dataset that failed validation.
+    list[FileMetadata]
+        List of successfully validated `FileMetadata` objects.
     """
     logger.info("Starting fetching and validating GPCRMD files...")
 
     validated_files: list[FileMetadata] = []
-    non_validated_files: list[dict] = []
     total_files = 0
+    non_validated_files_count = 0
 
-    for i, dataset in enumerate(datasets):
+    for i, dataset in enumerate(datasets, start=1):
         dataset_id = str(dataset.get("dyn_id"))
         url = dataset.get("url")
-        files_parsed_for_dataset = 0
+        count_files_parsed_for_dataset = 0
 
-        base_file = (make_base_parsed_file(dataset_id, url, fetch_time)
-                                                if url else {})
+        if not url:
+            logger.error(
+                    f"Dataset `{dataset_id}` skipped: missing dataset URL."
+                )
+            continue
+
+        base_file = make_base_parsed_file(dataset_id, url, fetch_time)
 
         html = fetch_dataset_page(url) if url else None
         if html is None:
-            base_file["non_validation_reason"] = "dataset_page_fetch_failed"
-            non_validated_files.append(base_file)
+            logger.error(
+                f"Dataset `{dataset_id}` ({url}) skipped: page retrieval failed."
+            )
             continue
 
         soup = BeautifulSoup(html, "html.parser")
@@ -543,6 +538,21 @@ def fetch_and_validate_file_metadatas(
             container = soup.find("div", id=sec_id)
             # Ensure container is a Tag
             if not isinstance(container, Tag):
+                if sec_id == "allfiles":
+                    # allfiles mandatory
+                    logger.warning(
+                        f"Dataset id `{dataset_id}` ({url}):"
+                        f"mandatory section `{sec_id}` is missing or invalid. "
+                        "Files required for simulation parsing cannot be retrieved."
+                    )
+                else:
+                    # paramfiles optional
+                    # logger.warning(
+                    #     f"Dataset id `{dataset_id}` ({url}): "
+                    #     f"optional section `{sec_id}` not found. "
+                    #     "Parameter files for simulations will be skipped."
+                    # )
+                    pass
                 continue
 
             links = container.find_all("a", href=True)
@@ -551,11 +561,19 @@ def fetch_and_validate_file_metadatas(
             for link in links:
                 # Ensure link is a Tag to safely access ['href']
                 if not isinstance(link, Tag):
+                    logger.warning(
+                        f"Dataset `{dataset_id}` ({url}): "
+                        "encountered non-HTML link element."
+                    )
                     continue
 
                 # Use .get() to safely retrieve the href, then convert to str
                 href_value = str(link.get("href", "")).strip()
                 if not href_value:
+                    logger.warning(
+                        f"Dataset `{dataset_id}` ({url}): "
+                        "file link without href attribute."
+                    )
                     continue
                 file_path = f"https://www.gpcrmd.org/{href_value}"
                 file_name = os.path.basename(file_path)
@@ -571,21 +589,21 @@ def fetch_and_validate_file_metadatas(
 
                 # Validate and normalize data collected with pydantic model
                 (parsed_file_model,
-                    non_validated_parsed_file,
+                    non_validation_reason,
                 ) = validate_parsed_metadatas(parsed_file, FileMetadata)
-                files_parsed_for_dataset += 1
+                count_files_parsed_for_dataset += 1
                 if isinstance(parsed_file_model, FileMetadata):
                     logger.debug(
-                        f"Parsed {files_parsed_for_dataset} file(s) for dataset "
-                        f"{i}/{len(datasets)}"
+                        f"Parsed file `{file_name}` from dataset "
+                        f"`{dataset_id}` ({i}/{len(datasets)})"
                     )
                     validated_files.append(parsed_file_model)
-                if non_validated_parsed_file:
+                else:
                     logger.error(f"Validation failed for file `{file_name}` "
                                  f"({file_path}). Invalid field(s) detected : "
-                                f"{non_validated_parsed_file["non_validation_reason"]}"
+                                f"{non_validation_reason}"
                     )
-                    non_validated_files.append(non_validated_parsed_file)
+                    non_validated_files_count += 1
 
     percentage = (
         (len(validated_files) / total_files) * 100
@@ -594,16 +612,15 @@ def fetch_and_validate_file_metadatas(
     )
     logger.success(
         f"Parsing completed: {percentage:.2f}% validated "
-        f"({len(validated_files) - len(non_validated_files)}/"
+        f"({len(validated_files) - non_validated_files_count}/"
         f"{total_files}) files successfully! \n"
     )
-    return validated_files, non_validated_files
+    return validated_files
 
 
 def save_metadatas_to_parquet(
     folder_out_path: Path,
     metadatas_validated: list[DatasetMetadata] | list[FileMetadata],
-    metadatas_unvalidated: list[dict],
     tag: str,
 ) -> None:
     """
@@ -615,16 +632,14 @@ def save_metadatas_to_parquet(
         Folder path where Parquet files will be saved.
     metadatas_validated : List[DatasetMetadata]
         List of validated metadatas.
-    metadatas_unvalidated : List[Dict]
-        List of unvalidated metadatas as dictionaries.
     tag: str
         Tag to know if its datasets or files metadata to save.
     """
-    logger.info("Saving GPCRMD datasets metadatas to a Parquet file...")
+    logger.info(f"Saving GPCRMD {tag} metadatas to a Parquet file...")
     # Ensure output folder exists
     Path(folder_out_path).mkdir(parents=True, exist_ok=True)
 
-    # Save validated datasets
+    # Save validated datasets and files
     if tag == "datasets":
         validated_path = os.path.join(folder_out_path, "gpcrmd_datasets.parquet")
     elif tag == "files":
@@ -638,28 +653,7 @@ def save_metadatas_to_parquet(
             f"GPCRMD validated metadatas saved to: {validated_path} successfully!"
         )
     except (ValueError, TypeError, OSError) as e:
-        logger.error(f"Failed to save validated metadata to {validated_path}: {e}")
-
-    # Save unvalidated datasets
-    if tag == "datasets":
-        unvalidated_path = os.path.join(
-            folder_out_path, "not_validated_gpcrmd_datasets.parquet"
-        )
-    elif tag == "files":
-        unvalidated_path = os.path.join(
-            folder_out_path, "not_validated_gpcrmd_files.parquet"
-        )
-    try:
-        if len(metadatas_unvalidated) != 0:
-            df_unvalidated = pd.DataFrame(metadatas_unvalidated)
-            df_unvalidated.to_parquet(unvalidated_path, index=False)
-            logger.success(
-            f"GPCRMD unvalidated metadatas saved to: {unvalidated_path} successfully!"
-            )
-        else:
-            logger.warning("There is no unvalidated datasets to save!")
-    except (ValueError, TypeError, OSError) as e:
-        logger.error(f"Failed to save unvalidated metadata to {unvalidated_path}: {e}")
+        logger.error(f"Failed to save validated {tag} to {validated_path}: {e}")
 
 
 @click.command()
@@ -688,25 +682,23 @@ def scrap_gpcrmd_data(out_path: Path) -> None:
         logger.warning("No data fetched from GPCRMD.")
         return
     # Parse and validate dataset metadatas with a pydantic model (DatasetMetadata)
-    datasets_validated, datasets_unvalidated = (
+    datasets_validated = (
         parse_and_validate_dataset_metadatas(datasets, fetch_time)
     )
     # Save parsed metadata to local file
     save_metadatas_to_parquet(
         out_path,
         datasets_validated,
-        datasets_unvalidated,
         tag="datasets"
     )
 
     # Fetch, parse and validate the file metadatas with a pydantic model (File Model)
-    files_metadata_validated, files_metadata_unvalidated = (
+    files_metadata_validated = (
         fetch_and_validate_file_metadatas(datasets, fetch_time)
     )
     save_metadatas_to_parquet(
         out_path,
         files_metadata_validated,
-        files_metadata_unvalidated,
         tag="files"
     )
 
