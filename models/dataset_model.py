@@ -39,7 +39,7 @@ DOI = Annotated[
 # =====================================================================
 # Base dataset class
 # =====================================================================
-class BaseDataset(BaseModel):
+class DatasetModel(BaseModel):
     """
     Base Pydantic model for scraped molecular dynamics datasets.
 
@@ -119,8 +119,8 @@ class BaseDataset(BaseModel):
         ...,
         description="Title of the dataset.",
     )
-    author_names: list[str] = Field(
-        ...,
+    author_names: list[str] | None = Field(
+        None,
         description="List of author or contributor names.",
     )
     description: str | None = Field(
@@ -236,7 +236,8 @@ class BaseDataset(BaseModel):
         return validate_http_url(v)
 
     @field_validator(
-            "description", "keywords", "links", "license", "molecule_names", mode="before")
+        "description", "keywords", "links", "license", "author_names",
+    "molecule_names", mode="before")
     def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
         """
         Normalize empty field values by converting them to None.

@@ -30,7 +30,7 @@ from scripts.toolbox import (
 # =====================================================================
 # Base file class
 # =====================================================================
-class BaseFile(BaseModel):
+class FileModel(BaseModel):
     """
     Base Pydantic model for scraped molecular dynamics files.
 
@@ -69,7 +69,7 @@ class BaseFile(BaseModel):
     file_type: str = Field(
         ..., description="File extension (automatically deduced from name)."
     )
-    file_size: int | None = Field(
+    file_size_in_bytes: int | None = Field(
         None, description="File size in bytes."
     )
     file_md5: str | None = Field(
@@ -78,7 +78,7 @@ class BaseFile(BaseModel):
     date_last_fetched: str = Field(
         ..., description="Date when the file was last fetched."
     )
-    extracted_from_archive: str | None = Field(
+    containing_archive_fie_name: str | None = Field(
         None,
         description="Archive file name this file was extracted from, if applicable."
     )
@@ -105,7 +105,7 @@ class BaseFile(BaseModel):
         return format_date(v)
 
     # To uncomment if u won't take time to valid all the file urls
-    # @field_validator("file_url", mode="before")
+    # @field_validator("file_url_in_repository", mode="before")
     def valid_url(cls, v: str) -> str:  # noqa: N805
         """
         Validate that the URL field is a properly formatted HTTP/HTTPS URL.
@@ -126,7 +126,7 @@ class BaseFile(BaseModel):
 
     @computed_field
     @property
-    def size_readable(self) -> str | None:
+    def file_size_with_readable_unit(self) -> str | None:
         """
         Convert the file size in bytes into a human-readable format.
 
@@ -135,7 +135,7 @@ class BaseFile(BaseModel):
             str | None : The size formatted with an appropriate unit
             (B, KB, MB, GB, or TB), rounded to two decimals.
         """
-        size = self.file_size
+        size = self.file_size_in_bytes
         units = ["B", "KB", "MB", "GB", "TB"]
         idx = 0
         if size:
