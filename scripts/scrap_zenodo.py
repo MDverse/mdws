@@ -576,13 +576,13 @@ def search_all_datasets(
                 ctx.logger.info("Max hits per query reached!")
                 break
         ctx.logger.info(
-            f"Number of datasets found: {len(datasets_tmp)} "
+            f"Number of datasets found: {len(datasets_tmp):,} "
             f"({datasets_df.shape[0] - datasets_count_old} new)"
         )
-        ctx.logger.info(f"Number of files found: {len(files_tmp)}")
+        ctx.logger.info(f"Number of files found: {len(files_tmp):,}")
         ctx.logger.info("-" * 30)
-    ctx.logger.info(f"Total number of datasets found: {datasets_df.shape[0]}")
-    ctx.logger.info(f"Total number of files found: {files_df.shape[0]}")
+    ctx.logger.info(f"Total number of datasets found: {len(datasets_df):,}")
+    ctx.logger.info(f"Total number of files found: {len(files_df):,}")
     return datasets_df, files_df
 
 
