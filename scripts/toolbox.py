@@ -439,7 +439,10 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
     return false_positive_datasets
 
 
-def remove_false_positive_datasets(df_to_clean: pd.DataFrame, dataset_ids_to_remove: list[str]) -> pd.DataFrame:
+def remove_false_positive_datasets(
+        df_to_clean: pd.DataFrame,
+        dataset_ids_to_remove: list[str]
+    ) -> pd.DataFrame:
     """Remove false positive datasets from file.
 
     Parameters
@@ -459,8 +462,8 @@ def remove_false_positive_datasets(df_to_clean: pd.DataFrame, dataset_ids_to_rem
     df_clean = df_to_clean[~df_to_clean["dataset_id"].isin(dataset_ids_to_remove)]
     records_count_clean = len(df_clean)
     print(
-        f"Removing {records_count_old - records_count_clean} lines "
-        f"({records_count_old} -> {records_count_clean}) in dataframe."
+        f"Removing {records_count_old - records_count_clean:,} lines "
+        f"({records_count_old:,} -> {records_count_clean:,}) in dataframe."
     )
     return df_clean
 
