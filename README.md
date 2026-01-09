@@ -130,6 +130,38 @@ This command (takes usually less than 6 minutes) will:
     4. Save file metadata similarly for validated and unvalidated files.
 
 
+## Scrap NMRLipids Databank
+
+Scrap NMRLipids Databank
+
+Scrape the NMRLipids Databank to extract metadata from molecular dynamics (MD) simulations.
+
+1. Clone the NMRLipids repository
+
+First, clone the official NMRLipids Databank repository, which contains all simulation metadata:
+
+git clone https://github.com/NMRLipids/BilayerData.git
+
+
+All metadata are stored in README.yaml files under the Simulations/ directory.
+
+2. Extract metadata from simulations
+
+Run the scraper and point it to the Simulations/ folder:
+
+```bash
+uv run scripts/scrap_nmrlipids.py \
+  --sim-folder /path/to/BilayerData/Simulations
+```
+This command will:
+
+Recursively search for all README.yaml files in the Simulations/ directory
+Parse and normalize MD simulation metadata
+Inject mandatory metadata fields (source, crawling_date, licence)
+Validate entries using Pydantic models
+Save the extracted metadata to Parquet files
+
+
 ## Analyze Gromacs mdp and gro files
 
 ### Download files
