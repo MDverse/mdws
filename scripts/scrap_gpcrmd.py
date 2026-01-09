@@ -169,7 +169,7 @@ def fetch_dataset_page(url: str) -> str | None:
     return response.text
 
 
-def retrieve_metadata(html: str, field_name: str, timeout: int = 50) -> str | None:
+def retrieve_metadata(html: str, field_name: str) -> str | None:
     """
     Retrieve a specific metadata field from a webpage.
 
@@ -179,8 +179,6 @@ def retrieve_metadata(html: str, field_name: str, timeout: int = 50) -> str | No
         The HTML content of the page.
     field_name : str
         The name of the metadata field to extract (case-sensitive).
-    timeout : int, optional
-        Timeout in seconds for the HTTP request (default is 10).
 
     Returns
     -------
@@ -207,7 +205,7 @@ def retrieve_metadata(html: str, field_name: str, timeout: int = 50) -> str | No
     return None
 
 
-def retrieve_reference_links(html: str, timeout: int = 50) -> list[str] | None:
+def retrieve_reference_links(html: str) -> list[str] | None:
     """
     Retrieve reference URLs from the References section of a GPCRMD dataset page.
 
@@ -215,8 +213,6 @@ def retrieve_reference_links(html: str, timeout: int = 50) -> list[str] | None:
     ----------
     html : str
         The HTML content of the page.
-    timeout : int, optional
-        Timeout in seconds for the HTTP request (default is 10).
 
     Returns
     -------
@@ -253,7 +249,7 @@ def retrieve_reference_links(html: str, timeout: int = 50) -> list[str] | None:
     return None
 
 
-def count_simulation_files(html: str, timeout: int = 50) -> int | None:
+def count_simulation_files(html: str) -> int | None:
     """
     Count files in the dataset webpage.
 
