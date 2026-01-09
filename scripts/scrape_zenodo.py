@@ -1,4 +1,4 @@
-"""Scrap molecular dynamics datasets and files from Zenodo."""
+"""Scrape molecular dynamics datasets and files from Zenodo."""
 
 import json
 import logging

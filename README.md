@@ -30,7 +30,7 @@ Create a virtual environment:
 uv sync
 ```
 
-## Scrap Zenodo
+## Scrape Zenodo
 
 Have a look to the notes regarding [Zenodo](docs/zenodo.md) and its API.
 
@@ -43,16 +43,16 @@ ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 
 This file is automatically ignored by git and won't be published on GitHub.
 
-Scrap Zenodo for MD-related datasets and files:
+Scrape Zenodo for MD-related datasets and files:
 
 ```bash
-uv run scripts/scrap_zenodo.py --query params/query.yml --output data
+uv run scripts/scrape_zenodo.py --query params/query.yml --output data
 ```
 
-Scrap Zenodo with a small query, for development or demo purpose:
+Scrape Zenodo with a small query, for development or demo purpose:
 
 ```bash
-uv run scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
+uv run scripts/scrape_zenodo.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (about an hour). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -62,20 +62,20 @@ Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo
 Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
 
-## Scrap FigShare
+## Scrape FigShare
 
 Have a look to the notes regarding [Figshare](docs/figshare.md) and its API.
 
-Scrap FigShare for MD-related datasets and files:
+Scrape FigShare for MD-related datasets and files:
 
 ```bash
-uv run scripts/scrap_figshare.py --query params/query.yml --output data
+uv run scripts/scrape_figshare.py --query params/query.yml --output data
 ```
 
-Scrap FigShare with a small query, for development or demo purpose:
+Scrape FigShare with a small query, for development or demo purpose:
 
 ```bash
-uv run scripts/scrap_figshare.py --query params/query_dev.yml --output tmp
+uv run scripts/scrape_figshare.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (about 2 hours). Be patient.
@@ -83,7 +83,7 @@ The scraping takes some time (about 2 hours). Be patient.
 Eventually, the scraper will produce three files: `figshare_datasets.tsv`, `figshare_datasets_text.tsv` and `figshare_files.tsv` :sparkles: 
 
 
-## Scrap OSF
+## Scrape OSF
 
 Have a look to the notes regarding [OSF](docs/osf.md) and its API.
 
@@ -96,16 +96,16 @@ OSF_TOKEN=<YOUR OSF TOKEN HERE>
 
 This file is ignored by git and won't be published on GitHub.
 
-Scrap OSF for MD-related datasets and files:
+Scrape OSF for MD-related datasets and files:
 
 ```bash
-uv run scripts/scrap_osf.py --query params/query.yml --output data
+uv run scripts/scrape_osf.py --query params/query.yml --output data
 ```
 
-Scrap OSF with a small query, for development or demo purpose:
+Scrape OSF with a small query, for development or demo purpose:
 
 ```bash
-uv run scripts/scrap_osf.py --query params/query_dev.yml --output tmp
+uv run scripts/scrape_osf.py --query params/query_dev.yml --output tmp
 ```
 
 The scraping takes some time (~ 30 min). Be patient.
@@ -113,29 +113,29 @@ The scraping takes some time (~ 30 min). Be patient.
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
 
 
-## Scrap NOMAD
+## Scrape NOMAD
 
-Scrap Nomad for MD-related datasets and files:
+Scrape Nomad for MD-related datasets and files:
 
 ```bash
-uv run -m scripts.scrap_nomad
+uv run -m scripts.scrape_nomad
 ```
+   
+This command will:
+   1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
+   2. Parse their metadata and validate them using the Pydantic models
+      `DatasetMetadata` and `FileMetadata`.
+   3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
+   4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
 
-This command (takes usually less than 6 minutes) will:
-    1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-    2. Parse their metadata and validate them using the Pydantic models `BaseDataset`
-       and `BaseFile`.
-    3. Save both the validated and unvalidated entries to "data/nomad/{timestamp}/
-       {validated or unvalidated}_entries.parquet".
-    4. Save file metadata similarly for validated and unvalidated files.
+> The scraping takes less than 10 minutes.
 
-
-## Scrap GPCRmd
+## Scrape GPCRmd
 
 Scrape GPCRmd to collect molecular dynamics (MD) datasets and files related to G-protein-coupled receptors (GPCRs), a major family of membrane proteins and common drug targets.
 
 ```bash
-uv run -m scripts.scrap_gpcrmd
+uv run -m scripts.scrape_gpcrmd
 ```
 
 This command will:
@@ -145,36 +145,34 @@ This command will:
    3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
    4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
 
-## Scrap NMRLipids Databank
+> The scraping takes less than 15 minutes.
 
-Scrap NMRLipids Databank
+## Scrape NMRLipids Databank
 
 Scrape the NMRLipids Databank to extract metadata from molecular dynamics (MD) simulations.
 
 1. Clone the NMRLipids repository
 
-First, clone the official NMRLipids Databank repository, which contains all simulation metadata:
-
+```bash
 git clone https://github.com/NMRLipids/BilayerData.git
+```
 
-
-All metadata are stored in README.yaml files under the Simulations/ directory.
+> All metadata are stored in `README.yaml` files under the `Simulations` directory.
 
 2. Extract metadata from simulations
 
-Run the scraper and point it to the Simulations/ folder:
-
 ```bash
-uv run scripts/scrap_nmrlipids.py \
+uv run scripts/scrape_nmrlipids.py \
   --sim-folder /path/to/BilayerData/Simulations
 ```
+
 This command will:
 
-Recursively search for all README.yaml files in the Simulations/ directory
-Parse and normalize MD simulation metadata
-Inject mandatory metadata fields (source, crawling_date, licence)
-Validate entries using Pydantic models
-Save the extracted metadata to Parquet files
+1. Recursively search for all `README.yaml` files in the `Simulations` directory
+2. Parse and normalize MD simulation metadata
+3. Inject mandatory metadata fields (source, crawling_date, licence)
+4. Validate entries using Pydantic models
+5. Save the extracted metadata to Parquet files
 
 
 ## Analyze Gromacs mdp and gro files

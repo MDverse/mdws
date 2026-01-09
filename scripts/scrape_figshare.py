@@ -1,4 +1,4 @@
-"""Scrap molecular dynamics datasets and files from Figshare."""
+"""Scrape molecular dynamics datasets and files from Figshare."""
 
 import json
 import os

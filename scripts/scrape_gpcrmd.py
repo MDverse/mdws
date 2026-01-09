@@ -1,37 +1,41 @@
 """
 Scrape datasets and files from GPCRMD.
 
-This script fetches datasets from the GPCRMD repository (https://www.gpcrmd.org/).
-It collects metadata such as dataset names, descriptions, authors, download links,
-and other relevant information for all available datasets.
-Additionally, it retrieves file metadata for each dataset, including file paths
-in GPCRMD, file size, type/extension, etc.
+This script fetches molecular dynamics (MD) datasets from the GPCRMD repository
+(https://www.gpcrmd.org/), a platform dedicated to simulations of
+G-protein-coupled receptors (GPCRs), a major family of membrane proteins and
+frequent drug targets.
+
+It collects dataset-level metadata such as names, descriptions, authors,
+references, and download links for all available datasets. Additionally, it
+retrieves file-level metadata for each dataset, including file paths within
+GPCRMD, file sizes, file types/extensions, and related attributes.
 
 The scraped data is validated against Pydantic models (`DatasetMetadata`
-and `File Model`) and saved locally in Parquet format:
+and `FileModel`) and saved locally in Parquet format:
 - "data/gpcrmd/gpcrmd_datasets.parquet"
 - "data/gpcrmd/gpcrmd_files.parquet"
 
 Usage:
 ======
-    uv run -m scripts.scrap_gpcrmd [--out-path]
+    uv run -m scripts.scrape_gpcrmd [--out-path]
 
 Arguments:
 ==========
     --out-path : (optional)
-        Folder path to save the scraped GPCRMD data (dataset and file metadata).
+        Folder path to save the scraped GPCRMD data (dataset and file metadatas).
         Default is "data/gpcrmd".
 
 Example:
 ========
-   uv run -m scripts.scrap_gpcrmd
+   uv run -m scripts.scrape_gpcrmd
 
 This command will:
-    1. Fetch all available datasets from GPCRMD.
-    2. Parse their metadata and validate them using the Pydantic models
+   1. Fetch all available datasets from GPCRMD.
+   2. Parse their metadata and validate them using the Pydantic models
     `DatasetMetadata` and `FileMetadata`.
-    3. Save both the validated dataset datasets to "data/gpcrmd/gpcrmd_datasets.parquet"
-    4. Save file metadata similarly for validated files.
+   3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
+   4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
 """
 
 # METADATAS
@@ -678,7 +682,7 @@ def save_metadatas_to_parquet(
         df_validated = pd.DataFrame(validated_dicts)
         df_validated.to_parquet(validated_path, index=False)
         logger.success(
-            f"GPCRMD validated metadatas saved to: {validated_path} successfully!"
+            f"GPCRMD validated {tag} saved to: {validated_path} successfully!"
         )
     except (ValueError, TypeError, OSError) as e:
         logger.error(f"Failed to save validated {tag} to {validated_path}: {e}")

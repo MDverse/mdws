@@ -1,4 +1,4 @@
-"""Scrap molecular dynamics simulation datasets and files from NOMAD.
+"""Scrape molecular dynamics simulation datasets and files from NOMAD.
 
 This script fetches molecular dynamics (MD) datasets from the NOMAD repository (https://nomad-lab.eu/prod/v1/gui/search/entries).
 It collects metadata such as dataset names, descriptions, authors, download links...
@@ -14,7 +14,7 @@ The scraped data is validated against Pydantic models (`DatasetMetadata` and
 
 Usage :
 =======
-    uv run -m scripts.scrap_nomad [--out-path]
+    uv run -m scripts.scrape_nomad [--out-path]
 
 Arguments:
 ==========
@@ -24,14 +24,14 @@ Arguments:
 
 Example:
 ========
-    uv run -m scripts.scrap_nomad
+    uv run -m scripts.scrape_nomad
 
 This command will:
-    1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-    2. Parse their metadata and validate them using the Pydantic models
+   1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
+   2. Parse their metadata and validate them using the Pydantic models
       `DatasetMetadata` and `FileMetadata`.
-    3. Save both the validated datasets to "data/nomad/nomad_datasets.parquet"
-    4. Save file metadata similarly for validated files.
+   3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
+   4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
 """
 
 # METADATAS
@@ -247,16 +247,16 @@ def fetch_nomad_md_related_by_batch(
     return all_entries_with_time
 
 
-def validate_parsed_entry(
-    parsed_entry: dict[str, Any],
+def validate_parsed_metadatas(
+    parsed: dict[str, Any],
     out_model: type[FileMetadata | DatasetMetadata]
 ) -> tuple[FileMetadata | DatasetMetadata | None, str | None]:
     """Validate a parsed entry using the pydantic model.
 
     Parameters
     ----------
-    parsed_entry : dict[str, Any]
-        The parsed entry to validate.
+    parsed : dict[str, Any]
+        The parsed metadatas to validate.
     out_model: FileMetadata | DatasetMetadata
         The Pydantic model used for the validation.
 
@@ -267,7 +267,7 @@ def validate_parsed_entry(
         otherwise None, and the validation failure reasons if validation fails.
     """
     try:
-        return out_model(**parsed_entry), None
+        return out_model(**parsed), None
     except ValidationError as exc:
         reasons: list[str] = []
 
@@ -365,7 +365,7 @@ def parse_and_validate_entry_metadata(
             # Validate and normalize data collected with pydantic model
             (dataset_model_entry,
                 non_validation_reason
-            ) = validate_parsed_entry(parsed_entry, DatasetMetadata)
+            ) = validate_parsed_metadatas(parsed_entry, DatasetMetadata)
             if isinstance(dataset_model_entry, DatasetMetadata):
                 validated_entries.append(dataset_model_entry)
             else:
@@ -418,7 +418,7 @@ def parse_and_validate_file_metadata(
                 )
                 size = file.get("size", None)
 
-                parsed_entry = {
+                parsed_file = {
                     "dataset_repository_name": DatasetRepository.NOMAD,
                     "dataset_id_in_repository": entry_id,
                     "file_name": name_file,
@@ -430,7 +430,7 @@ def parse_and_validate_file_metadata(
                 # Validate and normalize data collected with pydantic model
                 (file_model_entry,
                     non_validation_reason,
-                ) = validate_parsed_entry(parsed_entry, FileMetadata)
+                ) = validate_parsed_metadatas(parsed_file, FileMetadata)
                 if isinstance(file_model_entry, FileMetadata):
                     validated_files.append(file_model_entry)
                 else:
