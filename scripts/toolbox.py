@@ -105,7 +105,7 @@ def make_http_get_request_with_retries(
             "(KHTML, like Gecko) Chrome/111.0.0.0 Safari/537.36"
         ),
     }
-    logger.info("Making GET request to:")
+    logger.info("Making HTTP GET request to:")
     logger.info(url)
     for attempt in range(1, max_attempts + 1):
         try:
