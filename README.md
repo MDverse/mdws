@@ -145,7 +145,7 @@ This command will:
    3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
    4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
 
-> The scraping takes less than 15 minutes.
+> The scraping takes approximately 1 hour and 30 minutes.
 
 ## Scrape NMRLipids Databank
 
