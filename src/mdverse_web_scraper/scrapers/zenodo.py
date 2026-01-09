@@ -267,7 +267,7 @@ def is_zenodo_connection_working(
     response = make_http_get_request_with_retries(
         url="https://zenodo.org/api/deposit/depositions",
         params={"access_token": token},
-        timeout=10.0,
+        timeout=10,
         max_attempts=2,
         logger=logger,
     )
@@ -583,7 +583,7 @@ def search_all_datasets(
             )
             ctx.logger.success(
                 f"Found so far: {datasets_df.shape[0]:,} datasets "
-                f"and {files_df.shape[0]:,} files"
+                f"and {len(files_df):,} files"
             )
             if page * max_hits_per_page >= max_hits_per_query:
                 ctx.logger.info("Max hits per query reached!")
@@ -661,8 +661,8 @@ def main():
     # one zip file can contain several files with the same name
     # but within different folders.
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
-    context.logger.info(f"Number of files found inside zip files: {zip_df.shape[0]}")
-    context.logger.info(f"Total number of files found: {files_df.shape[0]}")
+    context.logger.info(f"Number of files found inside zip files: {len(zip_df)}")
+    context.logger.info(f"Total number of files found: {len(files_df)}")
     files_df = remove_excluded_files(files_df, excluded_files, excluded_paths)
     context.logger.info("-" * 30)
 
