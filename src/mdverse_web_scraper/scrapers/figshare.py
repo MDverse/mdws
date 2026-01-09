@@ -1,4 +1,4 @@
-"""Scrap molecular dynamics datasets and files from Figshare."""
+"""Scrape molecular dynamics datasets and files from Figshare."""
 
 import json
 import os
@@ -7,31 +7,25 @@ import sys
 import time
 from datetime import datetime, timedelta
 
-from logger import create_logger
 import loguru
 import pandas as pd
-import toolbox
 from dotenv import load_dotenv
-from figshare_api import FigshareAPI
 
-
-def extract_date(date_str):
-    """Extract and format date from a string.
-
-    Parameters
-    ----------
-    date_str : str
-        Date as a string in ISO 8601.
-        For example: 2020-07-29T19:22:57.752335+00:00
-
-    Returns
-    -------
-    str
-        Date as in string in YYYY-MM-DD format.
-        For example: 2020-07-29
-    """
-    date = datetime.fromisoformat(date_str)
-    return f"{date:%Y-%m-%d}"
+from ..core.figshare_api import FigshareAPI
+from ..core.logger import create_logger
+from ..core.toolbox import (
+    ContextManager,
+    DataType,
+    clean_text,
+    export_dataframe_to_parquet,
+    extract_date,
+    extract_file_extension,
+    find_remove_false_positive_datasets,
+    get_scraper_cli_arguments,
+    make_http_get_request_with_retries,
+    read_query_file,
+    remove_excluded_files,
+)
 
 
 def extract_files_from_json_response(
@@ -96,7 +90,7 @@ def extract_files_from_zip_file(
         f"https://figshare.com/ndownloader/files/{file_id}"
         f"/preview/{file_id}/structure.json"
     )
-    response = toolbox.make_http_get_request_with_retries(
+    response = make_http_get_request_with_retries(
         url=url,
         logger=logger,
         max_attempts=max_attempts,
@@ -117,7 +111,9 @@ def extract_files_from_zip_file(
     return file_names
 
 
-def get_stats_for_dataset(dataset_id: str) -> dict:
+def get_stats_for_dataset(
+    dataset_id: str, logger: "loguru.Logger" = loguru.logger
+) -> dict:
     """Get download stats for articles.
 
     Docs: https://info.figshare.com/user-guide/usage-metrics-and-statistics/
@@ -131,6 +127,8 @@ def get_stats_for_dataset(dataset_id: str) -> dict:
     ---------
     dataset_id: str
         Dataset id.
+    logger: loguru.Logger
+        Logger object.
 
     Returns
     -------
@@ -139,7 +137,7 @@ def get_stats_for_dataset(dataset_id: str) -> dict:
     """
     stats = {"downloads": None, "views": None}
     for stat in stats:
-        response = toolbox.make_http_get_request_with_retries(
+        response = make_http_get_request_with_retries(
             url=f"https://stats.figshare.com/total/{stat}/article/{dataset_id}",
             logger=logger,
             max_attempts=2,
@@ -198,7 +196,7 @@ def scrap_zip_files(
             file_metadata["dataset_id"] = zip_file["dataset_id"]
             file_metadata["dataset_url"] = zip_file["dataset_url"]
             file_metadata["file_name"] = name
-            file_metadata["file_type"] = toolbox.extract_file_extension(name)
+            file_metadata["file_type"] = extract_file_extension(name)
             file_metadata["file_size"] = None
             file_metadata["file_md5"] = None
             file_metadata["is_from_zip_file"] = True
@@ -257,15 +255,15 @@ def extract_metadata_from_single_dataset_record(
         "view_number": dataset_stats["views"],
         "license": record_json["license"]["name"],
         "dataset_url": record_json["url_public_html"],
-        "title": toolbox.clean_text(record_json["title"]),
-        "author": toolbox.clean_text(record_json["authors"][0]["full_name"]),
+        "title": clean_text(record_json["title"]),
+        "author": clean_text(record_json["authors"][0]["full_name"]),
         "keywords": "",
-        "description": toolbox.clean_text(record_json["description"]),
+        "description": clean_text(record_json["description"]),
     }
     # Add keywords only if any.
     if "tags" in record_json:
         dataset_info["keywords"] = ";".join(
-            [toolbox.clean_text(keyword) for keyword in record_json["tags"]]
+            [clean_text(keyword) for keyword in record_json["tags"]]
         )
     for file_in in record_json["files"]:
         if len(file_in["name"].split(".")) == 1:
@@ -289,7 +287,7 @@ def extract_metadata_from_single_dataset_record(
 
 
 def search_all_datasets(
-    api: FigshareAPI, ctx: toolbox.ContextManager, max_hits_per_page: int = 100
+    api: FigshareAPI, ctx: ContextManager, max_hits_per_page: int = 100
 ) -> list[str]:
     """Search all Figshare datasets.
 
@@ -302,7 +300,7 @@ def search_all_datasets(
     ----------
     api : FigshareAPI
         Figshare API object.
-    ctx : toolbox.ContextManager
+    ctx : ContextManager
         ContextManager object.
     max_hits_per_page : int
         Maximum number of hits per page.
@@ -313,9 +311,7 @@ def search_all_datasets(
         List of Figshare datasets ids.
     """
     # Read parameter file
-    file_types, keywords, _, _ = toolbox.read_query_file(
-        ctx.query_file_name, logger=ctx.logger
-    )
+    file_types, keywords, _, _ = read_query_file(ctx.query_file_name, logger=ctx.logger)
     # We use paging to fetch all results.
     # we query max_hits_per_page hits per page.
 
@@ -391,7 +387,7 @@ def search_all_datasets(
 
 
 def get_metadata_for_datasets(
-    api: FigshareAPI, found_datasets: list[str], ctx: toolbox.ContextManager
+    api: FigshareAPI, found_datasets: list[str], ctx: ContextManager
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Get metadata for all selected datasets.
 
@@ -401,7 +397,7 @@ def get_metadata_for_datasets(
         Figshare API object.
     found_datasets : list[str]
         List of Figshare dataset ids.
-    ctx : toolbox.ContextManager
+    ctx : ContextManager
         ContextManager object.
 
     Returns
@@ -440,20 +436,18 @@ def get_metadata_for_datasets(
 
 
 def main() -> None:
-    """Scrap Figshare datasets and files."""
+    """Scrape Figshare datasets and files."""
     # Define data repository name.
     repository_name = "figshare"
     # Keep track of script duration.
     start_time = time.perf_counter()
     # Parse input CLI arguments.
-    args = toolbox.get_scraper_cli_arguments()
+    args = get_scraper_cli_arguments()
     # Create context manager.
     output_path = pathlib.Path(args.output) / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
-    context = toolbox.ContextManager(
-        logger=create_logger(
-            logpath=f"{output_path}/{repository_name}_scraping.log"
-        ),
+    context = ContextManager(
+        logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
         output_path=output_path,
         query_file_name=pathlib.Path(args.query),
     )
@@ -464,9 +458,9 @@ def main() -> None:
     load_dotenv()
     # Create API object.
     api = FigshareAPI(
-            token=os.getenv("FIGSHARE_TOKEN"),
-            logger=context.logger,
-        )
+        token=os.getenv("FIGSHARE_TOKEN"),
+        logger=context.logger,
+    )
     # Test API token validity.
     if api.is_token_valid():
         context.logger.success("Figshare token is valid!")
@@ -489,26 +483,22 @@ def main() -> None:
 
     # Remove unwanted files based on exclusion lists.
     context.logger.info("Removing unwanted files...")
-    _, _, exclude_files, exclude_paths = toolbox.read_query_file(args.query, context.logger)
-    files_df = toolbox.remove_excluded_files(files_df, exclude_files, exclude_paths)
+    _, _, exclude_files, exclude_paths = read_query_file(args.query, context.logger)
+    files_df = remove_excluded_files(files_df, exclude_files, exclude_paths)
     context.logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files.
-    datasets_df, files_df = toolbox.find_remove_false_positive_datasets(
+    datasets_df, files_df = find_remove_false_positive_datasets(
         datasets_df, files_df, context
     )
 
     # Save dataframes to disk.
-    toolbox.export_dataframe_to_parquet(
-        "figshare", toolbox.DataType.DATASETS, datasets_df, context
-    )
-    toolbox.export_dataframe_to_parquet(
-        "figshare", toolbox.DataType.FILES, files_df, context
-    )
+    export_dataframe_to_parquet("figshare", DataType.DATASETS, datasets_df, context)
+    export_dataframe_to_parquet("figshare", DataType.FILES, files_df, context)
 
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraping Figshare in: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraped Figshare in: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ tmp*
 
 # Byte-compiled Python files
 __pycache__/
+*.egg-info
 
 # Jupyter notebook checkpoints
 .ipynb_checkpoints
