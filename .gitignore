@@ -1,5 +1,6 @@
 # Result files
 *.tsv
+*.parquet
 data/*
 !data/.gitkeep
 logs/*
