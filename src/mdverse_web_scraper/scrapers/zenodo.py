@@ -678,7 +678,7 @@ def main():
 
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraping Zenodo in: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraped Zenodo in: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":

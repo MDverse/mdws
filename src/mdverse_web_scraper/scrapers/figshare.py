@@ -498,7 +498,7 @@ def main() -> None:
 
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraping Figshare in: {timedelta(seconds=elapsed_time)}")
+    context.logger.info(f"Scraped Figshare in: {timedelta(seconds=elapsed_time)}")
 
 
 if __name__ == "__main__":
