@@ -130,6 +130,21 @@ This command (takes usually less than 6 minutes) will:
     4. Save file metadata similarly for validated and unvalidated files.
 
 
+## Scrap GPCRmd
+
+Scrape GPCRmd to collect molecular dynamics (MD) datasets and files related to G-protein-coupled receptors (GPCRs), a major family of membrane proteins and common drug targets.
+
+```bash
+uv run -m scripts.scrap_gpcrmd
+```
+
+This command will:
+   1. Fetch all available datasets from GPCRMD.
+   2. Parse their metadata and validate them using the Pydantic models
+    `DatasetMetadata` and `FileMetadata`.
+   3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
+   4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
+
 ## Scrap NMRLipids Databank
 
 Scrap NMRLipids Databank
