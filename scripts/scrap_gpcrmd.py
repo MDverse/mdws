@@ -488,6 +488,50 @@ def fetch_file_size(file_path: str) -> int | None:
     return None
 
 
+def get_section_container(
+    soup: BeautifulSoup,
+    sec_id: str,
+    dataset_id: str,
+    url: str,
+) -> Tag | None:
+    """Retrieve a valid HTML section container from a dataset page.
+
+    The function looks for a ``<div>`` element with the given section ID.
+    If the section is mandatory (``allfiles``) and missing or invalid, a
+    warning is logged. Optional sections return ``None`` silently.
+
+    Parameters
+    ----------
+    soup : BeautifulSoup
+        Parsed HTML content of the dataset page.
+    sec_id : str
+        Identifier of the HTML section to retrieve (e.g. ``allfiles``,
+        ``paramfiles``).
+    dataset_id : str
+        Identifier of the dataset, used for logging purposes.
+    url : str
+        URL of the dataset page, used for logging purposes.
+
+    Returns
+    -------
+    Tag | None
+        The HTML ``Tag`` corresponding to the requested section if found
+        and valid, otherwise ``None``.
+    """
+    container = soup.find("div", id=sec_id)
+    if isinstance(container, Tag):
+        return container
+
+    if sec_id == "allfiles":
+        logger.warning(
+            f"Dataset id `{dataset_id}` ({url}): "
+            f"mandatory section `{sec_id}` is missing or invalid. "
+            "Files required for simulation parsing cannot be retrieved."
+        )
+
+    return None
+
+
 def fetch_and_validate_file_metadatas(
     datasets: list[dict],
     fetch_time: str,
@@ -535,24 +579,8 @@ def fetch_and_validate_file_metadatas(
         soup = BeautifulSoup(html, "html.parser")
 
         for sec_id in ("allfiles", "paramfiles"):
-            container = soup.find("div", id=sec_id)
-            # Ensure container is a Tag
-            if not isinstance(container, Tag):
-                if sec_id == "allfiles":
-                    # allfiles mandatory
-                    logger.warning(
-                        f"Dataset id `{dataset_id}` ({url}):"
-                        f"mandatory section `{sec_id}` is missing or invalid. "
-                        "Files required for simulation parsing cannot be retrieved."
-                    )
-                else:
-                    # paramfiles optional
-                    # logger.warning(
-                    #     f"Dataset id `{dataset_id}` ({url}): "
-                    #     f"optional section `{sec_id}` not found. "
-                    #     "Parameter files for simulations will be skipped."
-                    # )
-                    pass
+            container = get_section_container(soup, sec_id, dataset_id, url)
+            if container is None:
                 continue
 
             links = container.find_all("a", href=True)
