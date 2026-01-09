@@ -40,9 +40,9 @@ dev = [
     "watermark>=2.5.0",
 ]
 
-# Magic to have package automatically available in path.
-[tool.uv]
-package = true
+[build-system]
+requires = ["uv_build>=0.9.22,<0.10.0"]
+build-backend = "uv_build"
 
 [project.scripts]
 scrape_zenodo = "mdverse_web_scraper.scrapers.zenodo:main"
