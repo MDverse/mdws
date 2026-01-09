@@ -1,21 +1,34 @@
-"""Scrap molecular dynamics datasets and files from Zenodo."""
+"""Scrape molecular dynamics datasets and files from Zenodo."""
 
 import json
-import logging
 import os
 import pathlib
 import sys
 import time
 from datetime import datetime, timedelta
 
-from logger import create_logger
 import loguru
 import pandas as pd
-import toolbox
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 
-logging.getLogger("httpx").setLevel(logging.WARNING)
+from ..core.logger import create_logger
+from ..core.toolbox import (
+    ContextManager,
+    DataType,
+    clean_text,
+    export_dataframe_to_parquet,
+    extract_date,
+    extract_file_extension,
+    find_remove_false_positive_datasets,
+    get_scraper_cli_arguments,
+    make_http_get_request_with_retries,
+    read_query_file,
+    remove_excluded_files,
+    verify_output_directory,
+)
+
+# logging.getLogger("httpx").setLevel(logging.DEBUG)
 
 
 def get_rate_limit_info(
@@ -33,7 +46,7 @@ def get_rate_limit_info(
         Logger for logging messages.
     """
     for url in url_lst:
-        response = toolbox.make_http_get_request_with_retries(
+        response = make_http_get_request_with_retries(
             url=url,
             params={"token": token},
             timeout=60,  # Zenodo serveur can be sometimes slow to respond.
@@ -197,7 +210,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
         List of dictionnaries with data extracted from zip preview.
     """
     file_lst = []
-    response = toolbox.make_http_get_request_with_retries(
+    response = make_http_get_request_with_retries(
         url, delay_before_request=2, timeout=30, max_attempts=5
     )
     if response is None:
@@ -225,7 +238,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
             file_dict = {
                 "file_name": path,
                 "file_size": normalize_file_size(size),
-                "file_type": toolbox.extract_file_extension(path),
+                "file_type": extract_file_extension(path),
             }
             file_lst.append(file_dict)
     logger.success(f"Found {len(file_lst)} files.")
@@ -251,7 +264,7 @@ def is_zenodo_connection_working(
         True if connection is successful, False otherwise.
     """
     logger.info("Trying connection to Zenodo...")
-    response = toolbox.make_http_get_request_with_retries(
+    response = make_http_get_request_with_retries(
         url="https://zenodo.org/api/deposit/depositions",
         params={"access_token": token},
         timeout=10.0,
@@ -355,18 +368,18 @@ def extract_records(
                 "dataset_origin": "zenodo",
                 "dataset_id": dataset_id,
                 "doi": hit["doi"],
-                "date_creation": toolbox.extract_date(hit["created"]),
-                "date_last_modified": toolbox.extract_date(hit["updated"]),
+                "date_creation": extract_date(hit["created"]),
+                "date_last_modified": extract_date(hit["updated"]),
                 "date_fetched": datetime.now().isoformat(timespec="seconds"),
                 "file_number": len(hit["files"]),
                 "download_number": int(hit["stats"]["downloads"]),
                 "view_number": int(hit["stats"]["views"]),
                 "license": extract_license(hit["metadata"]),
                 "dataset_url": hit["links"]["self_html"],
-                "title": toolbox.clean_text(hit["metadata"]["title"]),
-                "author": toolbox.clean_text(hit["metadata"]["creators"][0]["name"]),
+                "title": clean_text(hit["metadata"]["title"]),
+                "author": clean_text(hit["metadata"]["creators"][0]["name"]),
                 "keywords": "none",
-                "description": toolbox.clean_text(
+                "description": clean_text(
                     hit["metadata"].get("description", "")
                 ),
             }
@@ -389,7 +402,7 @@ def extract_records(
                     "file_md5": file_in["checksum"].removeprefix("md5:"),
                     "is_from_zip_file": False,
                     "file_name": file_in["key"],
-                    "file_type": toolbox.extract_file_extension(file_in["key"]),
+                    "file_type": extract_file_extension(file_in["key"]),
                     "file_url": file_in["links"]["self"],
                     "containing_zip_file_name": "none",
                 }
@@ -406,7 +419,7 @@ def extract_records(
 
 def search_zenodo(
     query: str,
-    ctx: toolbox.ContextManager,
+    ctx: ContextManager,
     page: int = 1,
     number_of_results: int = 1,
 ) -> dict | None:
@@ -416,7 +429,7 @@ def search_zenodo(
     ----------
     query : str
         The search query string.
-    ctx : toolbox.ContextManager
+    ctx : ContextManager
         Context manager containing configuration and logger.
 
     Returns
@@ -432,10 +445,10 @@ def search_zenodo(
         "access_token": ctx.token,
     }
     response_json = None
-    response = toolbox.make_http_get_request_with_retries(
+    response = make_http_get_request_with_retries(
         url="https://zenodo.org/api/records",
         params=params,
-        timeout=60.0,
+        timeout=60,
         logger=ctx.logger,
         delay_before_request=2,
         max_attempts=5,
@@ -490,7 +503,7 @@ def merge_dataframes_remove_duplicates(
 def search_all_datasets(
     file_types: list[dict],
     keywords: list[str],
-    ctx: toolbox.ContextManager,
+    ctx: ContextManager,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Search all datasets on Zenodo.
 
@@ -503,7 +516,7 @@ def search_all_datasets(
         - keywords: str, "keywords" or "none"
     keywords : list of str
         List of keywords to use in the search.
-    ctx : toolbox.ContextManager
+    ctx : ContextManager
         Context manager containing configuration and logger.
 
     Returns
@@ -587,20 +600,18 @@ def search_all_datasets(
 
 
 def main():
-    """Scrap Zenodo datasets and files."""
+    """Scrape Zenodo datasets and files."""
     # Define data repository name.
     repository_name = "zenodo"
     # Keep track of script duration.
     start_time = time.perf_counter()
     # Parse input CLI arguments.
-    args = toolbox.get_scraper_cli_arguments()
+    args = get_scraper_cli_arguments()
     # Create context manager.
     output_path = pathlib.Path(args.output) / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
-    context = toolbox.ContextManager(
-        logger=create_logger(
-            logpath=f"{output_path}/{repository_name}_scraping.log"
-        ),
+    context = ContextManager(
+        logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
         output_path=output_path,
         query_file_name=pathlib.Path(args.query),
     )
@@ -634,12 +645,12 @@ def main():
         logger=context.logger,
     )
     # Read parameter file
-    (file_types, keywords, excluded_files, excluded_paths) = toolbox.read_query_file(
+    (file_types, keywords, excluded_files, excluded_paths) = read_query_file(
         context.query_file_name,
         logger=context.logger,
     )
     # Verify output directory exists
-    toolbox.verify_output_directory(context.output_path)
+    verify_output_directory(context.output_path)
 
     datasets_df, files_df = search_all_datasets(file_types, keywords, context)
 
@@ -652,22 +663,18 @@ def main():
     files_df = pd.concat([files_df, zip_df], ignore_index=True)
     context.logger.info(f"Number of files found inside zip files: {zip_df.shape[0]}")
     context.logger.info(f"Total number of files found: {files_df.shape[0]}")
-    files_df = toolbox.remove_excluded_files(files_df, excluded_files, excluded_paths)
+    files_df = remove_excluded_files(files_df, excluded_files, excluded_paths)
     context.logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
-    datasets_df, files_df = toolbox.find_remove_false_positive_datasets(
+    datasets_df, files_df = find_remove_false_positive_datasets(
         datasets_df, files_df, context
     )
 
     # Save dataframes to disk.
-    toolbox.export_dataframe_to_parquet(
-        "zenodo", toolbox.DataType.DATASETS, datasets_df, context
-    )
-    toolbox.export_dataframe_to_parquet(
-        "zenodo", toolbox.DataType.FILES, files_df, context
-    )
+    export_dataframe_to_parquet("zenodo", DataType.DATASETS, datasets_df, context)
+    export_dataframe_to_parquet("zenodo", DataType.FILES, files_df, context)
 
     # Script duration.
     elapsed_time = int(time.perf_counter() - start_time)

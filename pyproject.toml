@@ -1,7 +1,7 @@
 [project]
-name = "mdverse-scraper"
+name = "mdverse-web-scraper"
 version = "0.1.0"
-description = "MDverse wev scraper"
+description = "MDverse web scraper"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -39,3 +39,11 @@ dev = [
     "upsetplot>=0.9.0",
     "watermark>=2.5.0",
 ]
+
+# Magic to have package automatically available in path.
+[tool.uv]
+package = true
+
+[project.scripts]
+scrape_zenodo = "mdverse_web_scraper.scrapers.zenodo:main"
+scrape_figshare = "mdverse_web_scraper.scrapers.figshare:main"
