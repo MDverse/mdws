@@ -94,7 +94,7 @@ def make_http_get_request_with_retries(
 
     Raises
     ------
-    httpx.RequestError
+    httpx.HTTPStatusError
         If the request returns a 202 code,
         indicating the request is accepted but not ready yet.
         This error is caught and retried.
@@ -125,7 +125,11 @@ def make_http_get_request_with_retries(
             # indicating the request is accepted but not ready yet.
             if response.status_code == 202:
                 msg = "Status code 202. Request accepted but not ready yet."
-                raise httpx.RequestError(msg)
+                raise httpx.HTTPStatusError(
+                    msg,
+                    request=response.request,
+                    response=response
+                )
             return response
         except httpx.TimeoutException:
             logger.warning(f"Attempt {attempt}/{max_attempts} timed out.")
@@ -134,12 +138,14 @@ def make_http_get_request_with_retries(
             # httpx.RequestError only has a .request attribute.
             logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
             logger.debug("Query headers:")
-            logger.debug(exc.query.headers)
+            logger.debug(exc.request.headers)
             logger.warning(f"Error details: {exc}")
         except httpx.HTTPStatusError as exc:
             # httpx.HTTPStatusError has .request and .response attributes.
             logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
             logger.warning(f"Status code: {exc.response.status_code}")
+            logger.debug("Query headers:")
+            logger.debug(exc.request.headers)
             logger.debug("Response headers:")
             logger.debug(exc.response.headers)
         if attempt == max_attempts:
