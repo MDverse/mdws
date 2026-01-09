@@ -3,17 +3,16 @@
 import argparse
 import pathlib
 import re
-import warnings
 import time
+import warnings
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
-from dataclasses import dataclass
 
 import httpx
 import loguru
-from dotenv import load_dotenv
 import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
@@ -31,6 +30,7 @@ class DataType(StrEnum):
 
     DATASETS = "datasets"
     FILES = "files"
+
 
 class DatasetRepository(StrEnum):
     """Supported repositories from which molecular dynamics datasets are scraped."""
@@ -65,13 +65,13 @@ class ContextManager:
 
 
 def make_http_get_request_with_retries(
-        url: str,
-        params: dict | None = None,
-        timeout: int = 10,
-        delay_before_request: int = 1,
-        max_attempts: int = 3,
-        logger: "loguru.Logger" = loguru.logger
-    ) -> httpx.Response | None:
+    url: str,
+    params: dict | None = None,
+    timeout: int = 10,
+    delay_before_request: int = 1,
+    max_attempts: int = 3,
+    logger: "loguru.Logger" = loguru.logger,
+) -> httpx.Response | None:
     """Make HTTP GET request with retries on failure.
 
     Parameters
@@ -127,7 +127,7 @@ def make_http_get_request_with_retries(
                 msg = "Status code 202. Request accepted but not ready yet."
                 raise httpx.RequestError(msg)
             return response
-        except httpx.TimeoutException as exc:
+        except httpx.TimeoutException:
             logger.warning(f"Attempt {attempt}/{max_attempts} timed out.")
             logger.warning(f"Timeout: {timeout} seconds.")
         except httpx.RequestError as exc:
@@ -341,7 +341,11 @@ def extract_date(date_str):
     return f"{date:%Y-%m-%d}"
 
 
-def remove_excluded_files(files_df: pd.DataFrame, exclusion_file_patterns: list[str], exclusion_path_patterns: list[str]) -> pd.DataFrame:
+def remove_excluded_files(
+    files_df: pd.DataFrame,
+    exclusion_file_patterns: list[str],
+    exclusion_path_patterns: list[str],
+) -> pd.DataFrame:
     """Remove excluded files.
 
     Excluded files are, for example:
@@ -387,7 +391,11 @@ def remove_excluded_files(files_df: pd.DataFrame, exclusion_file_patterns: list[
     return files_df[~boolean_mask]
 
 
-def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str]) -> list[str]:
+def find_false_positive_datasets(
+    files_df: pd.DataFrame,
+    md_file_types: list[str],
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[str]:
     """Find false positive datasets.
 
     False positive datasets are datasets that propably do not
@@ -399,6 +407,8 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
         Dataframe which contains all files metadata from a given repo.
     md_file_types: list
         List containing molecular dynamics file types.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
@@ -406,8 +416,8 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
         List of false positive dataset ids.
     """
     # Get total number of files and unique file types per dataset.
-    unique_file_types_per_dataset = (files_df
-        .groupby("dataset_id")["file_type"]
+    unique_file_types_per_dataset = (
+        files_df.groupby("dataset_id")["file_type"]
         .agg(["count", "unique"])
         .rename(columns={"count": "total_files", "unique": "unique_file_types"})
         .sort_values(by="total_files", ascending=False)
@@ -418,31 +428,35 @@ def find_false_positive_datasets(files_df: pd.DataFrame, md_file_types: list[str
             unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"]
         )
         number_of_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
-        dataset_url = files_df.query(f"dataset_id == '{dataset_id}'").iloc[0]["dataset_url"]
+        dataset_url = files_df.query(f"dataset_id == '{dataset_id}'").iloc[0][
+            "dataset_url"
+        ]
         # For a given dataset, if there is no MD file types in the entire set
         # of the dataset file types, then we probably have a false-positive dataset,
         # i.e. a dataset that does not contain any MD data.
         # We print the total number of files in the dataset
         # and the first 20 file types for extra verification.
         if len(set(dataset_file_types) & set(md_file_types)) == 0:
-            print(f"Dataset {dataset_id} is probably a false positive:")
-            print(dataset_url)
-            print(
-                f"Dataset will be removed with its {number_of_files} files."
-            )
-            print("List of the first file types:")
-            print(" ".join(dataset_file_types[:20]))
-            print("---")
+            logger.info(f"Dataset {dataset_id} is probably a false positive:")
+            logger.info(dataset_url)
+            logger.info(f"Dataset will be removed with its {number_of_files} files.")
+            logger.info("List of the first file types:")
+            logger.info(" ".join(dataset_file_types[:20]))
+            logger.info("---")
             false_positive_datasets.append(dataset_id)
-    print(f"In total, {len(false_positive_datasets)} false positive datasets will be removed.")
-    print("---")
+    logger.info(
+        f"In total, {len(false_positive_datasets):,} false positive datasets "
+        "will be removed."
+    )
+    logger.info("---")
     return false_positive_datasets
 
 
 def remove_false_positive_datasets(
-        df_to_clean: pd.DataFrame,
-        dataset_ids_to_remove: list[str]
-    ) -> pd.DataFrame:
+    df_to_clean: pd.DataFrame,
+    dataset_ids_to_remove: list[str],
+    logger: "loguru.Logger" = loguru.logger,
+) -> pd.DataFrame:
     """Remove false positive datasets from file.
 
     Parameters
@@ -451,6 +465,8 @@ def remove_false_positive_datasets(
         Dataframe to clean.
     dataset_ids_to_remove : list
         List of dataset ids to remove.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
@@ -461,7 +477,7 @@ def remove_false_positive_datasets(
     # We keep rows NOT associated to false-positive dataset ids
     df_clean = df_to_clean[~df_to_clean["dataset_id"].isin(dataset_ids_to_remove)]
     records_count_clean = len(df_clean)
-    print(
+    logger.info(
         f"Removing {records_count_old - records_count_clean:,} lines "
         f"({records_count_old:,} -> {records_count_clean:,}) in dataframe."
     )
@@ -501,23 +517,23 @@ def find_remove_false_positive_datasets(
     file_types_lst.remove("zip")
     # Find false-positive datasets.
     false_positive_datasets = find_false_positive_datasets(
-        files_df, file_types_lst
+        files_df, file_types_lst, logger=ctx.logger
     )
     # Remove false-positive datasets from all dataframes.
     ctx.logger.info("Removing false-positive datasets in the datasets dataframe...")
     datasets_df = remove_false_positive_datasets(
-        datasets_df, false_positive_datasets
+        datasets_df, false_positive_datasets, logger=ctx.logger
     )
     ctx.logger.info("Removing false-positive datasets in the files dataframe...")
-    files_df = remove_false_positive_datasets(files_df, false_positive_datasets)
+    files_df = remove_false_positive_datasets(
+        files_df, false_positive_datasets, logger=ctx.logger
+    )
     return datasets_df, files_df
 
 
 def export_dataframe_to_parquet(
-        repository_name: str,
-        suffix: DataType,
-        df: pd.DataFrame,
-        ctx: ContextManager) -> None:
+    repository_name: str, suffix: DataType, df: pd.DataFrame, ctx: ContextManager
+) -> None:
     """Export dataframes to parquet file.
 
     Parameters
@@ -604,8 +620,7 @@ def format_date(date: datetime | str) -> str:
             return dt.strftime("%Y-%m-%dT%H:%M:%S")
         except ValueError as err:
             msg = (
-                f"Invalid datetime format: {date}. Expected format: "
-                "YYYY-MM-DDTHH:MM:SS"
+                f"Invalid datetime format: {date}. Expected format: YYYY-MM-DDTHH:MM:SS"
             )
             raise ValueError(msg) from err
     msg = f"Expected datetime or str, got {type(date).__name__}"
