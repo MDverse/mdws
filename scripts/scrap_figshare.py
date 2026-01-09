@@ -182,22 +182,9 @@ def scrap_zip_files(
     zip_files_counter = 0
     zip_files_df = files_df[files_df["file_type"] == "zip"]
     logger.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
-    for zip_idx in zip_files_df.index:
+    for zip_files_counter, zip_idx in enumerate(zip_files_df.index, start=1):
         zip_file = zip_files_df.loc[zip_idx]
         file_id = zip_file["file_url"].split("/")[-1]
-        zip_files_counter += 1
-        # We cannot use the Figshare API to get the content of a zip file.
-        # According to Figshare support
-        # One can run 100 requests per 5 minutes (300 secondes).
-        # To be careful, we wait 310 secondes every 100 requests.
-        # SLEEP_TIME = 310
-        # if zip_files_counter % 100 == 0:
-        #     print(
-        #         f"Scraped {zip_counter} zip files "
-        #         f"({zip_files_df.shape[0] - zip_files_counter} remaining)"
-        #     )
-        #     print(f"Waiting for {SLEEP_TIME} seconds...")
-        #     time.sleep(SLEEP_TIME)
         logger.info("Extracting files from zip file:")
         logger.info(zip_file["file_url"])
         file_names = extract_files_from_zip_file(file_id, logger)
@@ -219,8 +206,9 @@ def scrap_zip_files(
             file_metadata["file_url"] = zip_file["file_url"]
             files_in_zip_lst.append(file_metadata)
         logger.info(
-            f"{zip_files_counter} zip files processed -> "
-            f"{zip_files_df.shape[0] - zip_files_counter} remaining"
+            f"{zip_files_counter} Figshare zip files processed "
+            f"({zip_files_counter}/{len(zip_files_df)}"
+            f":{zip_files_counter / len(zip_files_df):.0%})"
         )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     logger.success("Done extracting files from zip archives.")
@@ -428,11 +416,11 @@ def get_metadata_for_datasets(
     # Go through all found datasets and extract information.
     # One dataset at a time.
     datasets_counter = 0
-    for dataset_id in found_datasets:
-        datasets_counter += 1
+    for datasets_counter, dataset_id in enumerate(found_datasets, start=1):
         ctx.logger.info(
-            f"Fetching metadata for dataset id: {dataset_id} "
-            f"({datasets_counter}/{len(found_datasets)})"
+            f"Fetching metadata for Figshare dataset id: {dataset_id} "
+            f"({datasets_counter}/{len(found_datasets)}"
+            f":{datasets_counter / len(found_datasets):.0%})"
         )
         results = api.query(endpoint=f"/articles/{dataset_id}")
         if results["status_code"] >= 400 or results["response"] is None:
