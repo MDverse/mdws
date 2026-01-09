@@ -11,10 +11,6 @@ The scraped data is validated against Pydantic models (`DatasetMetadata` and
 - "data/nomad/nomad_datasets.parquet"
 - "data/nomad/nomad_files.parquet"
 
-Entries that fail validation are saved as:
-- "data/nomad/not_validated_nomad_datasets.parquet"
-- "data/nomad/not_validated_nomad_files.parquet"
-
 
 Usage :
 =======
@@ -34,9 +30,8 @@ This command will:
     1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
     2. Parse their metadata and validate them using the Pydantic models
       `DatasetMetadata` and `FileMetadata`.
-    3. Save both the validated and unvalidated datasets to
-       "data/nomad/{not_validated_}nomad_datasets.parquet"
-    4. Save file metadata similarly for validated and unvalidated files.
+    3. Save both the validated datasets to "data/nomad/nomad_datasets.parquet"
+    4. Save file metadata similarly for validated files.
 """
 
 # METADATAS
@@ -66,7 +61,7 @@ from models.file import FileMetadata
 
 # CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
-JSON_PAYLOAD_NOMAD_REQUEST = {
+JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
     "owner": "visible",
     "query": {"results.method.workflow_name:any": ["MolecularDynamics"]},
     "aggregations": {},
@@ -175,15 +170,12 @@ def fetch_nomad_md_related_by_batch(
         logger.debug("Requesting first page...")
         fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         # HTTP request
+        json_payload = JSON_PAYLOAD_NOMAD_REQUEST
+        json_payload["pagination"]["page_size"] = page_size
+        json_payload["pagination"]["page_after_value"] = next_page_value
         response = httpx.post(
             f"{BASE_NOMAD_URL}/{query_entry_point}",
-            json={
-                **JSON_PAYLOAD_NOMAD_REQUEST,
-                "pagination": {
-                    **JSON_PAYLOAD_NOMAD_REQUEST["pagination"],
-                    "page_size": page_size,
-                },
-            },
+            json=json_payload,
             timeout=100,
         )
         response.raise_for_status()
@@ -218,16 +210,12 @@ def fetch_nomad_md_related_by_batch(
         try:
             fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
             # HTTP request
+            json_payload = JSON_PAYLOAD_NOMAD_REQUEST
+            json_payload["pagination"]["page_size"] = page_size
+            json_payload["pagination"]["page_after_value"] = next_page_value
             response = httpx.post(
                 f"{BASE_NOMAD_URL}/{query_entry_point}",
-                json={
-                    **JSON_PAYLOAD_NOMAD_REQUEST,
-                    "pagination": {
-                        **JSON_PAYLOAD_NOMAD_REQUEST["pagination"],
-                        "page_size": page_size,
-                        "page_after_value": next_page_value,
-                    },
-                },
+                json=json_payload,
                 timeout=100,
             )
             response.raise_for_status()
@@ -262,7 +250,7 @@ def fetch_nomad_md_related_by_batch(
 def validate_parsed_entry(
     parsed_entry: dict[str, Any],
     out_model: type[FileMetadata | DatasetMetadata]
-) -> tuple[FileMetadata | DatasetMetadata | None, dict[str, Any] | None]:
+) -> tuple[FileMetadata | DatasetMetadata | None, str | None]:
     """Validate a parsed entry using the pydantic model.
 
     Parameters
@@ -274,10 +262,9 @@ def validate_parsed_entry(
 
     Returns
     -------
-    tuple[FileMetadata | DatasetMetadata | None,  dict[str, Any] | None]
+    tuple[FileMetadata | DatasetMetadata | None,  str | None]
         A tuple containing the validated model instance if validation succeeds,
-        otherwise None, and the enriched parsed entry containing validation
-        failure reasons if validation fails.
+        otherwise None, and the validation failure reasons if validation fails.
     """
     try:
         return out_model(**parsed_entry), None
@@ -291,13 +278,13 @@ def validate_parsed_entry(
 
             reasons.append(f"{field}: {reason} (input={value!r})")
 
-        parsed_entry["non_validation_reason"] = "; ".join(reasons)
-        return None, parsed_entry
+        non_validation_reason = "; ".join(reasons)
+        return None, non_validation_reason
 
 
 def parse_and_validate_entry_metadata(
     nomad_data: list[tuple[list[dict[str, Any]], str]],
-) -> tuple[list[DatasetMetadata], list[dict]]:
+) -> list[DatasetMetadata]:
     """
     Parse and validate metadata fields for all NOMAD entries in batches.
 
@@ -308,13 +295,11 @@ def parse_and_validate_entry_metadata(
 
     Returns
     -------
-    Tuple[List[DatasetMetadata], List[Dict]]
-        - List of successfully validated `DatasetMetadata` objects.
-        - List of parsed entry that failed validation.
+    List[DatasetMetadata]
+        List of successfully validated `DatasetMetadata` objects.
     """
     logger.info("Starting parsing and validation of NOMAD entries...")
     validated_entries = []
-    non_validated_entries = []
     total_entries = sum(len(batch) for batch, _ in nomad_data)
 
     for entries_list, fetch_time in nomad_data:
@@ -379,16 +364,15 @@ def parse_and_validate_entry_metadata(
             }
             # Validate and normalize data collected with pydantic model
             (dataset_model_entry,
-                non_validated_parsed_entry,
+                non_validation_reason
             ) = validate_parsed_entry(parsed_entry, DatasetMetadata)
             if isinstance(dataset_model_entry, DatasetMetadata):
                 validated_entries.append(dataset_model_entry)
-            if non_validated_parsed_entry:
+            else:
                 logger.error(f"Validation failed for dataset `{entry_id}` ({entry_url})"
                              ". Invalid field(s) detected : "
-                             f"{non_validated_parsed_entry["non_validation_reason"]}"
+                             f"{non_validation_reason}"
                 )
-                non_validated_entries.append(non_validated_parsed_entry)
 
     percentage = (
         (len(validated_entries) / total_entries) * 100
@@ -399,12 +383,12 @@ def parse_and_validate_entry_metadata(
         f"Parsing completed: {percentage:.2f}% validated "
         f"({len(validated_entries)}/{total_entries}) datasets successfully! \n"
     )
-    return validated_entries, non_validated_entries
+    return validated_entries
 
 
 def parse_and_validate_file_metadata(
     nomad_data: list[tuple[list[dict[str, Any]], str]],
-) -> tuple[list[FileMetadata], list[dict]]:
+) -> list[FileMetadata]:
     """
     Parse and validate metadata fields for all NOMAD files in batches.
 
@@ -415,13 +399,11 @@ def parse_and_validate_file_metadata(
 
     Returns
     -------
-    Tuple[List[DatasetMetadata], List[Dict]]
-        - List of successfully validated `FileMetadata` objects.
-        - List of parsed entry that failed validation.
+    List[FileMetadata]
+        List of successfully validated `FileMetadata` objects.
     """
     logger.info("Starting parsing and validation of NOMAD files...")
     validated_files = []
-    non_validated_files = []
     total_files = sum(len(entry["files"]) for batch, _ in nomad_data for entry in batch)
 
     for entries_list, fetch_time in nomad_data:
@@ -447,16 +429,15 @@ def parse_and_validate_file_metadata(
                 }
                 # Validate and normalize data collected with pydantic model
                 (file_model_entry,
-                    non_validated_parsed_entry,
+                    non_validation_reason,
                 ) = validate_parsed_entry(parsed_entry, FileMetadata)
                 if isinstance(file_model_entry, FileMetadata):
                     validated_files.append(file_model_entry)
-                if non_validated_parsed_entry:
+                else:
                     logger.error(f"Validation failed for file `{name_file}` "
                                  f"({file_path_url}). Invalid field(s) detected : "
-                                f"{non_validated_parsed_entry["non_validation_reason"]}"
+                                f"{non_validation_reason}"
                     )
-                    non_validated_files.append(non_validated_parsed_entry)
 
     percentage = (
         (len(validated_files) / total_files) * 100
@@ -467,13 +448,12 @@ def parse_and_validate_file_metadata(
         f"Parsing completed: {percentage:.2f}% validated "
         f"({len(validated_files)}/{total_files}) files successfully! \n"
     )
-    return validated_files, non_validated_files
+    return validated_files
 
 
-def save_nomad_entries_metadatas_to_parquet(
+def save_nomad_metadatas_to_parquet(
     folder_out_path: Path,
     nomad_metadatas_validated: list[DatasetMetadata] | list[FileMetadata],
-    nomad_metadatas_unvalidated: list[dict],
     tag: str,
 ) -> None:
     """
@@ -485,8 +465,6 @@ def save_nomad_entries_metadatas_to_parquet(
         Folder path where Parquet files will be saved.
     nomad_metadatas_validated : List[DatasetMetadata]
         List of validated NOMAD entries.
-    nomad_metadatas_unvalidated : List[Dict]
-        List of unvalidated NOMAD entries as dictionaries.
     tag: str
         Tag to know if its entries or files metadata to save.
     """
@@ -509,28 +487,6 @@ def save_nomad_entries_metadatas_to_parquet(
         )
     except (ValueError, TypeError, OSError) as e:
         logger.error(f"Failed to save validated metadata to {validated_path}: {e}")
-
-    # Save unvalidated entries
-    if tag == "entries":
-        unvalidated_path = os.path.join(
-            folder_out_path, "not_validated_nomad_datasets.parquet"
-        )
-    elif tag == "files":
-        unvalidated_path = os.path.join(
-            folder_out_path, "not_validated_nomad_files.parquet"
-        )
-    try:
-        if len(nomad_metadatas_unvalidated) != 0:
-            df_unvalidated = pd.DataFrame(nomad_metadatas_unvalidated)
-            df_unvalidated.to_parquet(unvalidated_path, index=False)
-            logger.success(
-            f"NOMAD not validated metadatas saved to: {unvalidated_path} successfully!"
-            )
-        else:
-            logger.warning(f"No unvalidated {tag} to save!")
-    except (ValueError, TypeError, OSError) as e:
-        logger.error(f"Failed to save not validated metadata to {unvalidated_path}:"
-                     f"{e}")
 
 
 @click.command()
@@ -565,14 +521,12 @@ def scrap_nomad_data(out_path: Path) -> None:
         logger.warning("No data fetched from NOMAD.")
         return
     # Parse and validate NOMAD entry metadatas with a pydantic model (DatasetMetadata)
-    nomad_entries_validated, nomad_entries_unvalidated = (
-        parse_and_validate_entry_metadata(nomad_data)
-    )
+    nomad_entries_validated = parse_and_validate_entry_metadata(nomad_data)
+
     # Save parsed metadata to local file
-    save_nomad_entries_metadatas_to_parquet(
+    save_nomad_metadatas_to_parquet(
         out_path,
         nomad_entries_validated,
-        nomad_entries_unvalidated,
         tag="entries",
     )
 
@@ -581,13 +535,12 @@ def scrap_nomad_data(out_path: Path) -> None:
         query_entry_point="entries/rawdir/query", tag="files"
     )
     # Parse and validate the file metadatas with a pydantic model (FileMetadata)
-    nomad_files_metadata_validated, nomad_files_metadata_unvalidated = (
+    nomad_files_metadata_validated = (
         parse_and_validate_file_metadata(nomad_files_metadata)
     )
-    save_nomad_entries_metadatas_to_parquet(
+    save_nomad_metadatas_to_parquet(
         out_path,
         nomad_files_metadata_validated,
-        nomad_files_metadata_unvalidated,
         tag="files",
     )
 
