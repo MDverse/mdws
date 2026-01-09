@@ -308,9 +308,8 @@ def scrap_zip_content(
     # We use direct GET requests on the HTML preview of the zip files.
     # We wait 1.5 seconds between each request,
     # to be gentle with the Zenodo servers.
-    for zip_idx in zip_files_df.index:
+    for zip_counter, zip_idx in enumerate(zip_files_df.index, start=1):
         zip_file = zip_files_df.loc[zip_idx]
-        zip_counter += 1
         url = (
             f"https://zenodo.org/records/{zip_file['dataset_id']}"
             f"/preview/{zip_file.loc['file_name']}"
@@ -331,8 +330,9 @@ def scrap_zip_content(
             files_tmp[idx]["file_md5"] = ""
         files_in_zip_lst += files_tmp
         logger.info(
-            f"Scraped {zip_counter} zip files "
-            f"({zip_files_df.shape[0] - zip_counter} remaining)."
+            "Zenodo zip files scraped: "
+            f"{zip_counter}/{len(zip_files_df)} "
+            f"({zip_counter / len(zip_files_df):.0%})"
         )
     files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     return files_in_zip_df
