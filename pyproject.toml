@@ -1,7 +1,7 @@
 [project]
-name = "MDWS"
+name = "mdverse-scraper"
 version = "0.1.0"
-description = "MDverse web scrapper (MDWS)"
+description = "MDverse wev scraper"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -38,24 +38,4 @@ dev = [
     "ruff>=0.11.0",
     "upsetplot>=0.9.0",
     "watermark>=2.5.0",
-]
-
-[tool.ruff]
-target-version = "py312"
-line-length = 88  # Same as Black.
-
-[tool.ruff.format]
-preview = true  # Allow preview rules.
-
-[tool.ruff.lint]
-preview = true  # Allow preview rules.
-# Ruff rules: https://docs.astral.sh/ruff/rules/
-select = [
-    "F",    # pyflakes
-    "E",    # pycodestyle Error
-    "W",    # pycodestle Warning
-    "I",    # isort
-    "B",    # bugbear
-    "C90",  # mccabe
-    "N",    # pep8-naming
 ]
