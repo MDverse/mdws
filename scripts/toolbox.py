@@ -140,8 +140,6 @@ def make_http_get_request_with_retries(
             # httpx.HTTPStatusError has .request and .response attributes.
             logger.warning(f"Attempt {attempt}/{max_attempts} failed.")
             logger.warning(f"Status code: {exc.response.status_code}")
-            logger.debug("Query headers:")
-            logger.debug(exc.query.headers)
             logger.debug("Response headers:")
             logger.debug(exc.response.headers)
         if attempt == max_attempts:
