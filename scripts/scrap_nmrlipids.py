@@ -42,7 +42,7 @@ __copyright__ = "AGPL-3.0 license"
 __date__ = "2025"
 __version__ = "1.0.0"
 
-import yaml
+import yaml 
 import logging
 from pathlib import Path
 from datetime import datetime
@@ -50,11 +50,11 @@ from typing import Optional, Union
 
 import pandas as pd
 from pydantic import BaseModel, field_validator
+import argparse
 
 # -------------------------
 # Configuration
 # -------------------------
-SIM_FOLDER = Path("/data/sheikh/NMRLipids/BilayerData/Simulations")
 FILES_PARQUET = "nmrlipids_files.parquet"
 METADATA_PARQUET = "nmrlipids_datasets.parquet"
 
@@ -178,11 +178,24 @@ def save_parquet(records):
 # Main execution
 # -------------------------
 def main():
-    if not SIM_FOLDER.exists():
-        logger.error(f"Simulations folder not found: {SIM_FOLDER}")
+    parser = argparse.ArgumentParser(
+        description="Extract metadata from the NMRLipids Databank"
+    )
+    parser.add_argument(
+        "--sim-folder",
+        type=Path,
+        required=True,
+        help="Path to BilayerData/Simulations directory"
+    )
+    args = parser.parse_args()
+
+    sim_folder = args.sim_folder
+
+    if not sim_folder.exists():
+        logger.error(f"Simulations folder not found: {sim_folder}")
         return
 
-    readme_files = find_all_readmes(SIM_FOLDER)
+    readme_files = find_all_readmes(sim_folder)
 
     metadata_records = []
     for readme in readme_files:
