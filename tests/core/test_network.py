@@ -1,6 +1,6 @@
-import pytest
+"""Tests for the network module."""
 
-import mdverse_web_scraper.core.toolbox as toolbox
+import mdverse_scrapers.core.toolbox as toolbox
 
 
 def test_make_http_get_request_with_retries_200():
@@ -14,6 +14,7 @@ def test_make_http_get_request_with_retries_200():
     )
     assert response is not None
     assert response.status_code == 200
+
 
 def test_make_http_get_request_with_retries_202():
     """Test the make_http_get_request_with_retries function."""
