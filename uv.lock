@@ -1395,7 +1395,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mdverse-web-scraper"
+name = "mdverse-scrapers"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

@@ -1,7 +1,7 @@
 [project]
-name = "mdverse-web-scraper"
+name = "mdverse-scrapers"
 version = "0.1.0"
-description = "MDverse web scraper"
+description = "MDverse scrapers"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
