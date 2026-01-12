@@ -1,4 +1,4 @@
-# MDverse web scrapper (MDWS)
+# MDverse scrappers
 
 Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
 
@@ -32,56 +32,54 @@ uv sync
 
 ## Scrap Zenodo
 
-Have a look to the notes regarding [Zenodo](docs/zenodo.md) and its API.
+Have a look to the notes regarding [Zenodo](docs/zenodo.md) and how its API works.
 
 Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
 and store it in the file `.env`:
 
-```
+```none
 ZENODO_TOKEN=YOUR-ZENODO-TOKEN
 ```
 
-This file is automatically ignored by git and won't be published on GitHub.
+This file is automatically ignored by git and won't be pushed on GitHub.
 
 Scrap Zenodo for MD-related datasets and files:
 
 ```bash
-uv run scripts/scrap_zenodo.py --query params/query.yml --output data
+uv run scrape_zenodo --query params/query.yml --output data
 ```
 
 Scrap Zenodo with a small query, for development or demo purpose:
 
 ```bash
-uv run scripts/scrap_zenodo.py --query params/query_dev.yml --output tmp
+uv run scrape_zenodo --query params/query_dev.yml --output tmp
 ```
 
-The scraping takes some time (about an hour). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
+The scraping takes some time (about 5 hours). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
 
-Eventually, the scraper will produce three files: `zenodo_datasets.tsv`, `zenodo_datasets_text.tsv` and `zenodo_files.tsv` :sparkles:
+Eventually, the scraper will produce two files: `zenodo_datasets.parquet` and `zenodo_files.parquet` :sparkles:
 
 Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
-
 ## Scrap FigShare
 
-Have a look to the notes regarding [Figshare](docs/figshare.md) and its API.
+Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API works.
 
 Scrap FigShare for MD-related datasets and files:
 
 ```bash
-uv run scripts/scrap_figshare.py --query params/query.yml --output data
+uv run scrape_figshare --query params/query.yml --output data
 ```
 
 Scrap FigShare with a small query, for development or demo purpose:
 
 ```bash
-uv run scripts/scrap_figshare.py --query params/query_dev.yml --output tmp
+uv run scrape_figshare --query params/query_dev.yml --output tmp
 ```
 
-The scraping takes some time (about 2 hours). Be patient.
+The scraping takes some time (about 5 hours). Be patient.
 
-Eventually, the scraper will produce three files: `figshare_datasets.tsv`, `figshare_datasets_text.tsv` and `figshare_files.tsv` :sparkles: 
-
+Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles: 
 
 ## Scrap OSF
 
