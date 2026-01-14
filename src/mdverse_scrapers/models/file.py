@@ -20,7 +20,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from ..core.toolbox import DatasetRepository, format_date
+from ..core.toolbox import format_date
+from .enums import DatasetRepository
 
 
 # =====================================================================
@@ -59,24 +60,18 @@ class FileMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Descriptive metadata
     # ------------------------------------------------------------------
-    file_name: str = Field(
-        ..., description="Name of the file in the dataset."
-    )
+    file_name: str = Field(..., description="Name of the file in the dataset.")
     file_type: str = Field(
         ..., description="File extension (automatically deduced from name)."
     )
-    file_size_in_bytes: int | None = Field(
-        None, description="File size in bytes."
-    )
-    file_md5: str | None = Field(
-        None, description="MD5 checksum."
-    )
+    file_size_in_bytes: int | None = Field(None, description="File size in bytes.")
+    file_md5: str | None = Field(None, description="MD5 checksum.")
     date_last_fetched: str = Field(
         ..., description="Date when the file was last fetched."
     )
     containing_archive_file_name: str | None = Field(
         None,
-        description="Archive file name this file was extracted from, if applicable."
+        description="Archive file name this file was extracted from, if applicable.",
     )
 
     # ------------------------------------------------------------------

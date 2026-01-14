@@ -7,7 +7,6 @@ import time
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -23,36 +22,6 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
-
-
-class DataType(StrEnum):
-    """Supported data types."""
-
-    DATASETS = "datasets"
-    FILES = "files"
-
-
-class DatasetRepository(StrEnum):
-    """Supported repositories from which molecular dynamics datasets are scraped."""
-
-    ZENODO = "ZENODO"
-    FIGSHARE = "FIGSHARE"
-    OSF = "OSF"
-    NOMAD = "NOMAD"
-    ATLAS = "ATLAS"
-    GPCRMD = "GPCRMD"
-
-
-class DatasetProject(StrEnum):
-    """Supported projects from which molecular dynamics datasets are scraped."""
-
-    ZENODO = "ZENODO"
-    FIGSHARE = "FIGSHARE"
-    OSF = "OSF"
-    NOMAD = "NOMAD"
-    ATLAS = "ATLAS"
-    GPCRMD = "GPCRMD"
-
 
 @dataclass(kw_only=True)
 class ContextManager:
@@ -175,10 +144,10 @@ def get_scraper_cli_arguments():
         required=True,
     )
     required.add_argument(
-        "--output",
+        "--output-path",
         action="store",
         type=str,
-        help="Path to save results",
+        help="Directory path to save results",
         required=True,
     )
     # Add help.

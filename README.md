@@ -46,13 +46,13 @@ This file is automatically ignored by git and won't be pushed on GitHub.
 Scrape Zenodo for MD-related datasets and files:
 
 ```bash
-uv run scrape_zenodo --query params/query.yml --output data
+uv run scrape_zenodo --query params/query.yml --output-path data
 ```
 
 Scrape Zenodo with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape_zenodo --query params/query_dev.yml --output tmp
+uv run scrape_zenodo --query params/query_dev.yml --output-path tmp
 ```
 
 The scraping takes some time (about 5 hours). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -68,13 +68,13 @@ Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API 
 Scrape FigShare for MD-related datasets and files:
 
 ```bash
-uv run scrape_figshare --query params/query.yml --output data
+uv run scrape_figshare --query params/query.yml --output-path data
 ```
 
 Scrape FigShare with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape_figshare --query params/query_dev.yml --output tmp
+uv run scrape_figshare --query params/query_dev.yml --output-path tmp
 ```
 
 The scraping takes some time (about 5 hours). Be patient.
@@ -88,7 +88,7 @@ Have a look to the notes regarding [OSF](docs/osf.md) and its API.
 Create a token here: <https://osf.io/settings/tokens> (select the `osf.full_read` scope)
 and store it in the file `.env`:
 
-```
+```none
 OSF_TOKEN=<YOUR OSF TOKEN HERE>
 ```
 
@@ -115,7 +115,7 @@ Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datas
 Scrape Nomad for MD-related datasets and files:
 
 ```bash
-uv run scrape_nomad
+uv run scrape_nomad --output-path data
 ```
 
 This command will:

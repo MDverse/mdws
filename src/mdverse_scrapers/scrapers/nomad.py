@@ -3,6 +3,7 @@
 This script scrapes molecular dynamics (MD) datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
+from matplotlib.pylab import require
 
 import os
 import sys
@@ -417,21 +418,22 @@ def save_nomad_metadatas_to_parquet(
 
 @click.command()
 @click.option(
-    "--out-path",
+    "--output-path",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
-    default=Path("data/nomad"),
-    show_default=True,
-    help="Folder path to save the scraped NOMAD data (Dataset and File metadatas)",
+    required=True,
+    help="Directory path to save results",
 )
-def main(out_path: Path) -> None:
+def main(output_path: Path) -> None:
     """Scrap molecular dynamics datasets and files from NOMAD.
 
     Parameters
     ----------
-    out_path : Path
-        The output folder path for the scraped data.
+    output_path : Path
+        The output directory path for the scraped data.
     """
-    logger = create_logger(logpath=out_path / "nomad_scraper.log", level="INFO")
+    output_path = output_path / "nomad"
+    output_path.mkdir(parents=True, exist_ok=True)
+    logger = create_logger(logpath=output_path / "nomad_scraper.log", level="INFO")
     logger.info("Starting Nomad data scraping...")
     start_time = time.perf_counter()
 

@@ -21,13 +21,12 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from ..core.toolbox import DatasetProject, DatasetRepository, format_date
+from ..core.toolbox import format_date
+from .enums import DatasetProject, DatasetRepository
 
 DOI = Annotated[
     str,
-    StringConstraints(
-        pattern=r"^10\.\d{4,9}/[\w\-.]+$"
-    ),
+    StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-.]+$"),
 ]
 
 
@@ -123,8 +122,7 @@ class DatasetMetadata(BaseModel):
         description="Abstract or description of the dataset.",
     )
     keywords: list[str] | None = Field(
-        None,
-        description="List of keywords describing the dataset."
+        None, description="List of keywords describing the dataset."
     )
     license: str | None = Field(
         None,
@@ -211,8 +209,14 @@ class DatasetMetadata(BaseModel):
         return format_date(v)
 
     @field_validator(
-        "description", "keywords", "external_links", "license", "author_names",
-    "molecule_names", mode="before")
+        "description",
+        "keywords",
+        "external_links",
+        "license",
+        "author_names",
+        "molecule_names",
+        mode="before",
+    )
     def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
         """
         Normalize empty field values by converting them to None.
