@@ -47,3 +47,4 @@ build-backend = "uv_build"
 [project.scripts]
 scrape_zenodo = "mdverse_scrapers.scrapers.zenodo:main"
 scrape_figshare = "mdverse_scrapers.scrapers.figshare:main"
+scrape_nomad = "mdverse_scrapers.scrapers.nomad:main"
