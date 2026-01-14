@@ -16,6 +16,8 @@ import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
 
+from ..models.enums import DataType
+
 warnings.filterwarnings(
     "ignore",
     message="The input looks more like a filename than markup",

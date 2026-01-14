@@ -137,6 +137,7 @@ uv run -m scripts.scrape_gpcrmd
 ```
 
 This command will:
+
 1. Fetch all available datasets from GPCRMD.
 2. Parse their metadata and validate them using the Pydantic models
    `DatasetMetadata` and `FileMetadata`.

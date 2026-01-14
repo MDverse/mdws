@@ -3,7 +3,7 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
-from fontTools.misc.plistlib import Data
+
 
 import os
 import sys
@@ -20,8 +20,8 @@ from pydantic import ValidationError
 
 from ..core.logger import create_logger
 from ..models.dataset import DatasetMetadata
+from ..models.enums import DatasetProjectName, DatasetRepositoryName
 from ..models.file import FileMetadata
-from ..models.enums import DatasetRepositoryName, DatasetProjectName
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {

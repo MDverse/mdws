@@ -15,7 +15,6 @@ from dotenv import load_dotenv
 from ..core.logger import create_logger
 from ..core.toolbox import (
     ContextManager,
-    DataType,
     clean_text,
     export_dataframe_to_parquet,
     extract_date,
@@ -27,6 +26,7 @@ from ..core.toolbox import (
     remove_excluded_files,
     verify_output_directory,
 )
+from ..models.enums import DataType
 
 # logging.getLogger("httpx").setLevel(logging.DEBUG)
 
