@@ -1,6 +1,6 @@
 """Scrape molecular dynamics simulation datasets and files from NOMAD.
 
-This script scrapes molecular dynamics (MD) datasets from the NOMAD repository
+This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
 
