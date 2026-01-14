@@ -51,7 +51,7 @@ def test_extract_files_from_zip_file(create_context):
 def test_extract_files_from_json_response():
     """Test the extract_files_from_json_response function.
 
-    Exemple of JSON response:
+    Example of JSON response:
     https://figshare.com/ndownloader/files/3788686/preview/3788686/structure.json
     """
     json_response = {

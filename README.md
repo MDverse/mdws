@@ -61,7 +61,7 @@ Eventually, the scraper will produce two files: `zenodo_datasets.parquet` and `z
 
 Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
-## Scrap FigShare
+## Scrape FigShare
 
 Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API works.
 
