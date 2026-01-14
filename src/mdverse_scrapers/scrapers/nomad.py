@@ -3,8 +3,7 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
-
-
+import json
 import os
 import sys
 import time
@@ -15,12 +14,13 @@ from typing import Any
 import click
 import httpx
 import pandas as pd
-from loguru import logger
+import loguru
 from pydantic import ValidationError
 
 from ..core.logger import create_logger
+from ..core.network import HttpMethod, create_httpx_client, make_http_request_with_retries
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetProjectName, DatasetRepositoryName
+from ..models.enums import DataType, DatasetProjectName, DatasetRepositoryName
 from ..models.file import FileMetadata
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
@@ -42,7 +42,7 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
 }
 
 
-def is_nomad_connection_working() -> bool | None:
+def is_nomad_connection_working(client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger) -> bool | None:
     """Test connection to the NOMAD API.
 
     Returns
@@ -51,130 +51,123 @@ def is_nomad_connection_working() -> bool | None:
         True if the connection is successful, False otherwise.
     """
     logger.debug("Testing connection to NOMAD API...")
-    try:
-        r = httpx.head(f"{BASE_NOMAD_URL}/entries", timeout=5)
-        if r.status_code == 200:
-            logger.success("Connected to NOMAD API successfully!")
-            return True
-    except httpx.HTTPStatusError as exc:
-        logger.warning(f"HTTP error {exc.response.status_code}")
+    response = make_http_request_with_retries(client, url, method=HttpMethod.GET)
+    if not response:
+        logger.error("Cannot connect to the NOMAD API.")
         return False
-    except httpx.RequestError as exc:
-        logger.warning(f"Request error {exc}")
-        return False
+    if response and hasattr(response, "headers"):
+        logger.debug(response.headers)
+    return True
 
 
-def fetch_nomad_md_related_by_batch(
-    query_entry_point: str, tag: str, page_size: int = 50
+def scrape_nomad(client: httpx.Client,
+    query_entry_point: str, target: DataType, page_size: int = 50,
+    json_payload: dict[str, Any] | None = None,
+    logger: "loguru.Logger" = loguru.logger,
 ) -> list[tuple[list[dict[str, Any]], str]]:
     """
-    Fetch all Molecular Dynamics (MD)-related entries/files from the NOMAD API by batch.
+    Fetch Molecular Dynamics-related datasets and files from the NOMAD API by batch.
+
+    Within the NOMAD terminology, datasets are referred to as "entries".
 
     Parameters
     ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
     query_entry_point : str
-        The entry point of the .post API request.
+        The entry point of the API request.
         Doc: https://nomad-lab.eu/prod/v1/api/v1/extensions/docs#/entries/metadata
-    tag: str
-        Tag to know if its entries or files metadata to fetch.
+    target: DataType
+        Target to search for (datasets or files).
     page_size : int
-        Number of entries to fetch per page. (Default : 50)
+        Number of entries to fetch per page.
 
     Returns
     -------
-    List[Tuple[List[Dict[str, Any]], str]]:
-        - A list of tuples (entries_list, fetch_time) for each batch.
+    List[List[Dict[str, Any]]:
+        A list of NOMAD entries.
     """
     logger.info(
-        f"Fetching Molecular Dynamics related {tag} from NOMAD API "
+        f"Fetching molecular dynamics {target.value} from NOMAD API "
         f"by batch of {page_size} entries..."
     )
-    all_entries_with_time = []
+    all_entries = []
     next_page_value = None
     total_entries = None
 
-    # Fetch the first page
-    try:
-        logger.debug("Requesting first page...")
-        fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        # HTTP request
-        json_payload = JSON_PAYLOAD_NOMAD_REQUEST
+    # Fetch the first page to get the total number of entries.
+    logger.info("Requesting first page to get total number of entries...")
+    # Prepare the JSON payload for the first request.
+    if json_payload:
         json_payload["pagination"]["page_size"] = page_size
         json_payload["pagination"]["page_after_value"] = next_page_value
-        response = httpx.post(
-            f"{BASE_NOMAD_URL}/{query_entry_point}",
-            json=json_payload,
-            timeout=100,
-        )
-        response.raise_for_status()
-        # Sleep briefly to avoid overwhelming the remote server
-        time.sleep(0.1)
+    response = make_http_request_with_retries(
+        client,
+        f"{BASE_NOMAD_URL}/{query_entry_point}",
+        method=HttpMethod.POST,
+        json=json_payload,
+        timeout=60,
+    )
+    if not response:
+        logger.critical("Failed to fetch data from NOMAD API.")
+        sys.exit(1)
+    try:
         # Get the formated response with request metadatas in JSON format
-        first_entries_with_request_md = response.json()
+        response_json = response.json()
         # Get the total entries from the request md
-        total_entries = first_entries_with_request_md["pagination"]["total"]
+        total_entries = response_json["pagination"]["total"]
         # Get the ID to start the next batch of entries
-        next_page_value = first_entries_with_request_md["pagination"][
+        next_page_value = response_json["pagination"][
             "next_page_after_value"
         ]
         # Get only the entries metadatas
-        first_entries = first_entries_with_request_md["data"]
+        datasets = response_json["data"]
         # Add it with the crawled time
-        all_entries_with_time.append((first_entries, fetch_time))
-        logger.debug(
-            f"Fetched first {len(first_entries_with_request_md['data'])}"
+        all_entries.append(datasets)
+        logger.info(
+            f"Fetched first {len(response_json['data'])}"
             f"/{total_entries} entries"
         )
+    except (json.decoder.JSONDecodeError, ValueError) as exc:
+        logger.error(f"Error while parsing NOMAD response: {exc}")
+        logger.critical("Aborting.")
+        sys.exit(1)
 
-    except httpx.HTTPError as e:
-        logger.error(f"HTTP error occurred: {e}")
-        return [([], "")]
-
-    # Paginate through remaining entries
-    logger.debug(
-        f"Paginate through remaining {tag}... (usually takes around 3 minutes)"
-    )
+    # Paginate through remaining entries.
+    logger.info(f"Scrape remaining {target.value}")
     while next_page_value:
-        try:
-            fetch_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-            # HTTP request
-            json_payload = JSON_PAYLOAD_NOMAD_REQUEST
-            json_payload["pagination"]["page_size"] = page_size
+        if json_payload:
             json_payload["pagination"]["page_after_value"] = next_page_value
-            response = httpx.post(
-                f"{BASE_NOMAD_URL}/{query_entry_point}",
-                json=json_payload,
-                timeout=100,
-            )
-            response.raise_for_status()
-            # Sleep briefly to avoid overwhelming the remote server
-            time.sleep(0.1)
-            next_batch = response.json()
-            all_entries_with_time.append((next_batch["data"], fetch_time))
-
-            # Update the next entry to begin with
-            next_page_value = next_batch.get("pagination", {}).get(
+        response = make_http_request_with_retries(
+            client,
+            f"{BASE_NOMAD_URL}/{query_entry_point}",
+            method=HttpMethod.POST,
+            json=json_payload,
+            timeout=60,
+        )
+        if not response:
+            logger.error("Failed to fetch data from NOMAD API.")
+            logger.error("Jumping to next iteration.")
+            continue
+        try:
+            response_json = response.json()
+            entries = response_json["data"]
+            # Update the next entry to begin with.
+            next_page_value = response_json.get("pagination", {}).get(
                 "next_page_after_value", None
             )
-            fetched_so_far = sum(len(batch) for batch, _ in all_entries_with_time)
-            logger.info(f"Fetched {fetched_so_far}/{total_entries} {tag}")
-
-        except httpx.HTTPError as e:
-            logger.error(
-                "HTTP error occurred while fetching next page "
-                f"after {next_page_value}: {e}"
-            )
-            break
-
-    total_datasets = sum(len(batch[0]) for batch in all_entries_with_time)
-    total_files = sum(
-        len(entry["files"]) for batch, _ in all_entries_with_time for entry in batch
-    )
+        except (json.decoder.JSONDecodeError, ValueError) as exc:
+            logger.error(f"Error while parsing NOMAD response: {exc}")
+            logger.error("Jumping to next iteration.")
+        all_entries += entries
+        logger.info(
+            f"Scraped {len(all_entries)}/{total_entries} "
+            f"({len(all_entries) / total_entries:.0%}) {target.value}"
+        )
     logger.success(
-        f"Fetched {total_datasets if tag == 'entries' else total_files} molecular "
-        f"dynamics related {tag} from NOMAD successfully! \n"
+        f"Scraped {len(all_entries)} {DataType.DATASETS.value} in NOMAD"
     )
-    return all_entries_with_time
+    return all_entries
 
 
 def validate_parsed_metadatas(
@@ -432,35 +425,43 @@ def main(output_path: Path) -> None:
     output_path : Path
         The output directory path for the scraped data.
     """
-    output_path = output_path / DatasetRepositoryName.NOMAD.value
+    # Create directories and logger.
+    output_path = output_path / DatasetProjectName.NOMAD.value
     output_path.mkdir(parents=True, exist_ok=True)
-    logger = create_logger(logpath=output_path / "nomad_scraper.log", level="INFO")
+    logfile_path = output_path / f"{DatasetProjectName.NOMAD.value}_scraper.log"
+    logger = create_logger(logpath=logfile_path, level="INFO")
     logger.info("Starting Nomad data scraping...")
     start_time = time.perf_counter()
-
-    if not is_nomad_connection_working:
-        logger.error("Cannot scrap data, no connection to NOMAD API.")
+    # Create HTTPX client
+    client = create_httpx_client()
+    # Check connection to NOMAD API
+    if is_nomad_connection_working(client, f"{BASE_NOMAD_URL}/entries"):
+        logger.success("Connection to NOMAD API successful!")
+    else:
+        logger.critical("Connection to NOMAD API failed.")
+        logger.critical("Aborting.")
         sys.exit(1)
 
-    # Fetch NOMAD entries metadata
-    nomad_data = fetch_nomad_md_related_by_batch(
-        query_entry_point="entries/query", tag="entries"
+    # Fetch NOMAD datatset metadata
+    datasets_metadata = scrape_nomad(
+        client,
+        query_entry_point="entries/query", target=DataType.DATASETS, logger=logger,
+        json_payload=JSON_PAYLOAD_NOMAD_REQUEST,
     )
-    if nomad_data == []:
-        logger.warning("No data fetched from NOMAD.")
+    if not datasets_metadata:
+        logger.warning("No metadata fetched from NOMAD.")
         return
     # Parse and validate NOMAD entry metadatas with a pydantic model (DatasetMetadata)
-    nomad_entries_validated = parse_and_validate_entry_metadata(nomad_data)
-
+    nomad_entries_validated = parse_and_validate_entry_metadata(datasets_metadata)
     # Save parsed metadata to local file
     save_nomad_metadatas_to_parquet(
         output_path,
         nomad_entries_validated,
-        tag="entries",
+        tag="datasets",
     )
 
     # Fetch NOMAD files metadata
-    nomad_files_metadata = fetch_nomad_md_related_by_batch(
+    nomad_files_metadata = scrape_nomad(
         query_entry_point="entries/rawdir/query", tag="files"
     )
     # Parse and validate the file metadatas with a pydantic model (FileMetadata)
