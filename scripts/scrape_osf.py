@@ -1,4 +1,4 @@
-"""Scrap molecular dynamics datasets and files from OSF."""
+"""Scrape molecular dynamics datasets and files from OSF."""
 
 from datetime import datetime
 import logging
