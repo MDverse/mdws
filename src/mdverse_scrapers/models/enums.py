@@ -30,3 +30,4 @@ class DatasetProjectName(StrEnum):
     NOMAD = "nomad"
     ATLAS = "atlas"
     GPCRMD = "gpcrmd"
+    NMRLIPIDS = "nmrlipids"
