@@ -25,6 +25,7 @@ warnings.filterwarnings(
     module="bs4",
 )
 
+
 @dataclass(kw_only=True)
 class ContextManager:
     """ContextManager dataclass."""
