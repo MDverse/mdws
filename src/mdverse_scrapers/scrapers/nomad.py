@@ -3,7 +3,6 @@
 This script scrapes molecular dynamics (MD) datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
-from matplotlib.pylab import require
 
 import os
 import sys
@@ -379,7 +378,7 @@ def parse_and_validate_file_metadata(
 
 
 def save_nomad_metadatas_to_parquet(
-    folder_out_path: Path,
+    output_path: Path,
     nomad_metadatas_validated: list[DatasetMetadata] | list[FileMetadata],
     tag: str,
 ) -> None:
@@ -388,7 +387,7 @@ def save_nomad_metadatas_to_parquet(
 
     Parameters
     ----------
-    folder_out_path : Path
+    output_path : Path
         Folder path where Parquet files will be saved.
     nomad_metadatas_validated : List[DatasetMetadata]
         List of validated NOMAD entries.
@@ -397,13 +396,13 @@ def save_nomad_metadatas_to_parquet(
     """
     logger.info(f"Saving NOMAD {tag} metadatas to a Parquet file...")
     # Ensure output folder exists
-    Path(folder_out_path).mkdir(parents=True, exist_ok=True)
+    Path(output_path).mkdir(parents=True, exist_ok=True)
 
     # Save validated entries
     if tag == "entries":
-        validated_path = os.path.join(folder_out_path, "nomad_datasets.parquet")
+        validated_path = os.path.join(output_path, "nomad_datasets.parquet")
     elif tag == "files":
-        validated_path = os.path.join(folder_out_path, "nomad_files.parquet")
+        validated_path = os.path.join(output_path, "nomad_files.parquet")
     try:
         # Convert list of Pydantic models to list of dicts
         validated_dicts = [entry.model_dump() for entry in nomad_metadatas_validated]
@@ -453,7 +452,7 @@ def main(output_path: Path) -> None:
 
     # Save parsed metadata to local file
     save_nomad_metadatas_to_parquet(
-        out_path,
+        output_path,
         nomad_entries_validated,
         tag="entries",
     )
@@ -467,7 +466,7 @@ def main(output_path: Path) -> None:
         nomad_files_metadata
     )
     save_nomad_metadatas_to_parquet(
-        out_path,
+        output_path,
         nomad_files_metadata_validated,
         tag="files",
     )
