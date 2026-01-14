@@ -21,7 +21,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field, computed_field, field_validator
 
 from ..core.toolbox import format_date
-from .enums import DatasetRepository
+from .enums import DatasetRepositoryName
 
 
 # =====================================================================
@@ -41,7 +41,7 @@ class FileMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_repository_name: DatasetRepository = Field(
+    dataset_repository_name: DatasetRepositoryName = Field(
         ...,
         description=(
             "Name of the source repository. "

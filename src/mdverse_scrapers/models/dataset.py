@@ -22,7 +22,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from ..core.toolbox import format_date
-from .enums import DatasetProject, DatasetRepository
+from .enums import DatasetProjectName, DatasetRepositoryName
 
 DOI = Annotated[
     str,
@@ -47,14 +47,14 @@ class DatasetMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_repository_name: DatasetRepository = Field(
+    dataset_repository_name: DatasetRepositoryName = Field(
         ...,
         description=(
             "Name of the source repository. "
             "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
         ),
     )
-    dataset_project_name: DatasetProject | None = Field(
+    dataset_project_name: DatasetProjectName | None = Field(
         None,
         description=(
             "Name of the project."

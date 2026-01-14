@@ -3,6 +3,7 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
+from fontTools.misc.plistlib import Data
 
 import os
 import sys
@@ -18,8 +19,9 @@ from loguru import logger
 from pydantic import ValidationError
 
 from ..core.logger import create_logger
-from ..models.dataset import DatasetMetadata, DatasetProject, DatasetRepository
+from ..models.dataset import DatasetMetadata
 from ..models.file import FileMetadata
+from ..models.enums import DatasetRepositoryName, DatasetProjectName
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
@@ -261,8 +263,8 @@ def parse_and_validate_entry_metadata(
                 logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
 
             parsed_entry = {
-                "dataset_repository_name": DatasetRepository.NOMAD,
-                "dataset_project_name": DatasetProject.NOMAD,
+                "dataset_repository_name": DatasetRepositoryName.NOMAD,
+                "dataset_project_name": DatasetProjectName.NOMAD,
                 "dataset_id_in_repository": entry_id,
                 "dataset_id_in_project": entry_id,
                 "dataset_url_in_repository": entry_url,
@@ -347,7 +349,7 @@ def parse_and_validate_file_metadata(
                 size = file.get("size", None)
 
                 parsed_file = {
-                    "dataset_repository_name": DatasetRepository.NOMAD,
+                    "dataset_repository_name": DatasetRepositoryName.NOMAD,
                     "dataset_id_in_repository": entry_id,
                     "file_name": name_file,
                     "file_type": file_extension,
@@ -430,7 +432,7 @@ def main(output_path: Path) -> None:
     output_path : Path
         The output directory path for the scraped data.
     """
-    output_path = output_path / "nomad"
+    output_path = output_path / DatasetRepositoryName.NOMAD.value
     output_path.mkdir(parents=True, exist_ok=True)
     logger = create_logger(logpath=output_path / "nomad_scraper.log", level="INFO")
     logger.info("Starting Nomad data scraping...")
