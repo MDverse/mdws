@@ -21,7 +21,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from scripts.toolbox import DatasetProject, DatasetRepository, format_date
+from ..core.toolbox import DatasetProject, DatasetRepository, format_date
 
 DOI = Annotated[
     str,

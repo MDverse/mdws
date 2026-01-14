@@ -108,23 +108,23 @@ uv run scripts/scrape_osf.py --query params/query_dev.yml --output tmp
 
 The scraping takes some time (~ 30 min). Be patient.
 
-Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
-
+Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles:
 
 ## Scrape NOMAD
 
 Scrape Nomad for MD-related datasets and files:
 
 ```bash
-uv run -m scripts.scrape_nomad
+uv run scrape_nomad
 ```
-   
+
 This command will:
-   1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-   2. Parse their metadata and validate them using the Pydantic models
-      `DatasetMetadata` and `FileMetadata`.
-   3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
-   4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
+
+1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
+2. Parse their metadata and validate them using the Pydantic models
+   `DatasetMetadata` and `FileMetadata`.
+3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
+4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
 
 > The scraping takes less than 10 minutes.
 
@@ -137,11 +137,11 @@ uv run -m scripts.scrape_gpcrmd
 ```
 
 This command will:
-   1. Fetch all available datasets from GPCRMD.
-   2. Parse their metadata and validate them using the Pydantic models
-    `DatasetMetadata` and `FileMetadata`.
-   3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
-   4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
+1. Fetch all available datasets from GPCRMD.
+2. Parse their metadata and validate them using the Pydantic models
+   `DatasetMetadata` and `FileMetadata`.
+3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
+4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
 
 > The scraping takes approximately 1 hour and 30 minutes.
 

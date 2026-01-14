@@ -1,48 +1,9 @@
 """Scrape molecular dynamics simulation datasets and files from NOMAD.
 
-This script fetches molecular dynamics (MD) datasets from the NOMAD repository (https://nomad-lab.eu/prod/v1/gui/search/entries).
-It collects metadata such as dataset names, descriptions, authors, download links...
-for datasets related to molecular dynamics simulations.
-Additionally, it retrieves file metadata for each dataset, including file paths
-in NOMAD,size, file type/extension... of molecular dynamics simulations.
-
-The scraped data is validated against Pydantic models (`DatasetMetadata` and
-`FileMetadata`) and saved locally in Parquet format:
-- "data/nomad/nomad_datasets.parquet"
-- "data/nomad/nomad_files.parquet"
-
-
-Usage :
-=======
-    uv run -m scripts.scrape_nomad [--out-path]
-
-Arguments:
-==========
-    --out-path : (optional)
-        Folder path to save the scraped NOMAD data (Dataset and File metadatas).
-        Default is "data/nomad".
-
-Example:
-========
-    uv run -m scripts.scrape_nomad
-
-This command will:
-   1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-   2. Parse their metadata and validate them using the Pydantic models
-      `DatasetMetadata` and `FileMetadata`.
-   3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
-   4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
+This script scrapes molecular dynamics (MD) datasets from the NOMAD repository
+https://nomad-lab.eu/prod/v1/gui/search/entries
 """
 
-# METADATAS
-__authors__ = ("Pierre Poulain", "Essmay Touami")
-__contact__ = "pierre.poulain@u-paris.fr"
-__copyright__ = "AGPL-3.0 license"
-__date__ = "2025"
-__version__ = "1.0.0"
-
-
-# LIBRARY IMPORTS
 import os
 import sys
 import time
@@ -56,10 +17,10 @@ import pandas as pd
 from loguru import logger
 from pydantic import ValidationError
 
-from models.dataset import DatasetMetadata, DatasetProject, DatasetRepository
-from models.file import FileMetadata
+from ..core.logger import create_logger
+from ..models.dataset import DatasetMetadata, DatasetProject, DatasetRepository
+from ..models.file import FileMetadata
 
-# CONSTANTS
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
     "owner": "visible",
@@ -77,41 +38,6 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
         ]
     },
 }
-
-
-# FUNCTIONS
-def setup_logger(loguru_logger: Any, log_dir: str | Path = "logs") -> None:
-    """Configure a Loguru logger to write logs into a rotating daily log file.
-
-    Parameters
-    ----------
-    loguru_logger : Any
-        A Loguru logger instance (typically `loguru.logger`).
-    log_dir : str or Path, optional
-        Directory where log files will be stored. Default is "logs".
-    """
-    # Ensure log directory exists
-    log_folder = Path(log_dir)
-    log_folder.mkdir(parents=True, exist_ok=True)
-    # Reset any previous configuration
-    loguru_logger.remove()
-    # Define log format
-    fmt = (
-        "{time:YYYY-MM-DD HH:mm:ss}"
-        "| <level>{level:<8}</level> "
-        "| <level>{message}</level>"
-    )
-    loguru_logger.add(
-        log_folder / "scrap_nomad_data_{time:YYYY-MM-DD}.log",
-        format=fmt,
-        level="DEBUG",
-        mode="w",
-    )
-    loguru_logger.add(
-        sys.stdout,
-        format=fmt,
-        level="DEBUG",
-    )
 
 
 def is_nomad_connection_working() -> bool | None:
@@ -229,11 +155,13 @@ def fetch_nomad_md_related_by_batch(
                 "next_page_after_value", None
             )
             fetched_so_far = sum(len(batch) for batch, _ in all_entries_with_time)
-            logger.debug(f"Fetched {fetched_so_far}/{total_entries} {tag}")
+            logger.info(f"Fetched {fetched_so_far}/{total_entries} {tag}")
 
         except httpx.HTTPError as e:
-            logger.error("HTTP error occurred while fetching next page "
-                         f"after {next_page_value}: {e}")
+            logger.error(
+                "HTTP error occurred while fetching next page "
+                f"after {next_page_value}: {e}"
+            )
             break
 
     total_datasets = sum(len(batch[0]) for batch in all_entries_with_time)
@@ -248,8 +176,7 @@ def fetch_nomad_md_related_by_batch(
 
 
 def validate_parsed_metadatas(
-    parsed: dict[str, Any],
-    out_model: type[FileMetadata | DatasetMetadata]
+    parsed: dict[str, Any], out_model: type[FileMetadata | DatasetMetadata]
 ) -> tuple[FileMetadata | DatasetMetadata | None, str | None]:
     """Validate a parsed entry using the pydantic model.
 
@@ -305,7 +232,9 @@ def parse_and_validate_entry_metadata(
     for entries_list, fetch_time in nomad_data:
         for data in entries_list:
             entry_id = data.get("entry_id")
-            entry_url = f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
+            entry_url = (
+                f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
+            )
 
             # Extract molecules and number total of atoms if available
             total_atoms = None
@@ -363,21 +292,20 @@ def parse_and_validate_entry_metadata(
                 "molecule_names": molecules,
             }
             # Validate and normalize data collected with pydantic model
-            (dataset_model_entry,
-                non_validation_reason
-            ) = validate_parsed_metadatas(parsed_entry, DatasetMetadata)
+            (dataset_model_entry, non_validation_reason) = validate_parsed_metadatas(
+                parsed_entry, DatasetMetadata
+            )
             if isinstance(dataset_model_entry, DatasetMetadata):
                 validated_entries.append(dataset_model_entry)
             else:
-                logger.error(f"Validation failed for dataset `{entry_id}` ({entry_url})"
-                             ". Invalid field(s) detected : "
-                             f"{non_validation_reason}"
+                logger.error(
+                    f"Validation failed for dataset `{entry_id}` ({entry_url})"
+                    ". Invalid field(s) detected : "
+                    f"{non_validation_reason}"
                 )
 
     percentage = (
-        (len(validated_entries) / total_entries) * 100
-        if total_entries > 0
-        else 0.0
+        (len(validated_entries) / total_entries) * 100 if total_entries > 0 else 0.0
     )
     logger.success(
         f"Parsing completed: {percentage:.2f}% validated "
@@ -428,22 +356,20 @@ def parse_and_validate_file_metadata(
                     "date_last_fetched": fetch_time,
                 }
                 # Validate and normalize data collected with pydantic model
-                (file_model_entry,
+                (
+                    file_model_entry,
                     non_validation_reason,
                 ) = validate_parsed_metadatas(parsed_file, FileMetadata)
                 if isinstance(file_model_entry, FileMetadata):
                     validated_files.append(file_model_entry)
                 else:
-                    logger.error(f"Validation failed for file `{name_file}` "
-                                 f"({file_path_url}). Invalid field(s) detected : "
-                                f"{non_validation_reason}"
+                    logger.error(
+                        f"Validation failed for file `{name_file}` "
+                        f"({file_path_url}). Invalid field(s) detected : "
+                        f"{non_validation_reason}"
                     )
 
-    percentage = (
-        (len(validated_files) / total_files) * 100
-        if total_files > 0
-        else 0.0
-    )
+    percentage = (len(validated_files) / total_files) * 100 if total_files > 0 else 0.0
     logger.success(
         f"Parsing completed: {percentage:.2f}% validated "
         f"({len(validated_files)}/{total_files}) files successfully! \n"
@@ -495,9 +421,9 @@ def save_nomad_metadatas_to_parquet(
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
     default=Path("data/nomad"),
     show_default=True,
-    help="Folder path to save the scraped NOMAD data (Dataset and File metadatas)"
+    help="Folder path to save the scraped NOMAD data (Dataset and File metadatas)",
 )
-def scrap_nomad_data(out_path: Path) -> None:
+def main(out_path: Path) -> None:
     """Scrap molecular dynamics datasets and files from NOMAD.
 
     Parameters
@@ -505,7 +431,7 @@ def scrap_nomad_data(out_path: Path) -> None:
     out_path : Path
         The output folder path for the scraped data.
     """
-    setup_logger(logger, out_path)
+    logger = create_logger(logpath=out_path / "nomad_scraper.log", level="INFO")
     logger.info("Starting Nomad data scraping...")
     start_time = time.perf_counter()
 
@@ -535,8 +461,8 @@ def scrap_nomad_data(out_path: Path) -> None:
         query_entry_point="entries/rawdir/query", tag="files"
     )
     # Parse and validate the file metadatas with a pydantic model (FileMetadata)
-    nomad_files_metadata_validated = (
-        parse_and_validate_file_metadata(nomad_files_metadata)
+    nomad_files_metadata_validated = parse_and_validate_file_metadata(
+        nomad_files_metadata
     )
     save_nomad_metadatas_to_parquet(
         out_path,
@@ -549,5 +475,4 @@ def scrap_nomad_data(out_path: Path) -> None:
 
 
 if __name__ == "__main__":
-    # Scrap NOMAD data
-    scrap_nomad_data()
+    main()

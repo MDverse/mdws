@@ -20,7 +20,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from scripts.toolbox import DatasetRepository, format_date
+from ..core.toolbox import DatasetRepository, format_date
 
 
 # =====================================================================
