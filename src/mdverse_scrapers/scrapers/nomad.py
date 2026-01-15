@@ -111,6 +111,7 @@ def scrape_all_datasets(
         method=HttpMethod.POST,
         json=json_payload,
         timeout=60,
+        delay_before_request=0.5,
     )
     if not response:
         logger.critical("Failed to fetch data from NOMAD API.")
@@ -168,14 +169,74 @@ def scrape_all_datasets(
         all_datasets += datasets
         logger.info(
             f"Scraped {len(all_datasets)} datasets "
-            f"({len(all_datasets)}/{total_datasets:,}"
+            f"({len(all_datasets):,}/{total_datasets:,}"
             f":{len(all_datasets) / total_datasets:.0%})"
         )
     logger.success(f"Scraped {len(all_datasets)} datasets in NOMAD.")
     return all_datasets
 
 
-def scrape_files_metadata_for_dataset(
+def scrape_files_for_all_datasets(
+    client: httpx.Client,
+    datasets: list[DatasetMetadata],
+    logger: "loguru.Logger" = loguru.logger,
+    ) -> list[FileMetadata]:
+    """Scrape files metadata for all datasets in NOMAD.
+
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    datasets : list[DatasetMetadata]
+        List of datasets to scrape files metadata for.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    list[FileMetadata]
+        List of successfully validated `FileMetadata` objects.
+    """
+    all_files_metadata = []
+    for dataset_count, dataset in enumerate(datasets, start=1):
+        dataset_id = dataset.dataset_id_in_repository
+        files_metadata = scrape_files_for_one_dataset(
+            client,
+            url=f"{BASE_NOMAD_URL}/entries/{dataset_id}/rawdir",
+            dataset_id=dataset_id,
+            logger=logger,
+        )
+        if not files_metadata:
+            continue
+        # Extract relevant files metadata.
+        files_selected_metadata = extract_files_metadata(files_metadata, logger=logger)
+        # Normalize files metadata with pydantic model (FileMetadata)
+        logger.info(f"Validating files metadata for dataset: {dataset_id}")
+        for file_metadata in files_selected_metadata:
+            normalized_metadata = validate_metadata_against_model(
+                file_metadata,
+                FileMetadata,
+                logger=logger,
+            )
+            if not normalized_metadata:
+                logger.error(
+                    f"Normalization failed for metadata of file "
+                    f"{file_metadata.get('file_name')} "
+                    f"in dataset {dataset_id}"
+                )
+                continue
+            all_files_metadata.append(normalized_metadata)
+        logger.info("Done.")
+        logger.info(f"Total files: {len(all_files_metadata):,}")
+        logger.info(
+            "Extracted and validated files metadata for "
+            f"{dataset_count:,}/{len(datasets):,} "
+            f"({dataset_count / len(datasets):.0%}) datasets."
+        )
+    return all_files_metadata
+
+
+def scrape_files_for_one_dataset(
     client: httpx.Client,
     url: str,
     dataset_id: str,
@@ -207,7 +268,8 @@ def scrape_files_metadata_for_dataset(
         client,
         url,
         method=HttpMethod.GET,
-        timeout=30,
+        timeout=60,
+        delay_before_request=0.1,
     )
     if not response:
         logger.error("Failed to fetch files metadata.")
@@ -454,40 +516,8 @@ def main(output_path: Path) -> None:
         logger=logger,
     )
     # Scrape NOMAD files metadata.
-    files_normalized_metadata = []
-    for dataset_count, dataset in enumerate(datasets_normalized_metadata, start=1):
-        dataset_id = dataset.dataset_id_in_repository
-        files_metadata = scrape_files_metadata_for_dataset(
-            client,
-            url=f"{BASE_NOMAD_URL}/entries/{dataset_id}/rawdir",
-            dataset_id=dataset_id,
-            logger=logger,
-        )
-        # Extract relevant files metadata.
-        files_selected_metadata = extract_files_metadata(files_metadata, logger=logger)
-        # Normalize files metadata with pydantic model (FileMetadata)
-        logger.info(f"Validating files metadata for dataset: {dataset_id}")
-        for file_metadata in files_selected_metadata:
-            normalized_metadata = validate_metadata_against_model(
-                file_metadata,
-                FileMetadata,
-                logger=logger,
-            )
-            if not normalized_metadata:
-                logger.error(
-                    f"Normalization failed for metadata of file "
-                    f"{file_metadata.get('file_name')} "
-                    f"in dataset {dataset_id}"
-                )
-                continue
-            files_normalized_metadata.append(normalized_metadata)
-        logger.info("Done.")
-        logger.info(f"Total files: {len(files_normalized_metadata)}")
-        logger.info(
-            "Extracted and validated files metadata for "
-            f"{dataset_count}/{len(datasets_normalized_metadata):,} "
-            f"({dataset_count / len(datasets_normalized_metadata):.0%}) datasets."
-        )
+    files_normalized_metadata = scrape_files_for_all_datasets(client, datasets_normalized_metadata, logger)
+
     # Save files metadata to parquet file.
     export_list_of_models_to_parquet(
         output_path
