@@ -3,10 +3,8 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
-from importlib_metadata import files
-from Bio.PDB.Dice import extract
+
 import json
-import os
 import sys
 import time
 from datetime import datetime, timedelta
@@ -15,16 +13,19 @@ from typing import Any
 
 import click
 import httpx
-import pandas as pd
 import loguru
-from pydantic import ValidationError
 
 from ..core.logger import create_logger
-from ..core.network import HttpMethod, create_httpx_client, make_http_request_with_retries
-from ..core.toolbox import extract_file_extension, export_list_of_models_to_parquet
+from ..core.network import (
+    HttpMethod,
+    create_httpx_client,
+    make_http_request_with_retries,
+)
+from ..core.toolbox import export_list_of_models_to_parquet
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DataType, DatasetProjectName, DatasetRepositoryName
+from ..models.enums import DatasetProjectName, DatasetRepositoryName, DataType
 from ..models.file import FileMetadata
+from ..models.utils import validate_metadata_against_model
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
@@ -45,7 +46,9 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
 }
 
 
-def is_nomad_connection_working(client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger) -> bool | None:
+def is_nomad_connection_working(
+    client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
+) -> bool | None:
     """Test connection to the NOMAD API.
 
     Returns
@@ -63,8 +66,10 @@ def is_nomad_connection_working(client: httpx.Client, url: str, logger: "loguru.
     return True
 
 
-def scrape_all_datasets(client: httpx.Client,
-    query_entry_point: str, page_size: int = 50,
+def scrape_all_datasets(
+    client: httpx.Client,
+    query_entry_point: str,
+    page_size: int = 50,
     json_payload: dict[str, Any] | None = None,
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
@@ -88,12 +93,8 @@ def scrape_all_datasets(client: httpx.Client,
     list[dict]:
         A list of NOMAD entries.
     """
-    logger.info(
-        "Scraping molecular dynamics datasets from NOMAD."
-    )
-    logger.info(
-        f"Using batches of {page_size} datasets."
-    )
+    logger.info("Scraping molecular dynamics datasets from NOMAD.")
+    logger.info(f"Using batches of {page_size} datasets.")
     all_datasets = []
     next_page_value = None
     total_datasets = None
@@ -121,16 +122,13 @@ def scrape_all_datasets(client: httpx.Client,
         total_datasets = response_json["pagination"]["total"]
         logger.info(f"Found a total of {total_datasets:,} datasets in NOMAD.")
         # Get the ID to start the next batch of datasets
-        next_page_value = response_json["pagination"][
-            "next_page_after_value"
-        ]
+        next_page_value = response_json["pagination"]["next_page_after_value"]
         # Get only the datasets metadatas
         datasets = response_json["data"]
         # Store the first batch of datasets metadata
         all_datasets.extend(datasets)
         logger.info(
-            f"Scraped first {len(response_json['data'])}"
-            f"/{total_datasets} datasets"
+            f"Scraped first {len(response_json['data'])}/{total_datasets} datasets"
         )
         logger.debug("First dataset metadata:")
         logger.debug(datasets[0])
@@ -139,7 +137,7 @@ def scrape_all_datasets(client: httpx.Client,
         logger.error("Cannot find datasets.")
         logger.critical("Aborting.")
         sys.exit(1)
-    return all_datasets  # DEBUG
+
     # Paginate through remaining datasets.
     logger.info("Scraping remaining datasets")
     while next_page_value:
@@ -158,7 +156,7 @@ def scrape_all_datasets(client: httpx.Client,
             continue
         try:
             response_json = response.json()
-            entries = response_json["data"]
+            datasets = response_json["data"]
             # Update the next page to start with.
             next_page_value = response_json.get("pagination", {}).get(
                 "next_page_after_value", None
@@ -172,18 +170,16 @@ def scrape_all_datasets(client: httpx.Client,
             f"Scraped {len(all_datasets)}/{total_datasets:,} "
             f"({len(all_datasets) / total_datasets:.0%}) datasets."
         )
-    logger.success(
-        f"Scraped {len(all_datasets)} datasets in NOMAD."
-    )
+    logger.success(f"Scraped {len(all_datasets)} datasets in NOMAD.")
     return all_datasets
 
 
 def scrape_files_metadata_for_dataset(
-        client: httpx.Client,
-        url: str,
-        dataset_id: str,
-        logger: "loguru.Logger" = loguru.logger
-    ) -> dict | None:
+    client: httpx.Client,
+    url: str,
+    dataset_id: str,
+    logger: "loguru.Logger" = loguru.logger,
+) -> dict | None:
     """
     Scrape files metadata for a given NOMAD dataset.
 
@@ -218,45 +214,8 @@ def scrape_files_metadata_for_dataset(
     return response.json()
 
 
-def validate_metadata(
-        metadata: dict[str, Any],
-        model: type[FileMetadata | DatasetMetadata],
-        logger: "loguru.Logger" = loguru.logger,
-    ) -> FileMetadata | DatasetMetadata | None:
-    """Validate metadata against a Pydantic model.
-
-    Parameters
-    ----------
-    metadata: dict[str, Any]
-        The metadatas to validate.
-    model: type[FileMetadata | DatasetMetadata]
-        The Pydantic model used for the validation.
-
-    Returns
-    -------
-    type[FileMetadata | DatasetMetadata] | None
-        Validated model instance or None if validation fails.
-    """
-    try:
-        return model(**metadata)
-    except ValidationError as exc:
-        logger.warning("Validation error!")
-        for error in exc.errors():
-            field = error["loc"]
-            logger.debug(f"Field: {field[0]}")
-            if len(field) > 1:
-                logger.debug(f"Subfield: {field[1]}")
-            logger.debug(f"Error type: {error.get('input')}")
-            logger.debug(f"Reason: {error['msg']}")
-            inputs = error["input"]
-            if not isinstance(inputs, dict):
-                logger.debug(f"Input value: {inputs}")
-            else:
-                logger.debug("Input is a complex structure. Skipping value display.")
-        return None
-
-
-def extract_datasets_metadata(datasets: list[dict[str, Any]],
+def extract_datasets_metadata(
+    datasets: list[dict[str, Any]],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
     """
@@ -294,7 +253,7 @@ def extract_datasets_metadata(datasets: list[dict[str, Any]],
             "nb_files": len(dataset.get("files", [])),
             "author_names": [a.get("name") for a in dataset.get("authors", [])],
             "license": dataset.get("license"),
-            "description": dataset.get("comment")
+            "description": dataset.get("comment"),
         }
         # Extract simulation metadata if available.
         # Software name.
@@ -371,10 +330,11 @@ def normalize_datasets_metadata(
     datasets_metadata = []
     for dataset in datasets:
         logger.info(
-            "Normalizing metadata for dataset: "
-            f"{dataset['dataset_id_in_repository']}"
+            f"Normalizing metadata for dataset: {dataset['dataset_id_in_repository']}"
         )
-        normalized_metadata = validate_metadata(dataset, DatasetMetadata, logger=logger)
+        normalized_metadata = validate_metadata_against_model(
+            dataset, DatasetMetadata, logger=logger
+        )
         if not normalized_metadata:
             logger.error(
                 f"Normalization failed for metadata of dataset "
@@ -434,44 +394,6 @@ def extract_files_metadata(
     return files_metadata
 
 
-def save_nomad_metadatas_to_parquet(
-    output_path: Path,
-    nomad_metadatas_validated: list[DatasetMetadata] | list[FileMetadata],
-    tag: str,
-) -> None:
-    """
-    Save NOMAD validated and unvalidated metadata to Parquet files.
-
-    Parameters
-    ----------
-    output_path : Path
-        Folder path where Parquet files will be saved.
-    nomad_metadatas_validated : List[DatasetMetadata]
-        List of validated NOMAD entries.
-    tag: str
-        Tag to know if its entries or files metadata to save.
-    """
-    logger.info(f"Saving NOMAD {tag} metadatas to a Parquet file...")
-    # Ensure output folder exists
-    Path(output_path).mkdir(parents=True, exist_ok=True)
-
-    # Save validated entries
-    if tag == "entries":
-        validated_path = os.path.join(output_path, "nomad_datasets.parquet")
-    elif tag == "files":
-        validated_path = os.path.join(output_path, "nomad_files.parquet")
-    try:
-        # Convert list of Pydantic models to list of dicts
-        validated_dicts = [entry.model_dump() for entry in nomad_metadatas_validated]
-        df_validated = pd.DataFrame(validated_dicts)
-        df_validated.to_parquet(validated_path, index=False)
-        logger.success(
-            f"NOMAD validated metadatas saved to: {validated_path} successfully!"
-        )
-    except (ValueError, TypeError, OSError) as e:
-        logger.error(f"Failed to save validated metadata to {validated_path}: {e}")
-
-
 @click.command()
 @click.option(
     "--output-path",
@@ -516,14 +438,19 @@ def main(output_path: Path) -> None:
         logger.critical("Aborting.")
         sys.exit(1)
     # Select datasets metadata
-    datasets_selected_metadata = extract_datasets_metadata(datasets_raw_metadata, logger=logger)
+    datasets_selected_metadata = extract_datasets_metadata(
+        datasets_raw_metadata, logger=logger
+    )
     # Parse and validate NOMAD dataset metadata with a pydantic model (DatasetMetadata)
-    datasets_normalized_metadata = normalize_datasets_metadata(datasets_selected_metadata)
+    datasets_normalized_metadata = normalize_datasets_metadata(
+        datasets_selected_metadata
+    )
     # Save datasets metadata to parquet file.
     export_list_of_models_to_parquet(
-        output_path / f"{DatasetProjectName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
+        output_path
+        / f"{DatasetProjectName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
         datasets_normalized_metadata,
-        logger=logger
+        logger=logger,
     )
     # Scrape NOMAD files metadata.
     files_normalized_metadata = []
@@ -536,13 +463,10 @@ def main(output_path: Path) -> None:
             logger=logger,
         )
         # Extract relevant files metadata.
-        files_selected_metadata = extract_files_metadata(
-            files_metadata,
-            logger=logger
-        )
+        files_selected_metadata = extract_files_metadata(files_metadata, logger=logger)
         # Normalize files metadata with pydantic model (FileMetadata)
         for file_metadata in files_selected_metadata:
-            normalized_metadata = validate_metadata(
+            normalized_metadata = validate_metadata_against_model(
                 file_metadata,
                 FileMetadata,
                 logger=logger,
@@ -564,9 +488,10 @@ def main(output_path: Path) -> None:
         )
     # Save files metadata to parquet file.
     export_list_of_models_to_parquet(
-        output_path / f"{DatasetProjectName.NOMAD.value}_{DataType.FILES.value}.parquet",
+        output_path
+        / f"{DatasetProjectName.NOMAD.value}_{DataType.FILES.value}.parquet",
         files_normalized_metadata,
-        logger=logger
+        logger=logger,
     )
 
     # Print script duration.
