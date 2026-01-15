@@ -50,7 +50,7 @@ def make_http_request_with_retries(
     data: dict | None = None,
     json: dict | None = None,
     timeout: int = 10,
-    delay_before_request: int = 1,
+    delay_before_request: float = 1.0,
     max_attempts: int = 3,
     logger: "loguru.Logger" = loguru.logger,
 ) -> httpx.Response | None:
@@ -94,7 +94,7 @@ def make_http_request_with_retries(
         indicating the request is accepted but not ready yet.
         This error is caught and retried.
     """
-    logger.info(f"Making HTTP {method} request to:")
+    logger.info(f"Sending HTTP {method} request to:")
     logger.info(url)
     for attempt in range(1, max_attempts + 1):
         try:
