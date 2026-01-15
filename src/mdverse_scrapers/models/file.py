@@ -20,7 +20,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from ..core.toolbox import format_date
 from .enums import DatasetRepositoryName
 
 
@@ -93,7 +92,10 @@ class FileMetadata(BaseModel):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
-        return format_date(v)
+        if isinstance(v, datetime):
+            return v.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
 
     @computed_field
     @property

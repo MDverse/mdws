@@ -21,7 +21,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from ..core.toolbox import format_date
 from .enums import DatasetProjectName, DatasetRepositoryName
 
 DOI = Annotated[
@@ -206,7 +205,10 @@ class DatasetMetadata(BaseModel):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
-        return format_date(v)
+        if isinstance(v, datetime):
+            return v.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
 
     @field_validator(
         "description",
