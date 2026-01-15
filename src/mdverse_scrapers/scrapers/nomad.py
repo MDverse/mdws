@@ -167,8 +167,9 @@ def scrape_all_datasets(
         logger.info(f"Found {len(datasets)} datasets in this batch.")
         all_datasets += datasets
         logger.info(
-            f"Scraped {len(all_datasets)}/{total_datasets:,} "
-            f"({len(all_datasets) / total_datasets:.0%}) datasets."
+            f"Scraped {len(all_datasets)} datasets "
+            f"({len(all_datasets)}/{total_datasets:,}"
+            f":{len(all_datasets) / total_datasets:.0%})"
         )
     logger.success(f"Scraped {len(all_datasets)} datasets in NOMAD.")
     return all_datasets
@@ -465,6 +466,7 @@ def main(output_path: Path) -> None:
         # Extract relevant files metadata.
         files_selected_metadata = extract_files_metadata(files_metadata, logger=logger)
         # Normalize files metadata with pydantic model (FileMetadata)
+        logger.info(f"Validating files metadata for dataset: {dataset_id}")
         for file_metadata in files_selected_metadata:
             normalized_metadata = validate_metadata_against_model(
                 file_metadata,
@@ -479,11 +481,11 @@ def main(output_path: Path) -> None:
                 )
                 continue
             files_normalized_metadata.append(normalized_metadata)
-        logger.info(f"Validated files metadata for dataset: {dataset_id}")
+        logger.info("Done.")
         logger.info(f"Total files: {len(files_normalized_metadata)}")
         logger.info(
             "Extracted and validated files metadata for "
-            f"{dataset_count}/{len(datasets_normalized_metadata)} "
+            f"{dataset_count}/{len(datasets_normalized_metadata):,} "
             f"({dataset_count / len(datasets_normalized_metadata):.0%}) datasets."
         )
     # Save files metadata to parquet file.
