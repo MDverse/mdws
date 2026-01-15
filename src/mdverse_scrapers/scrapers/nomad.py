@@ -3,7 +3,6 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
-
 import json
 import sys
 import time
