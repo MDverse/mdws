@@ -17,6 +17,8 @@ import yaml
 from bs4 import BeautifulSoup
 
 from ..models.enums import DataType
+from ..models.dataset import DatasetMetadata
+from ..models.file import FileMetadata
 
 warnings.filterwarnings(
     "ignore",
@@ -527,6 +529,33 @@ def export_dataframe_to_parquet(
     df.to_parquet(parquet_name, index=False)
     ctx.logger.success(f"Dataframe with {len(df):,} rows exported to:")
     ctx.logger.success(parquet_name)
+
+
+def export_list_of_models_to_parquet(
+    parquet_path: Path,
+    list_of_models: list[DatasetMetadata] | list[FileMetadata],
+    logger: "loguru.Logger" = loguru.logger,
+) -> None:
+    """Export list of Pydantic models to parquet file.
+
+    Parameters
+    ----------
+    parquet_path : Path
+        Path to the output parquet file.
+    list_of_models : list[DatasetMetadata] | list[FileMetadata]
+        List of Pydantic models to export.
+    logger : "loguru.Logger"
+        Logger for logging messages.
+    """
+    logger.info(f"Exporting {len(list_of_models):,} models to parquet.")
+    try:
+        df = pd.DataFrame([model.model_dump() for model in list_of_models])
+        df.to_parquet(parquet_path, index=False)
+        logger.success(f"Exported {len(df):,} rows to:")
+        logger.success(parquet_path)
+    except (ValueError, TypeError, OSError) as e:
+        logger.error("Failed to export models to parquet.")
+        logger.error(e)
 
 
 def validate_http_url(v: str) -> str:
