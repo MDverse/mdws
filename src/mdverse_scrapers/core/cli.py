@@ -11,21 +11,15 @@ import click
 )
 @click.option(
     "--output-dir",
+    "output_dir_path",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
     required=True,
     help="Output directory path to save results.",
 )
-def get_cli_output_dir(output_dir: Path):
-    """Parse scraper scripts command line.
-
-    Returns
-    -------
-    output_dir : Path
-        The output directory.
-    """
+def get_cli_output_dir(output_dir_path: Path):
+    """Parse scraper scripts command line."""
     # Create output directory if it does not exist.
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir
+    output_dir_path.mkdir(parents=True, exist_ok=True)
 
 
 @click.command(
@@ -34,6 +28,7 @@ def get_cli_output_dir(output_dir: Path):
 )
 @click.option(
     "--output-dir",
+    "output_dir_path",
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
     required=True,
     help="Output directory path to save results.",
@@ -44,16 +39,16 @@ def get_cli_output_dir(output_dir: Path):
     required=True,
     help="Query parameters file (YAML format).",
 )
-def get_cli_output_dir_query_file(output_dir: Path, query_file: Path):
+def get_cli_output_dir_query_file(output_dir_path: Path, query_file: Path):
     """Parse scraper scripts command line.
 
     Returns
     -------
-    output_dir : Path
+    output_dir_path : Path
         The output directory path.
     query_file : Path
         The query parameters file path.
     """
     # Create output directory if it does not exist.
-    output_dir.mkdir(parents=True, exist_ok=True)
-    return output_dir, query_file
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+    return output_dir_path, query_file

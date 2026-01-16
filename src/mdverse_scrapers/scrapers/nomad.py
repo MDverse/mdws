@@ -3,7 +3,6 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
-
 import json
 import sys
 import time
@@ -11,10 +10,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import click
 import httpx
 import loguru
 
-from ..core.cli import get_cli_output_dir
 from ..core.logger import create_logger
 from ..core.network import (
     HttpMethod,
@@ -458,13 +457,23 @@ def extract_files_metadata(
     return files_metadata
 
 
-def main() -> None:
+@click.command(
+    help="Command line interface for MDverse scrapers",
+    epilog="Happy scraping!",
+)
+@click.option(
+    "--output-dir",
+    "output_dir_path",
+    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    required=True,
+    help="Output directory path to save results.",
+)
+def main(output_dir_path: Path) -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
-    output_path = get_cli_output_dir(standalone_mode=False)
     # Create directories and logger.
-    output_path = output_path / DatasetProjectName.NOMAD.value
-    output_path.mkdir(parents=True, exist_ok=True)
-    logfile_path = output_path / f"{DatasetProjectName.NOMAD.value}_scraper.log"
+    output_dir_path = output_dir_path / DatasetProjectName.NOMAD.value
+    output_dir_path.mkdir(parents=True, exist_ok=True)
+    logfile_path = output_dir_path / f"{DatasetProjectName.NOMAD.value}_scraper.log"
     logger = create_logger(logpath=logfile_path, level="INFO")
     logger.info("Starting Nomad data scraping...")
     start_time = time.perf_counter()
@@ -500,7 +509,7 @@ def main() -> None:
     )
     # Save datasets metadata to parquet file.
     export_list_of_models_to_parquet(
-        output_path
+        output_dir_path
         / f"{DatasetProjectName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
         datasets_normalized_metadata,
         logger=logger,
@@ -512,7 +521,7 @@ def main() -> None:
 
     # Save files metadata to parquet file.
     export_list_of_models_to_parquet(
-        output_path
+        output_dir_path
         / f"{DatasetProjectName.NOMAD.value}_{DataType.FILES.value}.parquet",
         files_normalized_metadata,
         logger=logger,
