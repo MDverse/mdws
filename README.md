@@ -46,13 +46,13 @@ This file is automatically ignored by git and won't be pushed on GitHub.
 Scrape Zenodo for MD-related datasets and files:
 
 ```bash
-uv run scrape_zenodo --query params/query.yml --output-path data
+uv run scrape-zenodo --query params/query.yml --output-path data
 ```
 
 Scrape Zenodo with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape_zenodo --query params/query_dev.yml --output-path tmp
+uv run scrape-zenodo --query params/query_dev.yml --output-path tmp
 ```
 
 The scraping takes some time (about 5 hours). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -68,13 +68,13 @@ Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API 
 Scrape FigShare for MD-related datasets and files:
 
 ```bash
-uv run scrape_figshare --query params/query.yml --output-path data
+uv run scrape-figshare --query params/query.yml --output-path data
 ```
 
 Scrape FigShare with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape_figshare --query params/query_dev.yml --output-path tmp
+uv run scrape-figshare --query params/query_dev.yml --output-path tmp
 ```
 
 The scraping takes some time (about 5 hours). Be patient.
@@ -112,21 +112,20 @@ Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datas
 
 ## Scrape NOMAD
 
-Scrape Nomad for MD-related datasets and files:
+Scrape NOMAD:
 
 ```bash
-uv run scrape_nomad --output-path data
+uv run scrape-nomad --output-dir data
 ```
 
 This command will:
 
-1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-2. Parse their metadata and validate them using the Pydantic models
+1. Search for molecular dynamics entries and files through the NOMAD API.
+2. Parse metadata and validate them using the Pydantic models
    `DatasetMetadata` and `FileMetadata`.
-3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
-4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
+3. Save validated files and datasets metadata.
 
-> The scraping takes less than 10 minutes.
+The scraping takes about 2 h.
 
 ## Scrape GPCRmd
 
