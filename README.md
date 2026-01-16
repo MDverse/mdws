@@ -1,4 +1,4 @@
-# MDverse scrappers
+# MDverse scrapers
 
 Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
 
