@@ -3,6 +3,7 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
+
 import json
 import sys
 import time
@@ -504,8 +505,7 @@ def main(output_dir_path: Path) -> None:
     )
     # Parse and validate NOMAD dataset metadata with a pydantic model (DatasetMetadata)
     datasets_normalized_metadata = normalize_datasets_metadata(
-        datasets_selected_metadata,
-        logger=logger
+        datasets_selected_metadata, logger=logger
     )
     # Save datasets metadata to parquet file.
     export_list_of_models_to_parquet(
