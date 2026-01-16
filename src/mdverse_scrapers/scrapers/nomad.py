@@ -111,7 +111,7 @@ def scrape_all_datasets(
         method=HttpMethod.POST,
         json=json_payload,
         timeout=60,
-        delay_before_request=0.5,
+        delay_before_request=0.2,
     )
     if not response:
         logger.critical("Failed to fetch data from NOMAD API.")
@@ -150,6 +150,7 @@ def scrape_all_datasets(
             method=HttpMethod.POST,
             json=json_payload,
             timeout=60,
+            delay_before_request=0.2,
         )
         if not response:
             logger.error("Failed to fetch data from NOMAD API.")
@@ -495,7 +496,7 @@ def main() -> None:
     # Parse and validate NOMAD dataset metadata with a pydantic model (DatasetMetadata)
     datasets_normalized_metadata = normalize_datasets_metadata(
         datasets_selected_metadata,
-        logger=logger,
+        logger=logger
     )
     # Save datasets metadata to parquet file.
     export_list_of_models_to_parquet(
@@ -506,7 +507,7 @@ def main() -> None:
     )
     # Scrape NOMAD files metadata.
     files_normalized_metadata = scrape_files_for_all_datasets(
-        client, datasets_normalized_metadata, logger
+        client, datasets_normalized_metadata, logger=logger
     )
 
     # Save files metadata to parquet file.
