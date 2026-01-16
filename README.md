@@ -34,7 +34,7 @@ uv sync
 
 Have a look to the notes regarding [Zenodo](docs/zenodo.md) and how its API works.
 
-Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
+Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>
 and store it in the file `.env`:
 
 ```none
@@ -79,7 +79,7 @@ uv run scrape-figshare --query params/query_dev.yml --output-path tmp
 
 The scraping takes some time (about 5 hours). Be patient.
 
-Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles: 
+Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles:
 
 ## Scrape OSF
 
@@ -263,7 +263,7 @@ bash run_all.sh
 Update metadata:
 
 ```bash
-uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json 
+uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json
 ```
 
 Update files:

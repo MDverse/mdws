@@ -1,4 +1,5 @@
 """Common functions and network utilities."""
+
 import time
 from enum import StrEnum
 

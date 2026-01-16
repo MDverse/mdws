@@ -69,7 +69,7 @@ title
 
 author
 - type: string
-- example: 
+- example:
 - comment: Not sure we get the uploader name in Zenodo. Maybe get all available authors.
 
 keywords
@@ -126,5 +126,3 @@ origin_zip_file:
 - type: string
 - example: None, PeptideGraphZenodo.zip, paissoni19diubq.zip
 - comment: Default is "none". Name of the zip file the given file has been extracted from.
-
-

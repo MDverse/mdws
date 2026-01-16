@@ -1,7 +1,7 @@
 """Remove datasets that contains only non-MD files.
 
-Due to the indexation of zip files, we might have collected some false-positive datasets, 
-i.e. datasets that contain zip files and matched our keywords but that eventually 
+Due to the indexation of zip files, we might have collected some false-positive datasets,
+i.e. datasets that contain zip files and matched our keywords but that eventually
 did not contain any molecular dynamics files (after looking into the zip files).
 
 These datasets are likely false-positives and need to be removed.
@@ -60,7 +60,7 @@ def read_md_files(filename):
     list
         List of MD file types without zip.
     """
-    with open(filename, "r") as filetypes_file:
+    with open(filename) as filetypes_file:
         data_loaded = yaml.safe_load(filetypes_file)
     md_files = data_loaded["file_types"]
     md_types = [extension["type"] for extension in md_files]
@@ -73,7 +73,7 @@ def find_false_positive_datasets(filename, md_file_types):
 
     False positive datasets are datasets that propably do not
     contain any molecular dynamics data.
-    
+
     Parameters
     ----------
     filename : str
@@ -88,8 +88,8 @@ def find_false_positive_datasets(filename, md_file_types):
     """
     df = pd.read_csv(filename, sep="\t")
     df["file_type"] = df["file_type"].astype(str)
-    unique_file_types_per_dataset = (df
-        .groupby("dataset_id")["file_type"]
+    unique_file_types_per_dataset = (
+        df.groupby("dataset_id")["file_type"]
         .agg(["count", "unique"])
         .sort_values(by="count", ascending=False)
     )
@@ -103,7 +103,7 @@ def find_false_positive_datasets(filename, md_file_types):
         if file_types == ["zip"]:
             print(f"Dataset {index} contains only zip files -> keep")
             continue
-        # For a fiven dataset, if there is no MD file types in the entire set 
+        # For a fiven dataset, if there is no MD file types in the entire set
         # of the dataset file types, then we might have a false-positive dataset.
         # We print the total number of files in the dataset
         # and the first 20 file types for extra verification.
@@ -131,8 +131,10 @@ def remove_false_positive_datasets(filename, dataset_ids_to_remove):
     df_clean = df[~df["dataset_id"].isin(dataset_ids_to_remove)]
     records_count_clean = df_clean.shape[0]
     filename_clean = filename.replace(".tsv", ".clean.tsv")
-    print(f"Removing {records_count_old - records_count_clean} lines "
-          f"({records_count_old} -> {records_count_clean}) : {filename_clean}")
+    print(
+        f"Removing {records_count_old - records_count_clean} lines "
+        f"({records_count_old} -> {records_count_clean}) : {filename_clean}"
+    )
     df_clean.to_csv(filename_clean, sep="\t", index=False)
 
 
@@ -143,10 +145,11 @@ if __name__ == "__main__":
     log_filename = f"{ARGS.input}/{ARGS.repo}_clean.log"
     log_file = logging.FileHandler(log_filename, mode="w")
     log_console = logging.StreamHandler()
-    logging.basicConfig(handlers=[log_file, log_console],
+    logging.basicConfig(
+        handlers=[log_file, log_console],
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.DEBUG
+        level=logging.DEBUG,
     )
     # Rewire print to logging.info
     # We like living on the edge ;-)
@@ -162,7 +165,9 @@ if __name__ == "__main__":
     files_filename = f"{ARGS.input}/{ARGS.repo}_files.tsv"
 
     # Find false-positive datasets
-    false_positive_datasets = find_false_positive_datasets(files_filename, md_file_types)
+    false_positive_datasets = find_false_positive_datasets(
+        files_filename, md_file_types
+    )
 
     # Clean files
     remove_false_positive_datasets(files_filename, false_positive_datasets)

@@ -16,8 +16,8 @@ import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
 
-from ..models.enums import DataType
 from ..models.dataset import DatasetMetadata
+from ..models.enums import DataType
 from ..models.file import FileMetadata
 
 warnings.filterwarnings(
@@ -100,9 +100,7 @@ def make_http_get_request_with_retries(
             if response.status_code == 202:
                 msg = "Status code 202. Request accepted but not ready yet."
                 raise httpx.HTTPStatusError(
-                    msg,
-                    request=response.request,
-                    response=response
+                    msg, request=response.request, response=response
                 )
             return response
         except httpx.TimeoutException:

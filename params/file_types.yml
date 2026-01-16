@@ -54,7 +54,7 @@ file_types:
 - type: namd
   engine: namd
   category: parameter
-  source: https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node26.html  
+  source: https://www.ks.uiuc.edu/Training/Tutorials/namd/namd-tutorial-unix-html/node26.html
 - type: psf
   engine: namd
   category: topology
