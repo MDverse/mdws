@@ -7,7 +7,6 @@ import time
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -17,41 +16,16 @@ import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
 
+from ..models.enums import DataType
+from ..models.dataset import DatasetMetadata
+from ..models.file import FileMetadata
+
 warnings.filterwarnings(
     "ignore",
     message="The input looks more like a filename than markup",
     category=UserWarning,
     module="bs4",
 )
-
-
-class DataType(StrEnum):
-    """Supported data types."""
-
-    DATASETS = "datasets"
-    FILES = "files"
-
-
-class DatasetRepository(StrEnum):
-    """Supported repositories from which molecular dynamics datasets are scraped."""
-
-    ZENODO = "ZENODO"
-    FIGSHARE = "FIGSHARE"
-    OSF = "OSF"
-    NOMAD = "NOMAD"
-    ATLAS = "ATLAS"
-    GPCRMD = "GPCRMD"
-
-
-class DatasetProject(StrEnum):
-    """Supported projects from which molecular dynamics datasets are scraped."""
-
-    ZENODO = "ZENODO"
-    FIGSHARE = "FIGSHARE"
-    OSF = "OSF"
-    NOMAD = "NOMAD"
-    ATLAS = "ATLAS"
-    GPCRMD = "GPCRMD"
 
 
 @dataclass(kw_only=True)
@@ -175,10 +149,10 @@ def get_scraper_cli_arguments():
         required=True,
     )
     required.add_argument(
-        "--output",
+        "--output-path",
         action="store",
         type=str,
-        help="Path to save results",
+        help="Directory path to save results",
         required=True,
     )
     # Add help.
@@ -555,6 +529,33 @@ def export_dataframe_to_parquet(
     df.to_parquet(parquet_name, index=False)
     ctx.logger.success(f"Dataframe with {len(df):,} rows exported to:")
     ctx.logger.success(parquet_name)
+
+
+def export_list_of_models_to_parquet(
+    parquet_path: Path,
+    list_of_models: list[DatasetMetadata] | list[FileMetadata],
+    logger: "loguru.Logger" = loguru.logger,
+) -> None:
+    """Export list of Pydantic models to parquet file.
+
+    Parameters
+    ----------
+    parquet_path : Path
+        Path to the output parquet file.
+    list_of_models : list[DatasetMetadata] | list[FileMetadata]
+        List of Pydantic models to export.
+    logger : "loguru.Logger"
+        Logger for logging messages.
+    """
+    logger.info(f"Exporting {len(list_of_models):,} models to parquet.")
+    try:
+        df = pd.DataFrame([model.model_dump() for model in list_of_models])
+        df.to_parquet(parquet_path, index=False)
+        logger.success(f"Exported {len(df):,} rows to:")
+        logger.success(parquet_path)
+    except (ValueError, TypeError, OSError) as e:
+        logger.error("Failed to export models to parquet.")
+        logger.error(e)
 
 
 def validate_http_url(v: str) -> str:

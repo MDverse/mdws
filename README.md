@@ -1,4 +1,4 @@
-# MDverse scrappers
+# MDverse scrapers
 
 Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
 
@@ -46,13 +46,13 @@ This file is automatically ignored by git and won't be pushed on GitHub.
 Scrape Zenodo for MD-related datasets and files:
 
 ```bash
-uv run scrape_zenodo --query params/query.yml --output data
+uv run scrape-zenodo --query params/query.yml --output-path data
 ```
 
 Scrape Zenodo with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape_zenodo --query params/query_dev.yml --output tmp
+uv run scrape-zenodo --query params/query_dev.yml --output-path tmp
 ```
 
 The scraping takes some time (about 5 hours). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -68,13 +68,13 @@ Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API 
 Scrape FigShare for MD-related datasets and files:
 
 ```bash
-uv run scrape_figshare --query params/query.yml --output data
+uv run scrape-figshare --query params/query.yml --output-path data
 ```
 
 Scrape FigShare with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape_figshare --query params/query_dev.yml --output tmp
+uv run scrape-figshare --query params/query_dev.yml --output-path tmp
 ```
 
 The scraping takes some time (about 5 hours). Be patient.
@@ -88,7 +88,7 @@ Have a look to the notes regarding [OSF](docs/osf.md) and its API.
 Create a token here: <https://osf.io/settings/tokens> (select the `osf.full_read` scope)
 and store it in the file `.env`:
 
-```
+```none
 OSF_TOKEN=<YOUR OSF TOKEN HERE>
 ```
 
@@ -108,25 +108,24 @@ uv run scripts/scrape_osf.py --query params/query_dev.yml --output tmp
 
 The scraping takes some time (~ 30 min). Be patient.
 
-Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles: 
-
+Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles:
 
 ## Scrape NOMAD
 
-Scrape Nomad for MD-related datasets and files:
+Scrape NOMAD:
 
 ```bash
-uv run -m scripts.scrape_nomad
+uv run scrape-nomad --output-dir data
 ```
-   
-This command will:
-   1. Fetch molecular dynamics entries from the NOMAD API in batches of 50.
-   2. Parse their metadata and validate them using the Pydantic models
-      `DatasetMetadata` and `FileMetadata`.
-   3. Save validated dataset metadatas to `data/nomad/nomad_datasets.parquet`.
-   4. Save validated file metadatas to `data/nomad/nomad_files.parquet`.
 
-> The scraping takes less than 10 minutes.
+This command will:
+
+1. Search for molecular dynamics entries and files through the NOMAD API.
+2. Parse metadata and validate them using the Pydantic models
+   `DatasetMetadata` and `FileMetadata`.
+3. Save validated files and datasets metadata.
+
+The scraping takes about 2 h.
 
 ## Scrape GPCRmd
 
@@ -137,11 +136,12 @@ uv run -m scripts.scrape_gpcrmd
 ```
 
 This command will:
-   1. Fetch all available datasets from GPCRMD.
-   2. Parse their metadata and validate them using the Pydantic models
-    `DatasetMetadata` and `FileMetadata`.
-   3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
-   4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
+
+1. Fetch all available datasets from GPCRMD.
+2. Parse their metadata and validate them using the Pydantic models
+   `DatasetMetadata` and `FileMetadata`.
+3. Save validated dataset metadatas to `data/gpcrmd/gpcrmd_datasets.parquet`.
+4. Save validated file metadatas to `data/gpcrmd/gpcrmd_files.parquet`.
 
 > The scraping takes approximately 1 hour and 30 minutes.
 

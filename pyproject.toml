@@ -25,7 +25,6 @@ dependencies = [
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "scipy>=1.15.2",
-    "tqdm>=4.67.1",
 ]
 
 [dependency-groups]
@@ -45,5 +44,6 @@ requires = ["uv_build>=0.9.22,<0.10.0"]
 build-backend = "uv_build"
 
 [project.scripts]
-scrape_zenodo = "mdverse_scrapers.scrapers.zenodo:main"
-scrape_figshare = "mdverse_scrapers.scrapers.figshare:main"
+scrape-zenodo = "mdverse_scrapers.scrapers.zenodo:main"
+scrape-figshare = "mdverse_scrapers.scrapers.figshare:main"
+scrape-nomad = "mdverse_scrapers.scrapers.nomad:main"

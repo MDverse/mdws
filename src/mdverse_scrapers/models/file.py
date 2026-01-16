@@ -20,7 +20,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
-from scripts.toolbox import DatasetRepository, format_date
+from .enums import DatasetRepositoryName
 
 
 # =====================================================================
@@ -40,7 +40,7 @@ class FileMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Core provenance
     # ------------------------------------------------------------------
-    dataset_repository_name: DatasetRepository = Field(
+    dataset_repository_name: DatasetRepositoryName = Field(
         ...,
         description=(
             "Name of the source repository. "
@@ -59,24 +59,18 @@ class FileMetadata(BaseModel):
     # ------------------------------------------------------------------
     # Descriptive metadata
     # ------------------------------------------------------------------
-    file_name: str = Field(
-        ..., description="Name of the file in the dataset."
-    )
+    file_name: str = Field(..., description="Name of the file in the dataset.")
     file_type: str = Field(
         ..., description="File extension (automatically deduced from name)."
     )
-    file_size_in_bytes: int | None = Field(
-        None, description="File size in bytes."
-    )
-    file_md5: str | None = Field(
-        None, description="MD5 checksum."
-    )
+    file_size_in_bytes: int | None = Field(None, description="File size in bytes.")
+    file_md5: str | None = Field(None, description="MD5 checksum.")
     date_last_fetched: str = Field(
         ..., description="Date when the file was last fetched."
     )
     containing_archive_file_name: str | None = Field(
         None,
-        description="Archive file name this file was extracted from, if applicable."
+        description="Archive file name this file was extracted from, if applicable.",
     )
 
     # ------------------------------------------------------------------
@@ -98,7 +92,9 @@ class FileMetadata(BaseModel):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
-        return format_date(v)
+        if isinstance(v, datetime):
+            return v.strftime("%Y-%m-%dT%H:%M:%S")
+        return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
 
     @computed_field
     @property
