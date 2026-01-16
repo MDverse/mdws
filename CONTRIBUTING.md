@@ -59,11 +59,12 @@ See:
 
 Examples of valid commit messages:
 
-- feat: Valide metadata with model
-- fix(http): Resolve multiple errors on HTTP queries
-- fix: Verify directory exists before writing in (#45)
-- docs: Update installation instructions
-- style: Format code according with ruff
-- refactor: Move CLI argument management into separate module
-- test: Add unit tests for the new scraper
-- chore: Update dependencies to latest versions
+- `feat: Valide metadata with model`
+- `fix(http): Resolve multiple errors on HTTP queries`
+- `fix: Verify directory exists before writing in (#45)`
+- `docs: Update installation instructions`
+- `style: Format code according with ruff`
+- `refactor: Move CLI argument management into separate module`
+- `test: Add unit tests for the new scraper`
+- `chore: Update dependencies to latest versions`
+
