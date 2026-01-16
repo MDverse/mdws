@@ -1,6 +1,4 @@
 """Common functions and network utilities."""
-from Bio.Sequencing.Ace import wa
-
 import time
 from enum import StrEnum
 
