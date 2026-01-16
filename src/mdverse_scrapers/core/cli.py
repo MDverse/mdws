@@ -1,6 +1,5 @@
 """Utilities to parse command line arguments for scraper scripts."""
 
-import sys
 from pathlib import Path
 
 import click
