@@ -59,4 +59,3 @@ Zip files content is available, like for Zenodo, but individual file sizes are n
 Example:
 - For this dataset: [Molecular Dynamics Simulations](https://figshare.com/articles/dataset/Molecular_Dynamics_Simulations/30307108?file=58572346)
 - Content of the file: [Molecular Dynamics Simulations.zip](https://figshare.com/ndownloader/files/58572346/preview/58572346/structure.json)
-

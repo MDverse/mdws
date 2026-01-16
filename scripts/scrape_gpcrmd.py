@@ -59,10 +59,9 @@ import httpx
 import pandas as pd
 from bs4 import BeautifulSoup, Tag
 from loguru import logger
-from pydantic import ValidationError
-
 from models.dataset import DatasetMetadata, DatasetProject, DatasetRepository
 from models.file import FileMetadata
+from pydantic import ValidationError
 
 # CONSTANTS
 BASE_GPCRMD_URL = "https://www.gpcrmd.org/api/search_all/info/"
@@ -115,8 +114,7 @@ def fetch_datasets_once() -> tuple[list[dict[str, Any]], str]:
         - The current timestamp in ISO 8601 format (e.g., '2023-03-05T22:01:12').
     """
     logger.debug(
-        "Fetching datasets from GPCRMD API... "
-        "(usually takes less than 1 minute!)"
+        "Fetching datasets from GPCRMD API... (usually takes less than 1 minute!)"
     )
     # Current timestamp in ISO format
     fetch_time: str = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
@@ -235,8 +233,9 @@ def retrieve_reference_links(html: str) -> list[str] | None:
         if not isinstance(content_div, Tag):
             return None
         links: list[str] = []
-        for a in filter(lambda x: isinstance(x, Tag),
-            content_div.find_all("a", href=True)):
+        for a in filter(
+            lambda x: isinstance(x, Tag), content_div.find_all("a", href=True)
+        ):
             href = a["href"].strip()
             # Only include links that start with "http://" or "https://"
             if href.startswith(("http://", "https://")):
@@ -292,8 +291,7 @@ def count_simulation_files(html: str) -> int | None:
 
 
 def validate_parsed_metadatas(
-    parsed: dict[str, Any],
-    out_model: type[FileMetadata | DatasetMetadata]
+    parsed: dict[str, Any], out_model: type[FileMetadata | DatasetMetadata]
 ) -> tuple[FileMetadata | DatasetMetadata | None, str | None]:
     """Validate a parsed dataset using the pydantic model.
 
@@ -327,8 +325,7 @@ def validate_parsed_metadatas(
 
 
 def parse_and_validate_dataset_metadatas(
-    datasets: list[dict[str, Any]],
-    fetch_time: str
+    datasets: list[dict[str, Any]], fetch_time: str
 ) -> list[DatasetMetadata]:
     """
     Parse and validate metadata fields for a list of GPCRMD datasets.
@@ -355,9 +352,9 @@ def parse_and_validate_dataset_metadatas(
         # Extract molecules and number total of atoms if available
         total_atoms: int | None = dataset.get("atom_num")
         dyncomp: list[dict[str, Any]] = dataset.get("dyncomp", [])
-        molecules: list[str] = (
-            [comp.get("resname") for comp in dyncomp if comp.get("resname")]
-        )
+        molecules: list[str] = [
+            comp.get("resname") for comp in dyncomp if comp.get("resname")
+        ]
         url = dataset.get("url")
         # Fetch dataset page with url
         html = fetch_dataset_page(url) if url else None
@@ -369,8 +366,10 @@ def parse_and_validate_dataset_metadatas(
             refs: list[str] | None = retrieve_reference_links(html)
             nb_files: int | None = count_simulation_files(html)
         else:
-            logger.warning(f"Dataset `{dataset_id}` ({url}): "
-                           "page HTML missing; web metadata extraction skipped.")
+            logger.warning(
+                f"Dataset `{dataset_id}` ({url}): "
+                "page HTML missing; web metadata extraction skipped."
+            )
             author_names = None
             description = None
             stime = None
@@ -399,11 +398,12 @@ def parse_and_validate_dataset_metadatas(
             "forcefield_model_version": dataset.get("forcefield_version"),
             "timestep": dataset.get("timestep"),
             "delta": dataset.get("delta"),
-            "simulation_time": stime_list
-            }
+            "simulation_time": stime_list,
+        }
 
         # Validate and normalize data collected with pydantic model
-        (parsed_dataset_model,
+        (
+            parsed_dataset_model,
             non_validation_reason,
         ) = validate_parsed_metadatas(parsed_dataset, DatasetMetadata)
         # If it return a DatasetMetadata object
@@ -413,15 +413,14 @@ def parse_and_validate_dataset_metadatas(
             validated_datasets.append(parsed_dataset_model)
         else:
             # Validation failed
-            logger.error(f"Validation failed for dataset `{dataset_id}` ({url})"
-                                ". Invalid field(s) detected : "
-                                f"{non_validation_reason}"
-                    )
+            logger.error(
+                f"Validation failed for dataset `{dataset_id}` ({url})"
+                ". Invalid field(s) detected : "
+                f"{non_validation_reason}"
+            )
 
     percentage = (
-        (len(validated_datasets) / total_datasets) * 100
-        if total_datasets > 0
-        else 0.0
+        (len(validated_datasets) / total_datasets) * 100 if total_datasets > 0 else 0.0
     )
     logger.success(
         f"Parsing completed: {percentage:.2f}% validated "
@@ -566,9 +565,7 @@ def fetch_and_validate_file_metadatas(
         count_files_parsed_for_dataset = 0
 
         if not url:
-            logger.error(
-                    f"Dataset `{dataset_id}` skipped: missing dataset URL."
-                )
+            logger.error(f"Dataset `{dataset_id}` skipped: missing dataset URL.")
             continue
 
         base_file = make_base_parsed_file(dataset_id, url, fetch_time)
@@ -620,7 +617,8 @@ def fetch_and_validate_file_metadatas(
                 }
 
                 # Validate and normalize data collected with pydantic model
-                (parsed_file_model,
+                (
+                    parsed_file_model,
                     non_validation_reason,
                 ) = validate_parsed_metadatas(parsed_file, FileMetadata)
                 count_files_parsed_for_dataset += 1
@@ -631,17 +629,14 @@ def fetch_and_validate_file_metadatas(
                     )
                     validated_files.append(parsed_file_model)
                 else:
-                    logger.error(f"Validation failed for file `{file_name}` "
-                                 f"({file_path}). Invalid field(s) detected : "
-                                f"{non_validation_reason}"
+                    logger.error(
+                        f"Validation failed for file `{file_name}` "
+                        f"({file_path}). Invalid field(s) detected : "
+                        f"{non_validation_reason}"
                     )
                     non_validated_files_count += 1
 
-    percentage = (
-        (len(validated_files) / total_files) * 100
-        if total_files > 0
-        else 0.0
-    )
+    percentage = (len(validated_files) / total_files) * 100 if total_files > 0 else 0.0
     logger.success(
         f"Parsing completed: {percentage:.2f}% validated "
         f"({len(validated_files) - non_validated_files_count}/"
@@ -694,7 +689,7 @@ def save_metadatas_to_parquet(
     type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
     default=Path("data/gpcrmd"),
     show_default=True,
-    help="Folder path to save the scraped GPCRMD data (Dataset and File metadatas)"
+    help="Folder path to save the scraped GPCRMD data (Dataset and File metadatas)",
 )
 def scrap_gpcrmd_data(out_path: Path) -> None:
     """Scrap datasets and files from GPCRMD.
@@ -714,25 +709,13 @@ def scrap_gpcrmd_data(out_path: Path) -> None:
         logger.warning("No data fetched from GPCRMD.")
         return
     # Parse and validate dataset metadatas with a pydantic model (DatasetMetadata)
-    datasets_validated = (
-        parse_and_validate_dataset_metadatas(datasets, fetch_time)
-    )
+    datasets_validated = parse_and_validate_dataset_metadatas(datasets, fetch_time)
     # Save parsed metadata to local file
-    save_metadatas_to_parquet(
-        out_path,
-        datasets_validated,
-        tag="datasets"
-    )
+    save_metadatas_to_parquet(out_path, datasets_validated, tag="datasets")
 
     # Fetch, parse and validate the file metadatas with a pydantic model (File Model)
-    files_metadata_validated = (
-        fetch_and_validate_file_metadatas(datasets, fetch_time)
-    )
-    save_metadatas_to_parquet(
-        out_path,
-        files_metadata_validated,
-        tag="files"
-    )
+    files_metadata_validated = fetch_and_validate_file_metadatas(datasets, fetch_time)
+    save_metadatas_to_parquet(out_path, files_metadata_validated, tag="files")
 
     elapsed_time = int(time.perf_counter() - start_time)
     logger.success(f"Scraping duration: {timedelta(seconds=elapsed_time)} 🎉")

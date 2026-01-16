@@ -2,6 +2,8 @@
 
 Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
 
+see [CONTRIBUTING](CONTRIBUTING.md) if you want to contribute to this repo.
+
 ## Setup your environment
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
@@ -11,12 +13,6 @@ Clone this repository:
 ```bash
 git clone https://github.com/MDverse/mdws.git
 ```
-
-> [!TIP]
-> For maintainers only:
-> ```bash
-> git clone git@github.com:MDverse/mdws.git
-> ```
 
 Move to the new directory:
 
@@ -34,7 +30,7 @@ uv sync
 
 Have a look to the notes regarding [Zenodo](docs/zenodo.md) and how its API works.
 
-Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
+Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>
 and store it in the file `.env`:
 
 ```none
@@ -79,7 +75,7 @@ uv run scrape-figshare --query-file params/query_dev.yml --output-dir tmp
 
 The scraping takes some time (about 5 hours). Be patient.
 
-Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles: 
+Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles:
 
 ## Scrape OSF
 
@@ -265,7 +261,7 @@ bash run_all.sh
 Update metadata:
 
 ```bash
-uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json 
+uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json
 ```
 
 Update files:

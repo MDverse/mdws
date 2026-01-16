@@ -31,7 +31,7 @@ def compute_global_statistics(df):
     )
     dataset_agg.loc["total"] = dataset_agg.sum(numeric_only=True)
     pd.set_option("display.precision", 0)
-    print("\n"+dataset_agg.to_string()+"\n")
+    print("\n" + dataset_agg.to_string() + "\n")
 
 
 def compare_types(pandas_df, parquet_file):
@@ -58,14 +58,12 @@ def compare_types(pandas_df, parquet_file):
         on="column_name",
         validate="one_to_one",
     )
-    print("\n"+merged_types.to_string()+"\n")
+    print("\n" + merged_types.to_string() + "\n")
 
 
 if __name__ == "__main__":
     # Create logger
-    log_file = logging.FileHandler(
-        "data/export_to_parquet.log", mode="w"
-    )
+    log_file = logging.FileHandler("data/export_to_parquet.log", mode="w")
     log_file.setLevel(logging.INFO)
     log_stream = logging.StreamHandler()
     logging.basicConfig(

@@ -42,15 +42,14 @@ __copyright__ = "AGPL-3.0 license"
 __date__ = "2025"
 __version__ = "1.0.0"
 
-import yaml 
+import argparse
 import logging
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, Union
+from pathlib import Path
 
 import pandas as pd
+import yaml
 from pydantic import BaseModel, field_validator
-import argparse
 
 # -------------------------
 # Configuration
@@ -59,16 +58,27 @@ FILES_PARQUET = "nmrlipids_files.parquet"
 METADATA_PARQUET = "nmrlipids_datasets.parquet"
 
 FIELDS = [
-    "ID", "DOI", "SOFTWARE", "PUBLICATION", "AUTHORS_CONTACT", "TYPEOFSYSTEM",
-    "SOFTWARE_VERSION", "FF", "FF_SOURCE", "TRAJECTORY_SIZE", "TRJLENGTH",
-    "TEMPERATURE", "NUMBER_OF_ATOMS", "DATEOFRUNNING"
+    "ID",
+    "DOI",
+    "SOFTWARE",
+    "PUBLICATION",
+    "AUTHORS_CONTACT",
+    "TYPEOFSYSTEM",
+    "SOFTWARE_VERSION",
+    "FF",
+    "FF_SOURCE",
+    "TRAJECTORY_SIZE",
+    "TRJLENGTH",
+    "TEMPERATURE",
+    "NUMBER_OF_ATOMS",
+    "DATEOFRUNNING",
 ]
 
 logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
 
 # -------------------------
 # Pydantic model
@@ -76,24 +86,24 @@ logger = logging.getLogger(__name__)
 class NMRLipidsRecord(BaseModel):
     # Mandatory
     source: str = "NMRLipids"
-    source_ID: Union[int, str]
+    source_ID: int | str
     crawling_date: str
     licence: str = "CC-BY 4.0"
 
     # Optional metadata
-    DOI: Optional[str] = None
-    SOFTWARE: Optional[str] = None
-    PUBLICATION: Optional[str] = None
-    AUTHORS_CONTACT: Optional[str] = None
-    TYPEOFSYSTEM: Optional[str] = None
-    SOFTWARE_VERSION: Optional[Union[str, int, float]] = None
-    FF: Optional[str] = None
-    FF_SOURCE: Optional[str] = None
-    TRAJECTORY_SIZE: Optional[Union[int, float]] = None
-    TRJLENGTH: Optional[Union[int, float]] = None
-    TEMPERATURE: Optional[Union[int, float]] = None
-    NUMBER_OF_ATOMS: Optional[Union[int, float]] = None
-    DATEOFRUNNING: Optional[str] = None
+    DOI: str | None = None
+    SOFTWARE: str | None = None
+    PUBLICATION: str | None = None
+    AUTHORS_CONTACT: str | None = None
+    TYPEOFSYSTEM: str | None = None
+    SOFTWARE_VERSION: str | int | float | None = None
+    FF: str | None = None
+    FF_SOURCE: str | None = None
+    TRAJECTORY_SIZE: int | float | None = None
+    TRJLENGTH: int | float | None = None
+    TEMPERATURE: int | float | None = None
+    NUMBER_OF_ATOMS: int | float | None = None
+    DATEOFRUNNING: str | None = None
 
     # Normalize numeric fields to string if needed
     @field_validator(
@@ -103,12 +113,13 @@ class NMRLipidsRecord(BaseModel):
         "TRJLENGTH",
         "TEMPERATURE",
         "NUMBER_OF_ATOMS",
-        mode="before"
+        mode="before",
     )
     def normalize_to_string_or_none(cls, v):
         if v is None:
             return None
         return str(v)
+
 
 # -------------------------
 # Functions
@@ -120,10 +131,10 @@ def find_all_readmes(sim_root: Path):
     return readmes
 
 
-def parse_readme_yaml(path: Path) -> Optional[dict]:
+def parse_readme_yaml(path: Path) -> dict | None:
     """Load README.yaml, validate metadata with Pydantic, return dict."""
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
     except Exception as e:
         logger.error(f"Failed to read {path}: {e}")
@@ -163,9 +174,22 @@ def save_parquet(records):
 
     # -------- Metadata parquet --------
     df_meta = df[
-        ["source", "source_ID", "DOI", "crawling_date", "PUBLICATION",
-         "AUTHORS_CONTACT", "TYPEOFSYSTEM", "SOFTWARE", "SOFTWARE_VERSION",
-         "FF", "FF_SOURCE", "TEMPERATURE", "NUMBER_OF_ATOMS", "DATEOFRUNNING"]
+        [
+            "source",
+            "source_ID",
+            "DOI",
+            "crawling_date",
+            "PUBLICATION",
+            "AUTHORS_CONTACT",
+            "TYPEOFSYSTEM",
+            "SOFTWARE",
+            "SOFTWARE_VERSION",
+            "FF",
+            "FF_SOURCE",
+            "TEMPERATURE",
+            "NUMBER_OF_ATOMS",
+            "DATEOFRUNNING",
+        ]
     ].copy()
 
     # Fill missing fields with "None"
@@ -185,7 +209,7 @@ def main():
         "--sim-folder",
         type=Path,
         required=True,
-        help="Path to BilayerData/Simulations directory"
+        help="Path to BilayerData/Simulations directory",
     )
     args = parser.parse_args()
 
