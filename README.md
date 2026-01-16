@@ -112,6 +112,8 @@ Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datas
 
 ## Scrape NOMAD
 
+Have a look to the notes regarding [NOMAD](docs/nomad.md) and its API.
+
 Scrape NOMAD:
 
 ```bash
