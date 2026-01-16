@@ -459,7 +459,7 @@ def extract_files_metadata(
 
 def main() -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
-    output_path = get_cli_output_dir()
+    output_path = get_cli_output_dir(standalone_mode=False)
     # Create directories and logger.
     output_path = output_path / DatasetProjectName.NOMAD.value
     output_path.mkdir(parents=True, exist_ok=True)

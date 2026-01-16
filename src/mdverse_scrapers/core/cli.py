@@ -24,8 +24,8 @@ def get_cli_output_dir(output_dir: Path):
     output_dir : Path
         The output directory.
     """
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True, exist_ok=True)
+    # Create output directory if it does not exist.
+    output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
 
@@ -54,16 +54,7 @@ def get_cli_output_dir_query_file(output_dir: Path, query_file: Path):
         The output directory path.
     query_file : Path
         The query parameters file path.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the query parameters file does not exist.
     """
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True, exist_ok=True)
-    if not query_file.exists():
-        message = f"Query parameters file not found: {query_file}"
-        raise FileNotFoundError(message)
-        sys.exit(1)
+    # Create output directory if it does not exist.
+    output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir, query_file
