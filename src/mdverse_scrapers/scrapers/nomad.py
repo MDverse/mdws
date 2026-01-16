@@ -117,7 +117,7 @@ def scrape_all_datasets(
         logger.critical("Failed to fetch data from NOMAD API.")
         sys.exit(1)
     try:
-        # Get the formated response with request metadatas in JSON format
+        # Get the formatted response with request metadatas in JSON format
         response_json = response.json()
         # Get the total datasets from the request md
         total_datasets = response_json["pagination"]["total"]
@@ -494,7 +494,8 @@ def main() -> None:
     )
     # Parse and validate NOMAD dataset metadata with a pydantic model (DatasetMetadata)
     datasets_normalized_metadata = normalize_datasets_metadata(
-        datasets_selected_metadata
+        datasets_selected_metadata,
+        logger=logger,
     )
     # Save datasets metadata to parquet file.
     export_list_of_models_to_parquet(

@@ -94,8 +94,7 @@ class FileMetadata(BaseModel):
         """
         if isinstance(v, datetime):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
-        else:
-            return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
+        return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
 
     @computed_field
     @property

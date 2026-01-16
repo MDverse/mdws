@@ -1,4 +1,5 @@
 """Common functions and network utilities."""
+from Bio.Sequencing.Ace import wa
 
 import time
 from enum import StrEnum
@@ -98,10 +99,13 @@ def make_http_request_with_retries(
     logger.info(url)
     for attempt in range(1, max_attempts + 1):
         try:
-            # Fist attempt, wait delay_before_request seconds,
+            # First attempt, wait delay_before_request seconds,
             # Second attempt, wait delay_before_request + 10 seconds,
             # Third attempt, wait delay_before_request + 20 seconds, etc.
-            time.sleep(delay_before_request + (attempt - 1) * 10)
+            wait_time = delay_before_request + (attempt - 1) * 10
+            if attempt > 1:
+                logger.info(f"Waiting {wait_time} seconds before retrying...")
+            time.sleep(wait_time)
             response = client.request(
                 method,
                 url,

@@ -1,4 +1,4 @@
-"""Usefull enumerations for MDverse scrapers."""
+"""Useful enumerations for MDverse scrapers."""
 
 from enum import StrEnum
 

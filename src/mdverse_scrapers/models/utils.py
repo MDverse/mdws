@@ -19,9 +19,9 @@ def validate_metadata_against_model(
     Parameters
     ----------
     metadata: dict[str, Any]
-        The metadatas to validate.
+        Metadata to validate.
     model: type[FileMetadata | DatasetMetadata]
-        The Pydantic model used for the validation.
+        Pydantic model used for the validation.
 
     Returns
     -------
