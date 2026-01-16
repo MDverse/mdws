@@ -32,6 +32,7 @@ dev = [
     "jupyterlab>=4.4.9",
     "matplotlib>=3.10.1",
     "plotly>=6.0.0",
+    "prek>=0.2.29",
     "pysankeybeta>=1.4.2",
     "pytest>=9.0.2",
     "ruff>=0.11.0",
