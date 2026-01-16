@@ -3,6 +3,7 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
+
 import json
 import sys
 import time
@@ -10,10 +11,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import click
 import httpx
 import loguru
 
+from ..core.cli import get_cli_output_dir
 from ..core.logger import create_logger
 from ..core.network import (
     HttpMethod,
@@ -179,7 +180,7 @@ def scrape_files_for_all_datasets(
     client: httpx.Client,
     datasets: list[DatasetMetadata],
     logger: "loguru.Logger" = loguru.logger,
-    ) -> list[FileMetadata]:
+) -> list[FileMetadata]:
     """Scrape files metadata for all datasets in NOMAD.
 
     Parameters
@@ -456,21 +457,9 @@ def extract_files_metadata(
     return files_metadata
 
 
-@click.command()
-@click.option(
-    "--output-path",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
-    required=True,
-    help="Directory path to save results",
-)
-def main(output_path: Path) -> None:
-    """Scrap molecular dynamics datasets and files from NOMAD.
-
-    Parameters
-    ----------
-    output_path : Path
-        The output directory path for the scraped data.
-    """
+def main() -> None:
+    """Scrape molecular dynamics datasets and files from NOMAD."""
+    output_path = get_cli_output_dir()
     # Create directories and logger.
     output_path = output_path / DatasetProjectName.NOMAD.value
     output_path.mkdir(parents=True, exist_ok=True)
@@ -515,7 +504,9 @@ def main(output_path: Path) -> None:
         logger=logger,
     )
     # Scrape NOMAD files metadata.
-    files_normalized_metadata = scrape_files_for_all_datasets(client, datasets_normalized_metadata, logger)
+    files_normalized_metadata = scrape_files_for_all_datasets(
+        client, datasets_normalized_metadata, logger
+    )
 
     # Save files metadata to parquet file.
     export_list_of_models_to_parquet(
