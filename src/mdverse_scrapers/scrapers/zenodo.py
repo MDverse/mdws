@@ -2,10 +2,10 @@
 
 import json
 import os
-from pathlib import Path
 import sys
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import click
 import loguru
@@ -379,9 +379,7 @@ def extract_records(
                 "title": clean_text(hit["metadata"]["title"]),
                 "author": clean_text(hit["metadata"]["creators"][0]["name"]),
                 "keywords": "none",
-                "description": clean_text(
-                    hit["metadata"].get("description", "")
-                ),
+                "description": clean_text(hit["metadata"].get("description", "")),
             }
             if "keywords" in hit["metadata"]:
                 dataset_dict["keywords"] = ";".join(
@@ -624,12 +622,12 @@ def main(output_dir_path: Path, query_file_path: Path):
     # Keep track of script duration.
     start_time = time.perf_counter()
     # Create context manager.
-    output_path = Path(output_dir_path) / repository_name
+    output_path = output_dir_path / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = ContextManager(
         logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
         output_path=output_path,
-        query_file_name=Path(query_file_path),
+        query_file_name=query_file_path,
     )
     # Log script name and doctring.
     context.logger.info(__file__)

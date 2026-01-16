@@ -2,11 +2,12 @@
 
 import json
 import os
-import pathlib
 import sys
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
+import click
 import loguru
 import pandas as pd
 from dotenv import load_dotenv
@@ -21,7 +22,6 @@ from ..core.toolbox import (
     extract_date,
     extract_file_extension,
     find_remove_false_positive_datasets,
-    get_scraper_cli_arguments,
     make_http_get_request_with_retries,
     read_query_file,
     remove_excluded_files,
@@ -435,21 +435,37 @@ def get_metadata_for_datasets(
     return datasets_df, files_df
 
 
-def main() -> None:
+@click.command(
+    help="Command line interface for MDverse scrapers",
+    epilog="Happy scraping!",
+)
+@click.option(
+    "--output-dir",
+    "output_dir_path",
+    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    required=True,
+    help="Output directory path to save results.",
+)
+@click.option(
+    "--query-file",
+    "query_file_path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Query parameters file (YAML format).",
+)
+def main(output_dir_path: Path, query_file_path: Path) -> None:
     """Scrape Figshare datasets and files."""
     # Define data repository name.
     repository_name = "figshare"
     # Keep track of script duration.
     start_time = time.perf_counter()
-    # Parse input CLI arguments.
-    args = get_scraper_cli_arguments()
     # Create context manager.
-    output_path = pathlib.Path(args.output) / repository_name
+    output_path = output_dir_path / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = ContextManager(
         logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
         output_path=output_path,
-        query_file_name=pathlib.Path(args.query),
+        query_file_name=query_file_path,
     )
     # Log script name and doctring.
     context.logger.info(__file__)
@@ -483,7 +499,9 @@ def main() -> None:
 
     # Remove unwanted files based on exclusion lists.
     context.logger.info("Removing unwanted files...")
-    _, _, exclude_files, exclude_paths = read_query_file(args.query, context.logger)
+    _, _, exclude_files, exclude_paths = read_query_file(
+        query_file_path, context.logger
+    )
     files_df = remove_excluded_files(files_df, exclude_files, exclude_paths)
     context.logger.info("-" * 30)
 
