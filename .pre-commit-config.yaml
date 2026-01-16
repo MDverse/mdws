@@ -29,3 +29,9 @@ repos:
     # Run the formatter.
     - id: ruff-format
       types_or: [ python, pyi ]
+
+- repo: https://github.com/PyCQA/bandit
+  rev: '1.9.2'
+  hooks:
+  - id: bandit
+
