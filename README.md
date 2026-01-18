@@ -57,17 +57,17 @@ Eventually, the scraper will produce two files: `zenodo_datasets.parquet` and `z
 
 Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
-## Scrape FigShare
+## Scrape Figshare
 
 Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API works.
 
-Scrape FigShare for MD-related datasets and files:
+Scrape Figshare for MD-related datasets and files:
 
 ```bash
 uv run scrape-figshare --query-file params/query.yml --output-dir data
 ```
 
-Scrape FigShare with a small query, for development or demo purpose:
+Scrape Figshare with a small query, for development or demo purpose:
 
 ```bash
 uv run scrape-figshare --query-file params/query_dev.yml --output-dir tmp
