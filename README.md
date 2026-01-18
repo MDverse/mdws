@@ -2,7 +2,7 @@
 
 Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
 
-see [CONTRIBUTING](CONTRIBUTING.md) if you want to contribute to this repo.
+See [CONTRIBUTING](CONTRIBUTING.md) if you want to contribute to this project.
 
 ## Setup your environment
 
