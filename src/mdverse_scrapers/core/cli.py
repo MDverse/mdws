@@ -40,7 +40,7 @@ def get_cli_output_dir(output_dir_path: Path):
     required=True,
     help="Query parameters file (YAML format).",
 )
-def get_cli_output_dir_query_file(output_dir_path: Path, query_file: Path):
+def get_cli_output_dir_query_file(output_dir_path: Path, query_file_path: Path):
     """Parse scraper scripts command line.
 
     Returns
