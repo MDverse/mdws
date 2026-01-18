@@ -6,13 +6,13 @@
 
 2. [Fork](https://github.com/mdverse/mdws/fork) this repository.
 
-3. Clone your fork of thr project on your machine:
+3. Clone your fork on your machine:
 
     ```sh
     git clone https://github.com/<your-github-username>/mdws.git
     ```
 
-4. Get into the new directory:
+4. Get into the newly created directory:
 
     ```sh
     cd mdws
@@ -33,7 +33,7 @@
 7. Create a new branch:
 
     ```sh
-    git sw -c <your-branch-name>
+    git switch -c <your-branch-name>
     ```
 
 8. Make changes and commit:
@@ -48,11 +48,12 @@
 
     Click compare across forks if you don't see your branch.
 
-## Conventional commits
+## Use Conventional commits
 
 For commit messages, please use Conventional Commits.
 
 See:
+
 - [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/): reference guide
 - Cheatsheet of [Sample Conventional Commit Verbs](https://gkarthiks.github.io/quick-commands-cheat-sheet/conventional-commit-verbs)
 - [Conventional Commit](https://blog.stephane-robert.info/docs/developper/conventional-commits/) (FR)
@@ -67,4 +68,3 @@ Examples of valid commit messages:
 - `refactor: Move CLI argument management into separate module`
 - `test: Add unit tests for the new scraper`
 - `chore: Update dependencies to latest versions`
-
