@@ -49,3 +49,5 @@ build-backend = "uv_build"
 scrape-zenodo = "mdverse_scrapers.scrapers.zenodo:main"
 scrape-figshare = "mdverse_scrapers.scrapers.figshare:main"
 scrape-nomad = "mdverse_scrapers.scrapers.nomad:main"
+scrape-mdposit = "mdverse_scrapers.scrapers.mdposit:main"
+
