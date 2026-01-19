@@ -50,14 +50,14 @@ class DatasetMetadata(BaseModel):
         ...,
         description=(
             "Name of the source repository. "
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
+            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD, MDPOSIT."
         ),
     )
     dataset_project_name: DatasetProjectName | None = Field(
         None,
         description=(
             "Name of the project."
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
+            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD, MDDB."
         ),
     )
     dataset_id_in_repository: str = Field(
@@ -190,12 +190,12 @@ class DatasetMetadata(BaseModel):
     @field_validator(
         "date_created", "date_last_updated", "date_last_fetched", mode="before"
     )
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
+    def format_dates(cls, v: datetime | str | None) -> str | None:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
         ----------
-        cls : type[BaseDataset]
+        cls : type[DatasetMetadata]
             The Pydantic model class being validated.
         v : str
             The input value of the 'date' field to validate.
@@ -205,6 +205,8 @@ class DatasetMetadata(BaseModel):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
+        if v is None:
+            return None
         if isinstance(v, datetime):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
         return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")

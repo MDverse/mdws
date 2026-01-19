@@ -19,6 +19,7 @@ class DatasetRepositoryName(StrEnum):
     NOMAD = "nomad"
     ATLAS = "atlas"
     GPCRMD = "gpcrmd"
+    MDPOSIT = "mdposit"
 
 
 class DatasetProjectName(StrEnum):
@@ -31,3 +32,4 @@ class DatasetProjectName(StrEnum):
     ATLAS = "atlas"
     GPCRMD = "gpcrmd"
     NMRLIPIDS = "nmrlipids"
+    MDDB = "mddb"
