@@ -132,7 +132,7 @@ The scraping takes about 2 h.
 Scrape GPCRmd to collect molecular dynamics (MD) datasets and files related to G-protein-coupled receptors (GPCRs), a major family of membrane proteins and common drug targets.
 
 ```bash
-uv run -m scripts.scrape_gpcrmd
+uv run scrape-gpcrmd --output-dir data
 ```
 
 This command will:
