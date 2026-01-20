@@ -52,10 +52,12 @@ Datasets:
 - [a-Synuclein short MD simulations:homo-A53T](https://figshare.com/articles/dataset/a-Synuclein_short_MD_simulations_homo-A53T/7007552)
 - [Molecular Dynamics Protocol with Gromacs 4.0.7](https://figshare.com/articles/dataset/Molecular_Dynamics_Protocol_with_Gromacs_4_0_7/104603)
 
-### zip files
+### Zip files
 
-Zip files content is available, like for Zenodo, but individual file sizes are not available.
+Zip files content is available with a preview (similar to Zenodo). The only metadata available is the file name (no file size, no md5sum).
 
-Example:
-- For this dataset: [Molecular Dynamics Simulations](https://figshare.com/articles/dataset/Molecular_Dynamics_Simulations/30307108?file=58572346)
-- Content of the file: [Molecular Dynamics Simulations.zip](https://figshare.com/ndownloader/files/58572346/preview/58572346/structure.json)
+Example. For the dataset "[Molecular Dynamics Simulations](https://figshare.com/articles/dataset/Molecular_Dynamics_Simulations/30307108?file=58572346)" :
+
+- The content of the file "Molecular Dynamics Simulations.zip" is available at <https://figshare.com/ndownloader/files/58572346/preview/58572346/structure.json>
+
+We need to emulate a web browser to get access to the URLs describing the content of zip files.
