@@ -30,22 +30,17 @@ DOI = Annotated[
 
 
 # =====================================================================
-# Base dataset class
+# Core provenance metadata
 # =====================================================================
-class DatasetMetadata(BaseModel):
+class DatasetCoreMetadata(BaseModel):
     """
-    Base Pydantic model for scraped molecular dynamics datasets.
+    Core provenance metadata shared by dataset-level and file-level models.
 
-    This class defines the common metadata schema shared by all supported
-    repositories (e.g. Zenodo, Figshare, OSF, NOMAD, ATLAS, GPCRmd).
-
-    Source-specific dataset models must inherit from this class and may
-    extend it with additional fields or stricter validation rules.
+    This model defines the minimal set of identifiers and URLs required
+    to uniquely reference a dataset within its source repository and,
+    optionally, within a higher-level project.
     """
 
-    # ------------------------------------------------------------------
-    # Core provenance
-    # ------------------------------------------------------------------
     dataset_repository_name: DatasetRepositoryName = Field(
         ...,
         description=(
@@ -70,14 +65,22 @@ class DatasetMetadata(BaseModel):
         None,
         description="Unique identifier of the dataset in the project.",
     )
-    dataset_url_in_repository: str = Field(
-        ...,
-        description="Canonical URL to access the dataset in the repository.",
-    )
-    dataset_url_in_project: str = Field(
-        ...,
-        description="Canonical URL to access the dataset in the project.",
-    )
+
+
+# =====================================================================
+# Dataset-level metadata
+# =====================================================================
+class DatasetMetadata(DatasetCoreMetadata):
+    """
+    Base Pydantic model for scraped molecular dynamics datasets.
+
+    This model extends DatasetCoreMetadata with dataset-specific metadata
+    such as descriptive information, temporal fields, statistics, and
+    simulation-related parameters.
+
+    Repository-specific dataset models must inherit from this class and
+    may extend it with additional fields or stricter validation rules.
+    """
 
     # ------------------------------------------------------------------
     # Statistics metadata
@@ -139,6 +142,14 @@ class DatasetMetadata(BaseModel):
     external_links: list[str] | None = Field(
         None,
         description="External links to papers or other databases.",
+    )
+    dataset_url_in_repository: str = Field(
+        ...,
+        description="Canonical URL to access the dataset in the repository.",
+    )
+    dataset_url_in_project: str = Field(
+        ...,
+        description="Canonical URL to access the dataset in the project.",
     )
 
     # ------------------------------------------------------------------

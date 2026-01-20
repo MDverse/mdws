@@ -18,47 +18,30 @@ consistent, and ready for storage, indexing, or further analysis.
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field, computed_field, field_validator
+from pydantic import Field, computed_field, field_validator
 
-from .enums import DatasetRepositoryName
+from .dataset import DatasetCoreMetadata
 
 
 # =====================================================================
-# Base file class
+# File-level metadata
 # =====================================================================
-class FileMetadata(BaseModel):
+class FileMetadata(DatasetCoreMetadata):
     """
-    Base Pydantic model for scraped molecular dynamics files.
+    Pydantic model describing a single file belonging to a dataset.
 
-    This class defines the common metadata schema shared by all supported
-    repositories (e.g. Zenodo, Figshare, OSF, NOMAD, ATLAS, GPCRmd).
-
-    Source-specific file models must inherit from this class and may
-    extend it with additional fields or stricter validation rules.
+    This model inherits core provenance information from DatasetCoreMetadata
+    and defines file-specific metadata such as file identity, format, size,
+    and semantic role within the dataset.
     """
-
-    # ------------------------------------------------------------------
-    # Core provenance
-    # ------------------------------------------------------------------
-    dataset_repository_name: DatasetRepositoryName = Field(
-        ...,
-        description=(
-            "Name of the source repository. "
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
-        ),
-    )
-    dataset_id_in_repository: str = Field(
-        ...,
-        description="Unique identifier of the dataset in the source repository.",
-    )
-    file_url_in_repository: str = Field(
-        ...,
-        description="Direct URL to access the file.",
-    )
 
     # ------------------------------------------------------------------
     # Descriptive metadata
     # ------------------------------------------------------------------
+    file_url_in_repository: str = Field(
+        ...,
+        description="Canonical URL to access the file in the repository.",
+    )
     file_name: str = Field(..., description="Name of the file in the dataset.")
     file_type: str = Field(
         ..., description="File extension (automatically deduced from name)."
