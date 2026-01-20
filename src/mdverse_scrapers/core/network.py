@@ -266,7 +266,11 @@ def send_http_request_with_retries_pycurl(
     return results
 
 
-def get_html_page_with_selenium(url: str, tag: str = "body", logger: "loguru.Logger" = loguru.logger) -> str | None:
+def get_html_page_with_selenium(
+    url: str,
+    tag: str = "body",
+    logger: "loguru.Logger" = loguru.logger
+    ) -> str | None:
     """Get HTML page content using Selenium.
 
     Parameters

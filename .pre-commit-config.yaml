@@ -24,12 +24,11 @@ repos:
   hooks:
     # Run the linter.
     - id: ruff-check
-      types_or: [ python, pyi ]
+      types: [python]
       args: [ --fix ]
     # Run the formatter.
     - id: ruff-format
-      types_or: [ python, pyi ]
-
+      types: [python]
 - repo: https://github.com/PyCQA/bandit
   rev: '1.9.2'
   hooks:
