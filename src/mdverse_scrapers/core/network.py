@@ -5,16 +5,16 @@ import time
 from enum import StrEnum
 from io import BytesIO
 
+import certifi
 import httpx
 import loguru
-import certifi
 import pycurl
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import WebDriverException
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.ui import WebDriverWait
 
 
 class HttpMethod(StrEnum):
@@ -182,7 +182,7 @@ def send_http_request_with_retries_pycurl(
     data: dict | None = None,
     delay_before_request: float = 1.0,
     logger: "loguru.Logger" = loguru.logger,
-    ) -> dict:
+) -> dict:
     """Query the Figshare API and return the JSON response.
 
     Parameters
@@ -226,10 +226,10 @@ def send_http_request_with_retries_pycurl(
     # Handle SSL certificates.
     curl.setopt(curl.CAINFO, certifi.where())
     # Follow redirect.
-    curl.setopt(curl.FOLLOWLOCATION, True)
+    curl.setopt(curl.FOLLOWLOCATION, True)  # noqa: FBT003
     # If data is provided, set the request to POST and add the data.
     if data is not None:
-        curl.setopt(curl.POST, True)
+        curl.setopt(curl.POST, True)  # noqa: FBT003
         data_json = json.dumps(data)
         curl.setopt(curl.POSTFIELDS, data_json)
     # Capture the response body in a buffer.
@@ -267,10 +267,8 @@ def send_http_request_with_retries_pycurl(
 
 
 def get_html_page_with_selenium(
-    url: str,
-    tag: str = "body",
-    logger: "loguru.Logger" = loguru.logger
-    ) -> str | None:
+    url: str, tag: str = "body", logger: "loguru.Logger" = loguru.logger
+) -> str | None:
     """Get HTML page content using Selenium.
 
     Parameters
@@ -294,7 +292,11 @@ def get_html_page_with_selenium(
     try:
         driver = webdriver.Chrome(options=options)
         driver.get(url)
-        page_content = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.CSS_SELECTOR, tag))).text
+        page_content = (
+            WebDriverWait(driver, 10)
+            .until(ec.visibility_of_element_located((By.CSS_SELECTOR, tag)))
+            .text
+        )
         driver.quit()
     except WebDriverException as e:
         logger.error("Cannot retrieve page:")

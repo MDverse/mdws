@@ -1,6 +1,6 @@
 # Install pre-commit hooks with:
 # prek install
-exclude: "scripts/*|tmp/*|.*.mdp|"
+exclude: "scripts/*|tmp/*"
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v6.0.0
@@ -33,4 +33,3 @@ repos:
   rev: '1.9.2'
   hooks:
   - id: bandit
-
