@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "scipy>=1.15.2",
+    "selenium>=4.40.0",
 ]
 
 [dependency-groups]
