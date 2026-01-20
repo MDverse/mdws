@@ -1,12 +1,7 @@
-"""Scrape molecular dynamics simulation datasets and files from GPCRmd.
+"""Scrape molecular dynamics simulation datasets and files from GPCRmd."""
 
-This script scrapes molecular dynamics datasets from the GPCRmd repository
-(https://www.gpcrmd.org/), a platform dedicated to simulations of
-G-protein-coupled receptors (GPCRs), a major family of membrane proteins and
-frequent drug targets.
-"""
+
 import json
-import os
 import sys
 import time
 from datetime import datetime, timedelta
@@ -30,7 +25,7 @@ from ..models.enums import DatasetProjectName, DatasetRepositoryName, DataType
 from ..models.file import FileMetadata
 from ..models.utils import validate_metadata_against_model
 
-BASE_GPCRMD_URL = "https://www.gpcrmd.org/api/search_all/info/"
+BASE_GPCRMD_URL = "https://www.gpcrmd.org/api/search_all/"
 
 
 def is_gpcrmd_connection_working(
@@ -100,152 +95,42 @@ def scrape_all_datasets(
     return all_datasets
 
 
-def scrape_files_for_all_datasets(
+def fetch_all_datasets_page(
     client: httpx.Client,
-    datasets: list[DatasetMetadata],
-    logger: "loguru.Logger" = loguru.logger,
-) -> list[FileMetadata]:
-    """Scrape files metadata for all datasets in GPCRmd.
-
-    Parameters
-    ----------
-    client : httpx.Client
-        The HTTPX client to use for making requests.
-    datasets : list[DatasetMetadata]
-        List of datasets to scrape files metadata for.
-    logger: "loguru.Logger"
-        Logger for logging messages.
-
-    Returns
-    -------
-    list[FileMetadata]
-        List of successfully validated `FileMetadata` objects.
-    """
-    all_files_metadata = []
-    for dataset_count, dataset in enumerate(datasets, start=1):
-        dataset_id = dataset.dataset_id_in_repository
-        files_metadata = scrape_files_for_one_dataset(
-            client,
-            url=dataset.dataset_url_in_repository,
-            dataset_id=dataset_id,
-            logger=logger,
-        )
-        if not files_metadata:
-            continue
-        # Normalize files metadata with pydantic model (FileMetadata)
-        logger.info(f"Validating files metadata for dataset: {dataset_id}")
-        for file_metadata in files_metadata:
-            normalized_metadata = validate_metadata_against_model(
-                file_metadata,
-                FileMetadata,
-                logger=logger,
-            )
-            if not normalized_metadata:
-                logger.error(
-                    f"Normalization failed for metadata of file "
-                    f"{file_metadata.get('file_name')} "
-                    f"in dataset {dataset_id}"
-                )
-                continue
-            all_files_metadata.append(normalized_metadata)
-        logger.info("Done.")
-        logger.info(f"Total files: {len(all_files_metadata):,}")
-        logger.info(
-            "Extracted and validated files metadata for "
-            f"{dataset_count:,}/{len(datasets):,} "
-            f"({dataset_count / len(datasets):.0%}) datasets."
-        )
-    return all_files_metadata
-
-
-def scrape_files_for_one_dataset(
-    client: httpx.Client,
-    url: str,
-    dataset_id: str,
-    logger: "loguru.Logger" = loguru.logger,
-) -> list[dict] | None:
-    """
-    Scrape files metadata for a given GPCRmd dataset.
-
-    Parameters
-    ----------
-    client : httpx.Client
-        The HTTPX client to use for making requests.
-    url : str
-        The URL endpoint.
-    dataset_id : str
-        The unique identifier of the dataset in GPCRmd.
-    logger: "loguru.Logger"
-        Logger for logging messages.
-
-    Returns
-    -------
-    dict | None
-        File metadata dictionary for the dataset.
-    """
-    logger.info(f"Scraping files for dataset ID: {dataset_id}")
-    files_metadata: list[dict] = []
-    dataset_metadatas = {
-        "dataset_repository_name": DatasetRepositoryName.GPCRMD,
-        "dataset_id_in_repository": dataset_id,
-        "dataset_url_in_repository": url,
-    }
-
-    # Extract metadata from dataset url page if available.
-    # Fetch dataset page with url
-    html_content = fetch_dataset_page(url, dataset_id, client, logger)
-    if not html_content:
-        logger.error("Failed to fetch files metadata.")
-        return None
-
-    for file_name, file_type, file_size, file_url in extract_files_metadata_from_html(
-        client, html_content, logger
-    ):
-        file_metadata = {
-            **dataset_metadatas,
-            "file_name": file_name,
-            "file_type": file_type,
-            "file_size_in_bytes": file_size,
-            "file_url_in_repository": file_url,
-            "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-        }
-        files_metadata.append(file_metadata)
-
-    return files_metadata
-
-
-def fetch_dataset_page(url: str | None,
-    dataset_id: str | None,
-    client: httpx.Client,
+    datasets: list[dict],
     logger: "loguru.Logger" = loguru.logger
-) -> str | None:
+) -> list[str | None]:
     """Fetch an dataset page and return its HTML content.
 
     Parameters
     ----------
-    url : str
-        The URL of the dataset page to fetch.
     client : httpx.Client
         The HTTPX client to use for making requests.
+    datasets : List[Dict[str, Any]]
+        List of raw GPCRmd datasets metadata.
 
     Returns
     -------
     str | None
         The HTML content of the page if the request is successful, otherwise None.
     """
-    html_content = None
-    if url:
-        html_header = make_http_request_with_retries(
-            client,
-            url,
-            method=HttpMethod.GET,
-            timeout=60,
-            delay_before_request=0.2,
-        )
-        if html_header:
-            html_content = html_header.text
+    datasets_html_page = []
+    for dataset in datasets:
+        url = dataset.get("url")
+        html_content = None
+        if url:
+            html_header = make_http_request_with_retries(
+                client,
+                url,
+                method=HttpMethod.GET,
+                timeout=60,
+                delay_before_request=0.2,
+            )
+            if html_header:
+                html_content = html_header.text
+        datasets_html_page.append(html_content)
 
-    return html_content
+    return datasets_html_page
 
 
 def retrieve_metadata(html: str, field_name: str) -> str | None:
@@ -371,8 +256,9 @@ def count_simulation_files(html: str) -> int | None:
 
 
 def extract_datasets_metadata(
-    datasets: list[dict[str, Any]],
     client: httpx.Client,
+    datasets: list[dict[str, Any]],
+    datasets_html_page: list[str | None],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
     """
@@ -380,8 +266,10 @@ def extract_datasets_metadata(
 
     Parameters
     ----------
-    datasets : List[Dict[str, Any]]
+    datasets : list[dict[str, Any]]
         List of raw GPCRmd datasets metadata.
+    datasets_html_page: list[str | None]
+        List of html content of the dataset web page.
     client : httpx.Client
         The HTTPX client to use for making requests.
 
@@ -391,7 +279,7 @@ def extract_datasets_metadata(
         List of dataset metadata dictionaries.
     """
     datasets_metadata = []
-    for dataset in datasets:
+    for dataset, html_content in zip(datasets, datasets_html_page, strict=True):
         dataset_id = str(dataset.get("dyn_id"))
         logger.info(f"Extracting relevant metadata for dataset: {dataset_id}")
         dataset_url = dataset.get("url")
@@ -413,8 +301,6 @@ def extract_datasets_metadata(
             "nb_atoms": dataset.get("atom_num")
         }
         # Extract other metadata from dataset url page if available.
-        # Fetch dataset page with url
-        html_content = fetch_dataset_page(dataset_url, dataset_id, client, logger)
         if html_content is None:
             logger.warning(
                 "Error parsing additionnal metadatas from web page for dataset"
@@ -543,47 +429,158 @@ def extract_files_metadata_from_html(
     files_metadata = []
     soup = BeautifulSoup(html_content, "html.parser")
 
-    # Loop over the two possible sections: dataset files and parameter files
-    for sec_id in ("allfiles", "paramfiles"):
-        container = soup.find("div", id=sec_id)
-        # Warn if mandatory section is missing ()
-        if not isinstance(container, Tag):
-            if sec_id == "allfiles":
-                logger.warning(
-                    f"Mandatory section `{sec_id}` is missing or invalid."
-                    "Files cannot be retrieved, skipping this step.")
+    # Find all <a> tags with href containing the files path
+    for link in soup.find_all("a", href=True):
+        href_value = link.get("href", "").strip()
+        if not href_value or "/dynadb/files/Dynamics/" not in href_value:
             continue
 
-        for link in container.find_all("a", href=True):
-            # Encountered a non-Tag element in links
-            if not isinstance(link, Tag):
-                continue
-            href_value = str(link.get("href", "")).strip()
-            # Found link without 'href'
-            if not href_value:
-                continue
+        file_url = f"https://www.gpcrmd.org/{href_value}"
+        # Example of file urls:
+        # From dataset ID:  2316 (https://www.gpcrmd.org/dynadb/dynamics/id/2316/)
+        # 1. https://www.gpcrmd.org/dynadb/files/Dynamics/dyn2667/tmp_dyn_0_2667.pdb
+        # 2. https://www.gpcrmd.org/dynadb/files/Dynamics/dyn2667/25400_trj_2316.dcd
 
-            file_url = f"https://www.gpcrmd.org/{href_value}"
-            file_name = os.path.basename(file_url)
-            file_type = os.path.splitext(file_name)[1].lstrip(".").lower()
+        file_name = Path(file_url).name
+        file_type = Path(file_name).suffix.lstrip(".").lower()
 
-            # Fetch the file size using a HEAD request
-            response = make_http_request_with_retries(
-                client,
-                file_url,
-                method=HttpMethod.HEAD,
-                timeout=60,
-                delay_before_request=0.2,
-            )
-            if response and response.headers:
-                file_size = int(response.headers.get("Content-Length", 0))
-            else:
-                file_size = 0
-                logger.warning(f"Could not retrieve file size for '{file_name}'")
+        # Fetch the file size using a HEAD request
+        response = make_http_request_with_retries(
+            client,
+            file_url,
+            method=HttpMethod.HEAD,
+            timeout=60,
+            delay_before_request=0.2,
+        )
+        if response and response.headers:
+            file_size = int(response.headers.get("Content-Length", 0))
+        else:
+            file_size = None
+            logger.warning(f"Could not retrieve file size for '{file_name}'")
 
-            files_metadata.append((file_name, file_type, file_size, file_url))
+        files_metadata.append((file_name, file_type, file_size, file_url))
 
     return files_metadata
+
+
+def scrape_files_for_one_dataset(
+    client: httpx.Client,
+    url: str,
+    html_content: str | None,
+    dataset_id: str,
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[dict] | None:
+    """
+    Scrape files metadata for a given GPCRmd dataset.
+
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    url : str
+        The URL endpoint.
+    html_content: str | None
+        Html content of the dataset web page.
+    dataset_id : str
+        The unique identifier of the dataset in GPCRmd.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    dict | None
+        File metadata dictionary for the dataset.
+    """
+    logger.info(f"Scraping files for dataset ID: {dataset_id}")
+    files_metadata: list[dict] = []
+    datasets_metadata = {
+        "dataset_repository_name": DatasetRepositoryName.GPCRMD,
+        "dataset_id_in_repository": dataset_id,
+        "dataset_url_in_repository": url,
+    }
+
+    # Extract metadata from dataset url page if available.
+    if not html_content:
+        logger.error("Failed to fetch files metadata.")
+        return None
+
+    for file_name, file_type, file_size, file_url in extract_files_metadata_from_html(
+        client, html_content, logger
+    ):
+        file_metadata = {
+            **datasets_metadata,
+            "file_name": file_name,
+            "file_type": file_type,
+            "file_size_in_bytes": file_size,
+            "file_url_in_repository": file_url,
+            "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        }
+        files_metadata.append(file_metadata)
+
+    return files_metadata
+
+
+def scrape_files_for_all_datasets(
+    client: httpx.Client,
+    datasets: list[DatasetMetadata],
+    datasets_html_page: list[str | None],
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[FileMetadata]:
+    """Scrape files metadata for all datasets in GPCRmd.
+
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    datasets : list[DatasetMetadata]
+        List of datasets to scrape files metadata for.
+    datasets_html_page: list[str | None]
+        List of html content of the dataset web page.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    list[FileMetadata]
+        List of successfully validated `FileMetadata` objects.
+    """
+    all_files_metadata = []
+    for dataset_count, dataset in enumerate(datasets, start=1):
+        dataset_id = dataset.dataset_id_in_repository
+        dataset_html_page = datasets_html_page[dataset_count - 1]
+        files_metadata = scrape_files_for_one_dataset(
+            client,
+            url=dataset.dataset_url_in_repository,
+            html_content=dataset_html_page,
+            dataset_id=dataset_id,
+            logger=logger,
+        )
+        if not files_metadata:
+            continue
+        # Normalize files metadata with pydantic model (FileMetadata)
+        logger.info(f"Validating files metadata for dataset: {dataset_id}")
+        for file_metadata in files_metadata:
+            normalized_metadata = validate_metadata_against_model(
+                file_metadata,
+                FileMetadata,
+                logger=logger,
+            )
+            if not normalized_metadata:
+                logger.error(
+                    f"Normalization failed for metadata of file "
+                    f"{file_metadata.get('file_name')} "
+                    f"in dataset {dataset_id}"
+                )
+                continue
+            all_files_metadata.append(normalized_metadata)
+        logger.info("Done.")
+        logger.info(f"Total files: {len(all_files_metadata):,}")
+        logger.info(
+            "Extracted and validated files metadata for "
+            f"{dataset_count:,}/{len(datasets):,} "
+            f"({dataset_count / len(datasets):.0%}) datasets."
+        )
+    return all_files_metadata
 
 
 @click.command(
@@ -600,7 +597,8 @@ def extract_files_metadata_from_html(
 def main(output_dir_path: Path) -> None:
     """Scrape molecular dynamics datasets and files from GPCRmd."""
     # Create directories and logger.
-    output_dir_path = output_dir_path / DatasetProjectName.GPCRMD.value
+    output_dir_path = (output_dir_path / DatasetProjectName.GPCRMD.value
+                       / datetime.now().strftime("%Y-%m-%d"))
     output_dir_path.mkdir(parents=True, exist_ok=True)
     logfile_path = output_dir_path / f"{DatasetProjectName.GPCRMD.value}_scraper.log"
     logger = create_logger(logpath=logfile_path, level="INFO")
@@ -609,7 +607,7 @@ def main(output_dir_path: Path) -> None:
     # Create HTTPX client
     client = create_httpx_client()
     # Check connection to GPCRmd API
-    if is_gpcrmd_connection_working(client, f"{BASE_GPCRMD_URL}"):
+    if is_gpcrmd_connection_working(client, f"{BASE_GPCRMD_URL}pdbs/"):
         logger.success("Connection to GPCRmd API successful!")
     else:
         logger.critical("Connection to GPCRmd API failed.")
@@ -619,18 +617,23 @@ def main(output_dir_path: Path) -> None:
     # Scrape GPCRmd datasets metadata.
     datasets_raw_metadata = scrape_all_datasets(
         client,
-        query_entry_point=BASE_GPCRMD_URL,
+        query_entry_point=f"{BASE_GPCRMD_URL}info/",
         logger=logger,
     )
     if not datasets_raw_metadata:
         logger.critical("No datasets found in GPCRmd.")
         logger.critical("Aborting.")
         sys.exit(1)
+    datasets_raw_metadata = datasets_raw_metadata[:4]
+
+    # Fetch the dataset page for all datasets
+    datasets_html_page = fetch_all_datasets_page(
+        client, datasets_raw_metadata, logger
+    )
     # Select datasets metadata
     datasets_selected_metadata = extract_datasets_metadata(
-        datasets_raw_metadata, client, logger=logger
+        client, datasets_raw_metadata, datasets_html_page, logger=logger
     )
-
     # Parse and validate GPCRmd dataset metadata with a pydantic model (DatasetMetadata)
     datasets_normalized_metadata = normalize_datasets_metadata(
         datasets_selected_metadata,
@@ -645,7 +648,7 @@ def main(output_dir_path: Path) -> None:
     )
     # Scrape GPCRmd files metadata.
     files_normalized_metadata = scrape_files_for_all_datasets(
-        client, datasets_normalized_metadata, logger=logger
+        client, datasets_normalized_metadata, datasets_html_page, logger=logger
     )
 
     # Save files metadata to parquet file.
