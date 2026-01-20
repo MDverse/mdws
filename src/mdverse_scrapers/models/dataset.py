@@ -49,15 +49,17 @@ class DatasetMetadata(BaseModel):
     dataset_repository_name: DatasetRepositoryName = Field(
         ...,
         description=(
-            "Name of the source repository. "
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
+            "Name of the source data repository. "
+            "Allowed values in DatasetRepositoryName enum. "
+            "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDPOSIT..."
         ),
     )
     dataset_project_name: DatasetProjectName | None = Field(
         None,
         description=(
-            "Name of the project."
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
+            "Name of the source data project. "
+            "Allowed values in DatasetProjectName enum. "
+            "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDDB..."
         ),
     )
     dataset_id_in_repository: str = Field(
