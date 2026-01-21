@@ -10,7 +10,7 @@ import httpx
 import loguru
 import pycurl
 from selenium import webdriver
-from selenium.common.exceptions import WebDriverException
+from selenium.common.exceptions import TimeoutException, WebDriverException
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as ec
@@ -293,15 +293,18 @@ def get_html_page_with_selenium(
         driver = webdriver.Chrome(options=options)
         driver.get(url)
         page_content = (
-            WebDriverWait(driver, 10)
+            WebDriverWait(driver, 5)
             .until(ec.visibility_of_element_located((By.CSS_SELECTOR, tag)))
             .text
         )
         driver.quit()
+    except TimeoutException:
+        logger.error("Timeout while retrieving page:")
+        logger.error(url)
     except WebDriverException as e:
         logger.error("Cannot retrieve page:")
         logger.error(url)
-        logger.error(f"Selenium error: {e}")
+        logger.debug(f"Selenium error: {e}")
         return None
     if not page_content:
         logger.error("Retrieved page content is empty.")
