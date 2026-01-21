@@ -38,12 +38,14 @@ Source: https://docs.figshare.com/#figshare_documentation_api_description_rate_l
 ### Search for MD-related datasets
 
 - Endpoint: `/articles/search`
+- HTTP method: POST
 - Documentation: <https://docs.figshare.com/#articles_search>
+- [Documentation](https://docs.figshare.com/#search_search_operators) for search operators and searchable attributes
 
-We seach MD-related datasets by searching for file types and keywords if necessary. Keywords are searched into `:title:`, `:description:` and `:keywords:` text fields. Example queries:
+We search MD-related datasets by searching for file types and keywords if necessary. Keywords are searched into `:title:`, `:description:` and `:keywords:` text fields. Search query examples:
 
 ```none
-resource_type.type:"dataset" AND filetype:"tpr"
+:extension: tpr
 ```
 
 or
@@ -52,6 +54,21 @@ or
 :extension: mdp AND (:title: 'md simulation' OR :description: 'md simulation' OR :keyword: 'md simulation')
 :extension: mdp AND (:title: 'gromacs' OR :description: 'gromacs' OR :keyword: 'gromacs')
 ```
+
+The POST parameters look like this:
+
+```json
+{
+    "order": "published_date",
+    "search_for": ":extension: xtc",
+    "page": 1,
+    "page_size": 10,
+    "order_direction": "desc",
+    "item_type": 3
+}
+```
+
+We search only for datasets by probiding the parameter `"item_type": 3`.
 
 Example datasets:
 
@@ -66,6 +83,7 @@ We search for all file types and keywords. Results are paginated by batch of 100
 ### Get metadata for a given dataset
 
 - Endpoint: `/articles/{dataset_id}`
+- HTTP method: GET
 - Documentation: <https://docs.figshare.com/#public_article>
 
 Example dataset "[Molecular dynamics of DSB in nucleosome](https://figshare.com/articles/dataset/M1_gro/5840706)":
