@@ -49,21 +49,29 @@ class DatasetCoreMetadata(BaseModel):
             "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDPOSIT..."
         ),
     )
+    dataset_id_in_repository: str = Field(
+        ...,
+        description="Unique identifier of the dataset in the source repository.",
+    )
+    dataset_url_in_repository: str = Field(
+        ...,
+        description="Canonical URL to access the dataset in the repository.",
+    )
     dataset_project_name: DatasetProjectName | None = Field(
-        None,
+        None, exclude_if=lambda v: v is None,
         description=(
             "Name of the source data project. "
             "Allowed values in DatasetProjectName enum. "
             "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDDB..."
         ),
     )
-    dataset_id_in_repository: str = Field(
-        ...,
-        description="Unique identifier of the dataset in the source repository.",
-    )
     dataset_id_in_project: str | None = Field(
-        None,
+        None, exclude_if=lambda v: v is None,
         description="Unique identifier of the dataset in the project.",
+    )
+    dataset_url_in_project: str | None = Field(
+        None, exclude_if=lambda v: v is None,
+        description="Canonical URL to access the dataset in the project.",
     )
 
 
@@ -142,14 +150,6 @@ class DatasetMetadata(DatasetCoreMetadata):
     external_links: list[str] | None = Field(
         None,
         description="External links to papers or other databases.",
-    )
-    dataset_url_in_repository: str = Field(
-        ...,
-        description="Canonical URL to access the dataset in the repository.",
-    )
-    dataset_url_in_project: str = Field(
-        ...,
-        description="Canonical URL to access the dataset in the project.",
     )
 
     # ------------------------------------------------------------------

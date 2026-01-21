@@ -434,6 +434,9 @@ def extract_files_metadata(
     logger.info("Extracting files metadata...")
     files_metadata = []
     entry_id = raw_metadata["entry_id"]
+    entry_url = (
+            f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
+        )
     for nomad_file in raw_metadata.get("data", {}).get("files", []):
         file_path = Path(nomad_file.get("path", ""))
         file_name = file_path.name
@@ -447,6 +450,7 @@ def extract_files_metadata(
         parsed_file = {
             "dataset_repository_name": DatasetRepositoryName.NOMAD,
             "dataset_id_in_repository": entry_id,
+            "dataset_url_in_repository": entry_url,
             "file_name": file_name,
             "file_type": file_type,
             "file_size_in_bytes": size,
