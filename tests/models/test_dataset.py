@@ -1,11 +1,18 @@
 """Tests for the pydantic dataset model module."""
-
 import pytest
+from pydantic import ValidationError
 
-from mdverse_scrapers.models.dataset import DatasetCoreMetadata, DatasetMetadata
+from mdverse_scrapers.models.dataset import (
+    DatasetCoreMetadata,
+    DatasetMetadata,
+    SimulationMetadata,
+)
 from mdverse_scrapers.models.enums import DatasetProjectName, DatasetRepositoryName
 
 
+# -------------------------------
+# Tests for dataset core metadata
+# -------------------------------
 def test_dataset_core_metadata_minimal():
     """Test creation with only required fields."""
     dataset = DatasetCoreMetadata(
@@ -52,6 +59,9 @@ def test_dataset_core_metadata_full():
     assert "dataset_url_in_project" in dumped
 
 
+# --------------------------
+# Tests for dataset metadata
+# --------------------------
 def test_dataset_metadata_with_additional_fields():
     """Test DatasetMetadata including extra fields like title, date_created, etc."""
     dataset = DatasetMetadata(
@@ -68,12 +78,12 @@ def test_dataset_metadata_with_additional_fields():
 
     # Optional simulation fields default to None
     assert dataset.software_name is None
-    assert dataset.nb_atoms is None
+    assert dataset.number_of_atoms is None
 
     dumped = dataset.model_dump(exclude_none=True)
     # Fields with None should be removed
     assert "software_name" not in dumped
-    assert "nb_atoms" not in dumped
+    assert "number_of_atoms" not in dumped
     # Fields with values should remain
     assert "title" in dumped
     assert "dataset_repository_name" in dumped
@@ -99,3 +109,88 @@ def test_invalid_types():
         dataset_project_name=None,
     )
     assert dataset.dataset_project_name is None
+
+
+# ------------------------------------------------
+# Tests for positive values in simulation metadata
+# ------------------------------------------------
+def test_validate_positive_simulation_values_float():
+    """Test numeric values are accepted if positive."""
+    obj = SimulationMetadata(
+        dataset_repository_name=DatasetRepositoryName.NOMAD,
+        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+        simulation_timestep=0.5,
+        simulation_time=[1.2]
+    )
+    assert obj.simulation_timestep == 0.5
+    assert obj.simulation_time == [1.2]
+
+
+def test_validate_positive_simulation_values_str_with_units():
+    """Test string numeric values with units are accepted."""
+    obj = SimulationMetadata(
+        dataset_repository_name=DatasetRepositoryName.NOMAD,
+        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+        simulation_timestep="0.1fs",
+        simulation_time=["0.5fs", "1.0fs"]
+    )
+    assert obj.simulation_timestep == "0.1fs"
+    assert obj.simulation_time == ["0.5fs", "1.0fs"]
+
+
+def test_validate_positive_simulation_values_negative():
+    """Test negative numbers raise validation error."""
+    with pytest.raises(ValidationError):
+        SimulationMetadata(
+            dataset_repository_name=DatasetRepositoryName.NOMAD,
+            dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+            dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+            simulation_timestep=-1.0
+        )
+
+
+# ---------------------------------------------------
+# Tests for temperature values in simulation metadata
+# ---------------------------------------------------
+def test_normalize_temperatures_single_kelvin():
+    """Test a single temperature given in Kelvin."""
+    temp = "300K"
+    normalized = SimulationMetadata.normalize_temperatures(temp)
+    assert normalized == [300.0]
+
+
+def test_normalize_temperatures_single_celsius():
+    """Test a single temperature given in Celsius."""
+    temp = "27°C"
+    normalized = SimulationMetadata.normalize_temperatures(temp)
+    assert normalized == [300.15]
+
+
+def test_normalize_temperatures_no_unit_above_273():
+    """Test a temperature with no unit assumed to be Kelvin if >= 273."""
+    temp = "280"
+    normalized = SimulationMetadata.normalize_temperatures(temp)
+    assert normalized == [280.0]
+
+
+def test_normalize_temperatures_no_unit_below_273():
+    """Test a temperature with no unit assumed to be Celsius if < 273."""
+    temp = "25"
+    normalized = SimulationMetadata.normalize_temperatures(temp)
+    assert normalized == [298.15]
+
+
+def test_normalize_temperatures_list_mixed_units():
+    """Test a list of temperatures with mixed units."""
+    temps = ["25°C", "300K", "50"]
+    normalized = SimulationMetadata.normalize_temperatures(temps)
+    expected = [298.15, 300.0, 323.15]
+    assert normalized == expected
+
+
+def test_normalize_temperatures_none():
+    """Test that None input returns None."""
+    normalized = SimulationMetadata.normalize_temperatures(None)
+    assert normalized is None
