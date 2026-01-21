@@ -18,7 +18,7 @@ consistent, and ready for storage, indexing, or further analysis.
 
 from datetime import datetime
 
-from pydantic import Field, computed_field, field_validator
+from pydantic import ByteSize, Field, computed_field, field_validator
 
 from .dataset import DatasetCoreMetadata
 
@@ -46,7 +46,8 @@ class FileMetadata(DatasetCoreMetadata):
     file_type: str = Field(
         ..., description="File extension (automatically deduced from name)."
     )
-    file_size_in_bytes: int | None = Field(None, description="File size in bytes.")
+    file_size_in_bytes: ByteSize | None = Field(
+        None, description="File size in bytes.")
     file_md5: str | None = Field(None, description="MD5 checksum.")
     date_last_fetched: str = Field(
         ..., description="Date when the file was last fetched."
@@ -79,6 +80,28 @@ class FileMetadata(DatasetCoreMetadata):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
         return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
 
+    # @field_validator("file_size_in_bytes", mode="before")
+    # def normalize_byte_string(cls, v: ByteSize | None) -> ByteSize | None:  # noqa: N805
+    #     """
+    #     Convert any input into a ByteSize object.
+
+    #     - If it's a string containing "Bytes", replace with "B".
+    #     - Let ByteSize parse strings like '24.4 kB', '3MB', '689 B'.
+    #     - Integers are accepted as bytes directly.
+
+    #     Returns
+    #     -------
+    #     ByteSize | None
+    #         The normalized file size as a ByteSize object, or None if input is None.
+    #     """
+    #     if v is None:
+    #         return None
+
+    #     if isinstance(v, str) and "Bytes" in v:
+    #         v = v.replace("Bytes", "b").strip()
+
+    #     return ByteSize(v)
+
     @computed_field
     @property
     def file_size_with_human_readable_unit(self) -> str | None:
@@ -90,13 +113,8 @@ class FileMetadata(DatasetCoreMetadata):
             str | None : The size formatted with an appropriate unit
             (B, KB, MB, GB, or TB), rounded to two decimals.
         """
-        size = self.file_size_in_bytes
-        units = ["B", "KB", "MB", "GB", "TB"]
-        idx = 0
-        if size:
-            while size >= 1024 and idx < len(units) - 1:
-                size /= 1024
-                idx += 1
-            return f"{size:.2f} {units[idx]}"
-        else:
+        if self.file_size_in_bytes is None:
             return None
+        # Assure ByteSize type
+        size = self.file_size_in_bytes
+        return size.human_readable(decimal=True, separator=" ")
