@@ -40,7 +40,7 @@ Source: https://docs.figshare.com/#figshare_documentation_api_description_rate_l
 - Endpoint: `/articles/search`
 - Documentation: <https://docs.figshare.com/#articles_search>
 
-We seach MD-related datasets by searching for file types and keywords if necessary. Keywords are searche into `:title:`, `:description:` and `:keywords:` text fields. Example queries:
+We seach MD-related datasets by searching for file types and keywords if necessary. Keywords are searched into `:title:`, `:description:` and `:keywords:` text fields. Example queries:
 
 ```none
 resource_type.type:"dataset" AND filetype:"tpr"
