@@ -314,7 +314,7 @@ def extract_datasets_metadata(
             "date_created": dataset.get("entry_create_time"),
             "date_last_updated": dataset.get("last_processing_time"),
             "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            "nb_files": len(dataset.get("files", [])),
+            "number_of_files": len(dataset.get("files", [])),
             "author_names": [a.get("name") for a in dataset.get("authors", [])],
             "license": dataset.get("license"),
             "description": dataset.get("comment"),
@@ -367,7 +367,7 @@ def extract_datasets_metadata(
                 ]
         except (ValueError, KeyError) as e:
             logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
-        metadata["nb_atoms"] = total_atoms
+        metadata["number_of_atoms"] = total_atoms
         metadata["molecule_names"] = molecules
         datasets_metadata.append(metadata)
     logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")

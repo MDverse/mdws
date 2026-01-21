@@ -15,7 +15,7 @@ These schemas are intended to be used as the final validation layer of
 automated scraping pipelines, ensuring that extracted data is complete,
 consistent, and ready for storage, indexing, or further analysis.
 """
-
+import re
 from datetime import datetime
 from typing import Annotated
 
@@ -75,10 +75,157 @@ class DatasetCoreMetadata(BaseModel):
     )
 
 
+# ------------------------------------------------------------------
+# Simulation metadata
+# ------------------------------------------------------------------
+class SimulationMetadata(DatasetCoreMetadata):
+    """
+    Base Pydantic model for simulation-related metadata.
+
+    Extends DatasetCoreMetadata with fields describing molecular dynamics simulations:
+    engine, force field, system composition, timestep, temperature, etc.
+    """
+
+    software_name: str | None = Field(
+        None,
+        description="Molecular dynamics engine used (e.g. GROMACS, NAMD).",
+    )
+    software_version: str | None = Field(
+        None,
+        description="Version of the simulation engine.",
+    )
+    number_of_atoms: int | None = Field(
+        None,
+        ge=0,  # equal or greater than zero
+        description="Total number of atoms in the simulated system.",
+    )
+    molecule_names: list[str] | None = Field(
+        None,
+        description="Molecular composition of the system, if available.",
+    )
+    forcefield_model_name: str | None = Field(
+        None,
+        description="Molecular dynamics forcefield model used (e.g. AMBER).",
+    )
+    forcefield_model_version: str | None = Field(
+        None,
+        description="Version of the forcefield model.",
+    )
+    simulation_timestep: str | float | int | None = Field(
+        None, description="The time interval between new positions computation (in fs)."
+    )
+    simulation_time: list[str | float | int] | None = Field(
+        None, description="The accumulated simulation time (in μs)."
+    )
+    simulation_temperature: list[str | float | int] | None = Field(
+        None, description="The temperature chosen for the simulations (in K ou °C)."
+    )
+
+    @field_validator("simulation_timestep", "simulation_time", mode="before")
+    def validate_positive_simulation_values(
+        cls, v: list[str] | str | float | None  # noqa: N805
+    ) -> list[str] | str | float | None:
+        """Ensure simulation numeric parameters are strictly positive.
+
+        Supported input types:
+            - float or int
+            - string containing a numeric value with optional units (e.g. "0.0997μs")
+            - list of such strings (e.g. ["0.0997μs", "1.2μs"])
+
+        Parameters
+        ----------
+        cls : type[BaseModel]
+            The Pydantic model class being validated.
+        v : list[str] | str | float | None
+            Raw input simulation parameter value.
+
+        Returns
+        -------
+        list[str] | str | float | None
+            The validated value in the same structure as input, if all numeric values
+            are strictly positive; otherwise raises ValueError.
+        """
+        if v is None:
+            return None
+
+        def check_positive(value: str | float | int):
+            if isinstance(value, (int, float)):
+                if value <= 0:
+                    msg = "Simulation parameters must be strictly positive"
+                    raise ValueError(msg)
+            elif isinstance(value, str):
+                match = re.search(r"([-+]?\d*\.?\d+)", value)
+                if not match or float(match.group(1)) <= 0:
+                    msg = f"Invalid simulation parameter: {value}"
+                    raise ValueError(msg)
+            else:
+                msg = f"Unsupported type for simulation parameter: {type(value)}"
+                raise ValueError(msg)
+
+        if isinstance(v, list):
+            for item in v:
+                check_positive(item)
+            return v
+        check_positive(v)
+        return v
+
+    @field_validator("simulation_temperature", mode="before")
+    def normalize_temperatures(
+        cls, temperatures: list[str] | str | None  # noqa: N805
+    ) -> list[float] | None:
+        """
+        Normalize temperatures to Kelvin.
+
+        Supported format examples:
+        - "300K" or "300" (assume Kelvin if no unit)
+        - "27°C" or "27" (assume Celsius if ending with °C)
+
+        Parameters
+        ----------
+        cls : type[BaseModel]
+            The Pydantic model class being validated.
+        temperatures : list[str] | str | None
+            Raw temperature values.
+
+        Returns
+        -------
+        list[float] | None
+            Temperatures converted to Kelvin.
+        """
+        if temperatures is None:
+            return None
+
+        # Normalize single string to list
+        if isinstance(temperatures, str):
+            temperatures = [temperatures]
+
+        kelvin_temperatures: list[float] = []
+
+        for temp_str in temperatures:
+            temp_clean = str(temp_str).strip().lower()  # lowercase + trim whitespace
+
+            # Extract numeric part
+            numeric_chars = "".join(c for c in temp_clean if c.isdigit() or c in ".-+e")
+            numeric_value = float(numeric_chars)
+
+            # Determine unit and convert if needed
+            if "c" in temp_clean and "k" not in temp_clean:  # Celsius
+                kelvin_value = numeric_value + 273.15
+            elif "k" in temp_clean:  # Kelvin
+                kelvin_value = numeric_value
+            else:  # No unit specified
+                kelvin_value = (numeric_value if numeric_value >= 273
+                                            else numeric_value + 273.15)
+
+            kelvin_temperatures.append(kelvin_value)
+
+        return kelvin_temperatures
+
+
 # =====================================================================
 # Dataset-level metadata
 # =====================================================================
-class DatasetMetadata(DatasetCoreMetadata):
+class DatasetMetadata(SimulationMetadata):
     """
     Base Pydantic model for scraped molecular dynamics datasets.
 
@@ -155,46 +302,9 @@ class DatasetMetadata(DatasetCoreMetadata):
     # ------------------------------------------------------------------
     # File-level metadata
     # ------------------------------------------------------------------
-    nb_files: int | None = Field(
+    number_of_files: int | None = Field(
         None,
         description="Total number of files in the dataset.",
-    )
-
-    # ------------------------------------------------------------------
-    # Simulation metadata
-    # ------------------------------------------------------------------
-    software_name: str | None = Field(
-        None,
-        description="Molecular dynamics engine used (e.g. GROMACS, NAMD).",
-    )
-    software_version: str | None = Field(
-        None,
-        description="Version of the simulation engine.",
-    )
-    nb_atoms: int | None = Field(
-        None,
-        description="Total number of atoms in the simulated system.",
-    )
-    molecule_names: list[str] | None = Field(
-        None,
-        description="Molecular composition of the system, if available.",
-    )
-    forcefield_model_name: str | None = Field(
-        None,
-        description="Molecular dynamics forcefield model used (e.g. AMBER).",
-    )
-    forcefield_model_version: str | None = Field(
-        None,
-        description="Version of the forcefield model.",
-    )
-    simulation_timestep: float | None = Field(
-        None, description="The time interval between new positions computation (in fs)."
-    )
-    simulation_time: list[str] | None = Field(
-        None, description="The accumulated simulation time (in μs)."
-    )
-    simulation_temperature: list[str] | None = Field(
-        None, description="The temperature chosen for the simulations (in K ou °C)."
     )
 
     # ------------------------------------------------------------------
