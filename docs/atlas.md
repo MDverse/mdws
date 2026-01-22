@@ -1,4 +1,4 @@
-# ATLAS
+# ATLAS.
 
 ATLAS (Atlas of proTein moLecular dynAmicS) is an open-access data repository that gathers standardized molecular dynamics simulations of protein structures, accompanied by their analysis in the form of interactive diagrams and trajectory visualisation. All raw trajectories as well as the results of analysis are available for download.
 
