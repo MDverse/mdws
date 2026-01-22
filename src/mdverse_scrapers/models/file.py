@@ -15,7 +15,6 @@ These schemas are intended to be used as the final validation layer of
 automated scraping pipelines, ensuring that extracted data is complete,
 consistent, and ready for storage, indexing, or further analysis.
 """
-
 from datetime import datetime
 
 from pydantic import ByteSize, Field, computed_field, field_validator
@@ -42,13 +41,15 @@ class FileMetadata(DatasetCoreMetadata):
         ...,
         description="Canonical URL to access the file in the repository.",
     )
-    file_name: str = Field(..., description="Name of the file in the dataset.")
-    file_type: str = Field(
-        ..., description="File extension (automatically deduced from name)."
+    file_name: str = Field(
+        ..., description="Name of the file in the dataset.", pattern=r".+\..+"
     )
     file_size_in_bytes: ByteSize | None = Field(
-        None, description="File size in bytes.")
-    file_md5: str | None = Field(None, description="MD5 checksum.")
+        None, description="File size in bytes."
+    )
+    file_md5: str | None = Field(
+        None, description="MD5 checksum."
+    )
     date_last_fetched: str = Field(
         ..., description="Date when the file was last fetched."
     )
@@ -80,27 +81,48 @@ class FileMetadata(DatasetCoreMetadata):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
         return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
 
-    # @field_validator("file_size_in_bytes", mode="before")
-    # def normalize_byte_string(cls, v: ByteSize | None) -> ByteSize | None:  # noqa: N805
-    #     """
-    #     Convert any input into a ByteSize object.
+    @field_validator("file_size_in_bytes", mode="before")
+    def normalize_byte_string(cls, v: str | None) -> str | None:  # noqa: N805
+        """
+        Normalize the unit "Bytes" with "B" acceptable for ByteSize.
 
-    #     - If it's a string containing "Bytes", replace with "B".
-    #     - Let ByteSize parse strings like '24.4 kB', '3MB', '689 B'.
-    #     - Integers are accepted as bytes directly.
+        - If it's a string containing "Bytes", replace with "B".
+        - Let ByteSize parse strings like '24.4 kB', '3MB', '689 B'.
+        - Integers are accepted as bytes directly.
 
-    #     Returns
-    #     -------
-    #     ByteSize | None
-    #         The normalized file size as a ByteSize object, or None if input is None.
-    #     """
-    #     if v is None:
-    #         return None
+        Returns
+        -------
+        str | None
+            The normalized "Bytes" file size as "B", or None if input is None.
+        """
+        if v is None:
+            return None
 
-    #     if isinstance(v, str) and "Bytes" in v:
-    #         v = v.replace("Bytes", "b").strip()
+        if isinstance(v, str) and "Bytes" in v:
+            v = v.replace("Bytes", "b").strip()
 
-    #     return ByteSize(v)
+        return v
+
+    @computed_field
+    @property
+    def file_type(self) -> str | None:
+        """Compute the file type from the file name.
+
+        Returns
+        -------
+            str | None : The file extension computed from the file name.
+
+        Raises
+        ------
+        ValueError
+            If file_name is None or has no extension.
+        """
+        if "." in self.file_name:
+            suffix = self.file_name.split(".", 1)[1]
+        else:
+            msg = f"file_name '{self.file_name}' has no extension"
+            raise ValueError(msg)
+        return suffix
 
     @computed_field
     @property
@@ -115,6 +137,6 @@ class FileMetadata(DatasetCoreMetadata):
         """
         if self.file_size_in_bytes is None:
             return None
-        # Assure ByteSize type
+
         size = self.file_size_in_bytes
         return size.human_readable(decimal=True, separator=" ")
