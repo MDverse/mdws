@@ -12,8 +12,7 @@ from pydantic import (
     model_validator,
 )
 
-from .date import DATETIME_FORMAT
-from .enums import DatasetSourceName
+from .enums import DatasetRepoProjectName
 from .simulation import SimulationMetadata
 
 DOI = Annotated[
@@ -32,11 +31,11 @@ class DatasetCoreMetadata(BaseModel):
     This model captures essential information about the source repository
     """
 
-    dataset_repository_name: DatasetSourceName = Field(
+    dataset_repository_name: DatasetRepoProjectName = Field(
         ...,
         description=(
             "Name of the source data repository. "
-            "Allowed values are in DatasetSourceName. "
+            "Allowed values in the DatasetRepoProjectName enum. "
             "Examples: ZENODO, FIGSHARE, NOMAD..."
         ),
     )
@@ -63,11 +62,11 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     # ------------------------------------------------------------------
     # Project metadata
     # ------------------------------------------------------------------
-    dataset_project_name: DatasetSourceName | None = Field(
+    dataset_project_name: DatasetRepoProjectName | None = Field(
         None,
         description=(
             "Name of the source data project. "
-            "Allowed values are in DatasetSourceName. "
+            "Allowed values in the DatasetRepoProjectName enum. "
             "Examples: ZENODO, FIGSHARE, NOMAD..."
         ),
     )
@@ -117,7 +116,7 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         str
             The current date and time in ISO 8601 format.
         """
-        return datetime.now().strftime(DATETIME_FORMAT)
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
     # ------------------------------------------------------------------
     # Descriptive metadata
@@ -179,13 +178,13 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         Returns
         -------
         str:
-            The date in "%Y-%m-%dT%H:%M:%S" format. Example: "2026-01-23T14:30:15"
+            The date in '%Y-%m-%dT%H:%M:%S' format.
         """
         if value is None:
             return None
         if isinstance(value, datetime):
-            return value.strftime(DATETIME_FORMAT)
-        return datetime.fromisoformat(value).strftime(DATETIME_FORMAT)
+            return value.strftime("%Y-%m-%dT%H:%M:%S")
+        return datetime.fromisoformat(value).strftime("%Y-%m-%dT%H:%M:%S")
 
     @field_validator(
         "description",
