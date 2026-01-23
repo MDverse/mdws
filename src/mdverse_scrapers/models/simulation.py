@@ -82,8 +82,9 @@ class SimulationMetadata(BaseModel):
     # Validators
     # ------------------------------------------------------------------
     @field_validator("simulation_timesteps_in_fs", "simulation_times", mode="before")
+    @classmethod
     def validate_positive_simulation_values(
-        self,
+        cls,
         value: list[str | float] | None,
     ) -> list[str | float] | None:
         """Ensure simulation numeric parameters are strictly positive.
@@ -94,8 +95,8 @@ class SimulationMetadata(BaseModel):
 
         Parameters
         ----------
-        self: SimulationMetadata
-            The Pydantic model instance being validated.
+        cls: SimulationMetadata
+            The Pydantic model class being validated.
         value : list[str | float] | None
             Raw input simulation parameter value.
 
@@ -134,8 +135,9 @@ class SimulationMetadata(BaseModel):
         return value
 
     @field_validator("simulation_temperatures_in_kelvin", mode="before")
+    @classmethod
     def normalize_temperatures(
-        self,
+        cls,
         temperatures: list[str] | None,
     ) -> list[float] | None:
         """
@@ -147,8 +149,8 @@ class SimulationMetadata(BaseModel):
 
         Parameters
         ----------
-        self: SimulationMetadata
-            The Pydantic model instance being validated.
+        cls: SimulationMetadata
+            The Pydantic model class being validated.
         temperatures : list[str] | None
             Raw temperature values.
 

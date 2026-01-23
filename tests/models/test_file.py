@@ -3,14 +3,14 @@
 import pytest
 from pydantic import ByteSize
 
-from mdverse_scrapers.models.enums import DatasetRepoProjectName
+from mdverse_scrapers.models.enums import DatasetSourceName
 from mdverse_scrapers.models.file import FileMetadata
 
 
 def test_file_metadata_basic_creation():
     """Test creating a FileMetadata instance with minimal required fields."""
     file = FileMetadata(
-        dataset_repository_name=DatasetRepoProjectName.NOMAD,
+        dataset_repository_name=DatasetSourceName.NOMAD,
         dataset_id_in_repository="abc123",
         dataset_url_in_repository="https://example.com",
         file_url_in_repository="https://example.com/file.xtc",
@@ -41,7 +41,7 @@ def test_file_size_normalization(
 ) -> None:
     """Test file size normalization."""
     file = FileMetadata(
-        dataset_repository_name=DatasetRepoProjectName.ZENODO,
+        dataset_repository_name=DatasetSourceName.ZENODO,
         dataset_id_in_repository="abc123",
         dataset_url_in_repository="https://example.com",
         file_url_in_repository="https://example.com/file.xtc",
@@ -67,12 +67,13 @@ def test_file_size_normalization(
         ("complex.name.with.many.dots.pdb", "pdb"),
         ("complex/path/to/file.pdb", "pdb"),
         ("very.complex/path/to/file.pdb", "pdb"),
+        ("long path/with/some spaces/to/this_file.txt", "txt"),
     ],
 )
 def test_file_type_computed_correctly(file_name: str, expected_file_type: str) -> None:
     """Test that file_type is computed correctly from the file_name."""
     file = FileMetadata(
-        dataset_repository_name=DatasetRepoProjectName.NOMAD,
+        dataset_repository_name=DatasetSourceName.NOMAD,
         dataset_id_in_repository="abc123",
         dataset_url_in_repository="https://example.com",
         file_url_in_repository="https://example.com/file",
