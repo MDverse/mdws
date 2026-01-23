@@ -1,5 +1,7 @@
 # Install pre-commit hooks with:
-# prek install
+# uv run prek install
+# Update hooks:
+# uv run prek auto-update
 exclude: "scripts/*|tmp/*"
 repos:
 
@@ -32,7 +34,7 @@ repos:
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
   # Linter and formatter for Python code.
-  rev: v0.14.13
+  rev: v0.14.14
   hooks:
     # Run the linter.
     # Automatically fix issues where possible.
@@ -45,7 +47,7 @@ repos:
 
 - repo: https://github.com/PyCQA/bandit
   # Security linter for Python code.
-  rev: '1.9.2'
+  rev: 1.9.3
   hooks:
   - id: bandit
     args: ["--exclude", "tests"]
