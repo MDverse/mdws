@@ -17,7 +17,7 @@ consistent, and ready for storage, indexing, or further analysis.
 """
 from datetime import datetime
 
-from pydantic import ByteSize, Field, computed_field, field_validator
+from pydantic import ByteSize, Field, computed_field, field_validator, model_validator
 
 from .dataset import DatasetCoreMetadata
 
@@ -51,7 +51,7 @@ class FileMetadata(DatasetCoreMetadata):
         None, description="MD5 checksum."
     )
     date_last_fetched: str = Field(
-        ..., description="Date when the file was last fetched."
+        None, description="Date when the file was last fetched."
     )
     containing_archive_file_name: str | None = Field(
         None,
@@ -62,21 +62,23 @@ class FileMetadata(DatasetCoreMetadata):
     # Validators
     # ------------------------------------------------------------------
     @field_validator("date_last_fetched", mode="before")
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
+    def format_dates(cls, v: datetime | str | None) -> str | None:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
         ----------
         cls : type[BaseDataset]
             The Pydantic model class being validated.
-        v : str
+        v : str | None
             The input value of the 'date' field to validate.
 
         Returns
         -------
-        str:
+        str | None:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
+        if v is None:
+            return None
         if isinstance(v, datetime):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
         return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
@@ -140,3 +142,18 @@ class FileMetadata(DatasetCoreMetadata):
 
         size = self.file_size_in_bytes
         return size.human_readable(decimal=True, separator=" ")
+
+    @model_validator(mode="after")
+    def fill_date_last_fetched(self) -> "FileMetadata":
+        """
+        Populate date_last_fetched with the current timestamp when missing.
+
+        Returns
+        -------
+        FileMetadata
+            The validated model instance with date_last_fetched set if absent.
+        """
+        if self.date_last_fetched is None:
+            self.date_last_fetched = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+        return self
