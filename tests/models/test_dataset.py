@@ -5,7 +5,8 @@ from datetime import datetime
 import pytest
 
 from mdverse_scrapers.models.dataset import DatasetMetadata
-from mdverse_scrapers.models.enums import DatasetRepoProjectName
+from mdverse_scrapers.models.date import DATETIME_FORMAT
+from mdverse_scrapers.models.enums import DatasetSourceName
 
 
 # --------------------------------------
@@ -14,12 +15,12 @@ from mdverse_scrapers.models.enums import DatasetRepoProjectName
 def test_dataset_metadata_minimal_required_fields():
     """Test creating DatasetMetadata with only required fields."""
     metadata = DatasetMetadata(
-        dataset_repository_name=DatasetRepoProjectName.ZENODO,
+        dataset_repository_name=DatasetSourceName.ZENODO,
         dataset_id_in_repository="123",
         dataset_url_in_repository="https://zenodo.org/record/123",
         title="Test Dataset",
     )
-    assert metadata.dataset_repository_name == DatasetRepoProjectName.ZENODO
+    assert metadata.dataset_repository_name == DatasetSourceName.ZENODO
     assert metadata.dataset_id_in_repository == "123"
     assert metadata.dataset_url_in_repository == "https://zenodo.org/record/123"
     assert metadata.title == "Test Dataset"
@@ -43,7 +44,7 @@ def test_dataset_metadata_minimal_required_fields():
 def test_empty_to_none(field, value, expected):
     """Test that empty strings/lists are converted to None."""
     data = {
-        "dataset_repository_name": DatasetRepoProjectName.ZENODO,
+        "dataset_repository_name": DatasetSourceName.ZENODO,
         "dataset_id_in_repository": "123",
         "dataset_url_in_repository": "https://zenodo.org/record/123",
         "title": "Test Dataset",
@@ -60,14 +61,14 @@ def test_format_dates_with_datetime_objects():
     """Test that datetime objects are correctly converted to ISO string format."""
     now = datetime(2026, 1, 23, 12, 0, 0)
     metadata = DatasetMetadata(
-        dataset_repository_name=DatasetRepoProjectName.ZENODO,
+        dataset_repository_name=DatasetSourceName.ZENODO,
         dataset_id_in_repository="123",
         dataset_url_in_repository="https://zenodo.org/record/123",
         title="Test Dataset",
         date_created=now,
         date_last_updated=now,
     )
-    formatted = now.strftime("%Y-%m-%dT%H:%M:%S")
+    formatted = now.strftime(DATETIME_FORMAT)
     assert metadata.date_created == formatted
     assert metadata.date_last_updated == formatted
 
@@ -76,7 +77,7 @@ def test_format_dates_with_iso_strings():
     """Test that ISO string dates are normalized to '%Y-%m-%dT%H:%M:%S' format."""
     expected_date = "2026-01-23T00:00:00"
     metadata = DatasetMetadata(
-        dataset_repository_name=DatasetRepoProjectName.ZENODO,
+        dataset_repository_name=DatasetSourceName.ZENODO,
         dataset_id_in_repository="123",
         dataset_url_in_repository="https://zenodo.org/record/123",
         title="Test Dataset",
@@ -91,7 +92,7 @@ def test_format_dates_with_iso_strings():
 def test_fill_project_fields():
     """Test that project fields are populated from repository fields when missing."""
     metadata = DatasetMetadata(
-        dataset_repository_name=DatasetRepoProjectName.ZENODO,
+        dataset_repository_name=DatasetSourceName.ZENODO,
         dataset_id_in_repository="repo_123",
         dataset_url_in_repository="https://zenodo.org/record/repo_123",
         dataset_project_name=None,
@@ -99,7 +100,7 @@ def test_fill_project_fields():
         dataset_url_in_project=None,
         title="Test Dataset",
     )
-    assert metadata.dataset_project_name == DatasetRepoProjectName.ZENODO
+    assert metadata.dataset_project_name == DatasetSourceName.ZENODO
     assert metadata.dataset_id_in_project == "repo_123"
     assert metadata.dataset_url_in_project == "https://zenodo.org/record/repo_123"
 
@@ -108,7 +109,7 @@ def test_fill_project_fields_from_repository_invalid_mapping():
     """Test that ValueError is raised when repository cannot map to a project."""
     with pytest.raises(AttributeError, match="type object"):
         _ = DatasetMetadata(
-            dataset_repository_name=DatasetRepoProjectName.REPO,
+            dataset_repository_name=DatasetSourceName.REPO,
             dataset_id_in_repository="123",
             dataset_url_in_repository="https://example.com/123",
             title="Test Dataset",
@@ -119,7 +120,7 @@ def test_date_last_fetched_is_recent():
     """Test that date_last_fetched is a recent datetime."""
     time_1 = datetime.now()
     metadata = DatasetMetadata(
-        dataset_repository_name=DatasetRepoProjectName.ZENODO,
+        dataset_repository_name=DatasetSourceName.ZENODO,
         dataset_id_in_repository="123",
         dataset_url_in_repository="https://zenodo.org/record/123",
         title="Test Dataset",
@@ -136,7 +137,7 @@ def test_date_last_fetched_is_recent():
 def test_dataset_metadata_full_scenario():
     """Test a realistic scenario with mixed missing fields and validators."""
     metadata = DatasetMetadata(
-        dataset_repository_name=DatasetRepoProjectName.FIGSHARE,
+        dataset_repository_name=DatasetSourceName.FIGSHARE,
         dataset_id_in_repository="fig_456",
         dataset_url_in_repository="https://figshare.com/articles/fig_456",
         dataset_project_name=None,
@@ -156,7 +157,7 @@ def test_dataset_metadata_full_scenario():
     assert metadata.external_links is None
     assert metadata.license is None
     # Check project fields filled
-    assert metadata.dataset_project_name == DatasetRepoProjectName.FIGSHARE
+    assert metadata.dataset_project_name == DatasetSourceName.FIGSHARE
     assert metadata.dataset_id_in_project == "fig_456"
     assert metadata.dataset_url_in_project == "https://figshare.com/articles/fig_456"
     # Check date_last_fetched is filled

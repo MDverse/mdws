@@ -10,8 +10,8 @@ class DataType(StrEnum):
     FILES = "files"
 
 
-class DatasetRepoProjectName(StrEnum):
-    """Molecular dynamaics data repositories and projects."""
+class DatasetSourceName(StrEnum):
+    """Molecular dynamics data sources: repositories and projects."""
 
     ZENODO = "zenodo"
     FIGSHARE = "figshare"
