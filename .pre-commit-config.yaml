@@ -1,37 +1,53 @@
 # Install pre-commit hooks with:
-# prek install
+# uv run prek install
+# Update hooks:
+# uv run prek auto-update
 exclude: "scripts/*|tmp/*"
 repos:
+
 - repo: https://github.com/pre-commit/pre-commit-hooks
+  # Out-of-the-box hooks for pre-commit.
   rev: v6.0.0
   hooks:
+    # Makes sure files end in a newline and only a newline.
     - id: end-of-file-fixer
+    # Replaces or checks mixed line ending.
     - id: mixed-line-ending
+    # Trims trailing whitespace.
     - id: trailing-whitespace
+    # Attempts to load all json files to verify syntax.
     - id: check-json
+    # Attempts to load all yaml files to verify syntax.
     - id: check-yaml
+    # Attempts to load all TOML files to verify syntax.
     - id: check-toml
+    # Prevent giant files from being committed.
     - id: check-added-large-files
+      # Set max file size to 500 KB.
       args: ["--maxkb=500"]
 
 - repo: https://github.com/asottile/pyupgrade
+  # Automatically upgrade syntax for newer versions of the Python language.
   rev: v3.21.2
   hooks:
   - id: pyupgrade
 
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.14.13
+  # Linter and formatter for Python code.
+  rev: v0.14.14
   hooks:
     # Run the linter.
+    # Automatically fix issues where possible.
     - id: ruff-check
       types: [python]
       args: [ --fix ]
     # Run the formatter.
     - id: ruff-format
       types: [python]
+
 - repo: https://github.com/PyCQA/bandit
-  rev: '1.9.2'
+  # Security linter for Python code.
+  rev: 1.9.3
   hooks:
   - id: bandit
     args: ["--exclude", "tests"]
