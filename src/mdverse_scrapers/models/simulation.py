@@ -12,67 +12,79 @@ DOI = Annotated[
 
 
 class Molecule(BaseModel):
-    """Represents a molecule in the simulation."""
+    """Molecule in a simulation."""
 
-    name: str = Field(..., description="Name or ID of the molecule.")
+    name: str = Field(..., description="Name of the molecule.")
     number_of_atoms: int | None = Field(
         None, ge=0, description="Number of atoms in the molecule, if known."
     )
 
 
-class ForceField(BaseModel):
-    """Represents a forcefield used in the simulation."""
+class ForceFieldModel(BaseModel):
+    """Forcefield or Model used in a simulation."""
 
-    name: str = Field(..., description="Name of the forcefield (e.g., AMBER).")
-    version: str | None = Field(None, description="Version of the forcefield.")
+    name: str = Field(
+        ...,
+        description=(
+            "Name of the forcefield or model. Examples:  AMBER, GROMOS, TIP3P..."
+        ),
+    )
+    version: str | None = Field(None, description="Version of the forcefield or model.")
 
 
 class Software(BaseModel):
-    """Represents the simulation software or tool used."""
+    """Simulation software or tool used in a simulation."""
 
     name: str = Field(
-        ..., description="Molecular dynamics tool or software \
-                            used (e.g. GROMACS, MDAnalysis)."
+        ...,
+        description=(
+            "Molecular dynamics tool or software used. "
+            "Examples: GROMACS, NAMD, MDAnalysis."
+        ),
     )
     version: str | None = Field(None, description="Version of the software/tool.")
 
 
 class SimulationMetadata(BaseModel):
-    """Base Pydantic model for simulation-related metadata."""
+    """Base Pydantic model for MD simulationmetadata.
 
-    softwares: list[Software] | None = Field(
-        None, description="List of molecular dynamics tool or software \
-            used (e.g. GROMACS, MDAnalysis).",
+    No field is required in this model; all are optional.
+    """
+
+    software: list[Software] | None = Field(
+        None,
+        description="List of molecular dynamics tool or software.",
     )
-    number_of_total_atoms: int | None = Field(
+    total_number_of_atoms: int | None = Field(
         None,
         ge=0,  # equal or greater than zero
         description="Total number of atoms in the simulated system.",
     )
     molecules: list[Molecule] | None = Field(
-        None, description="List of molecules in the system with \
-            their number of atoms if known.",
-    )
-    forcefields: list[ForceField] | None = Field(
         None,
-        description="List of Molecular dynamics forcefield model used (e.g. AMBER).",
+        description=(
+            "List of molecules in the system with their number of atoms if known."
+        ),
     )
-    simulation_timestep_in_fs: list[float] | None = Field(
-        None, description="The time interval between new positions computation (in fs)."
+    forcefields: list[ForceFieldModel] | None = Field(
+        None,
+        description="List of forcefields and models used.",
     )
-    simulation_time: list[str] | None = Field(
-        None, description="The accumulated simulation times."
+    simulation_timesteps_in_fs: list[float] | None = Field(
+        None, description="Simulation timestep (in fs)."
     )
-    simulation_temperature: list[float] | None = Field(
-        None, description="The temperature chosen for the simulations (in K)."
+    simulation_times: list[str] | None = Field(None, description="Simulation times.")
+    simulation_temperatures_in_kelvin: list[float] | None = Field(
+        None, description="Simulation temperatures (in K)."
     )
 
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
-    @field_validator("simulation_timestep_in_fs", "simulation_time", mode="before")
+    @field_validator("simulation_timesteps_in_fs", "simulation_times", mode="before")
     def validate_positive_simulation_values(
-        cls, v: list[str | float] | None  # noqa: N805
+        self,
+        value: list[str | float] | None,
     ) -> list[str | float] | None:
         """Ensure simulation numeric parameters are strictly positive.
 
@@ -82,9 +94,9 @@ class SimulationMetadata(BaseModel):
 
         Parameters
         ----------
-        cls : type[BaseModel]
-            The Pydantic model class being validated.
-        v : list[str | float] | None
+        self: SimulationMetadata
+            The Pydantic model instance being validated.
+        value : list[str | float] | None
             Raw input simulation parameter value.
 
         Returns
@@ -93,17 +105,16 @@ class SimulationMetadata(BaseModel):
             The validated value in the same structure as input, if all numeric values
             are strictly positive; otherwise raises ValueError.
         """
-        if v is None:
+        if value is None:
             return None
 
         def check_positive(value: str | float | int):
-            # Case 1: value is alrealdy numeric
+            # Case 1: value is already numeric.
             if isinstance(value, (int, float)):
                 if value <= 0:
                     msg = "Simulation parameters must be strictly positive"
                     raise ValueError(msg)
-
-            # Case 2: value is a string (e.g. "0.0997μs")
+            # Case 2: value is a string (e.g. "0.0997μs").
             elif isinstance(value, str):
                 # Extract numeric part
                 match = re.search(r"([-+]?\d*\.?\d+)", value)
@@ -115,28 +126,29 @@ class SimulationMetadata(BaseModel):
                 raise ValueError(msg)
 
         # Iterate over the possible values
-        if isinstance(v, list):
-            for item in v:
+        if isinstance(value, list):
+            for item in value:
                 check_positive(item)
-            return v
+            return value
 
-        return v
+        return value
 
-    @field_validator("simulation_temperature", mode="before")
+    @field_validator("simulation_temperatures_in_kelvin", mode="before")
     def normalize_temperatures(
-        cls, temperatures: list[str] | None  # noqa: N805
+        self,
+        temperatures: list[str] | None,
     ) -> list[float] | None:
         """
         Normalize temperatures to Kelvin.
 
-        Supported format examples:
+        Examples of supported format:
         - "300K" or "300" (assume Kelvin if no unit)
         - "27°C" or "27" (assume Celsius if ending with °C)
 
         Parameters
         ----------
-        cls : type[BaseModel]
-            The Pydantic model class being validated.
+        self: SimulationMetadata
+            The Pydantic model instance being validated.
         temperatures : list[str] | None
             Raw temperature values.
 
@@ -154,25 +166,21 @@ class SimulationMetadata(BaseModel):
         if temperatures is None:
             return None
 
-        kelvin_temperatures = []
-
+        temperatures_in_kelvin = []
         for temp_str in temperatures:
             temp_clean = str(temp_str).strip().lower()
-
-            # Extract numeric part
+            # Extract the numeric part.
             match = re.search(r"([-+]?\d*\.?\d+([eE][-+]?\d+)?)", temp_str)
             if match is None:
                 msg = f"Cannot parse temperature: {temp_str}"
                 raise ValueError(msg)
             numeric_value = float(match.group(1))
-
-            # Convert Celsius to Kelvin
+            # Convert Celsius to Kelvin.
             if "c" in temp_clean or numeric_value < 0:
-                kelvin_value = numeric_value + 273.15
+                value_in_kelvin = numeric_value + 273.15
             else:
-                # Assume numeric-only or "K" input is already Kelvin
-                kelvin_value = numeric_value
+                # We assume we have Kelvin by default.
+                value_in_kelvin = numeric_value
+            temperatures_in_kelvin.append(value_in_kelvin)
 
-            kelvin_temperatures.append(kelvin_value)
-
-        return kelvin_temperatures
+        return temperatures_in_kelvin
