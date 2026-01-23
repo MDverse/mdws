@@ -30,6 +30,7 @@ def test_file_metadata_basic_creation():
     ("raw_size", "expected_bytes", "expected_human"),
     [
         ("689 Bytes", 689, "689 B"),
+        ("689Bytes", 689, "689 B"),
         ("3 MB", 3_000_000, "3.0 MB"),
         ("24.4 kB", 24_400, "24.4 KB"),
         (1024, 1024, "1.0 KB")
