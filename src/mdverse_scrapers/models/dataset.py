@@ -19,7 +19,13 @@ consistent, and ready for storage, indexing, or further analysis.
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from .enums import DatasetProjectName, DatasetRepositoryName
 from .simulation import SimulationMetadata
@@ -63,7 +69,7 @@ class DatasetCoreMetadata(BaseModel):
 # =====================================================================
 # Dataset-level metadata
 # =====================================================================
-class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
+class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     """
     Base Pydantic model for scraped molecular dynamics datasets.
 
@@ -75,6 +81,9 @@ class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
     may extend it with additional fields or stricter validation rules.
     """
 
+    # ------------------------------------------------------------------
+    # Project metadata
+    # ------------------------------------------------------------------
     dataset_project_name: DatasetProjectName | None = Field(
         None, description=(
             "Name of the source data project. "
@@ -112,8 +121,8 @@ class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
         None,
         description="Date when the dataset metadata was last updated.",
     )
-    date_last_fetched: str = Field(
-        ...,
+    date_last_fetched: str | None = Field(
+        None,
         description="Date when the dataset was last fetched by the pipeline.",
     )
 
@@ -165,7 +174,7 @@ class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
     @field_validator(
         "date_created", "date_last_updated", "date_last_fetched", mode="before"
     )
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
+    def format_dates(cls, v: datetime | str | None) -> str | None:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
@@ -180,6 +189,8 @@ class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
+        if v is None:
+            return None
         if isinstance(v, datetime):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
         return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
@@ -190,7 +201,6 @@ class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
         "external_links",
         "license",
         "author_names",
-        "molecule_names",
         mode="before",
     )
     def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
@@ -214,3 +224,59 @@ class DatasetMetadata(DatasetCoreMetadata, SimulationMetadata):
         if v == [] or v == "":
             return None
         return v
+
+    @model_validator(mode="after")
+    def fill_project_fields_from_repository(self) -> "DatasetMetadata":
+        """
+        Fallback project metadata to repository metadata when missing.
+
+        Returns
+        -------
+        DatasetMetadata
+            The validated model instance with project fields filled from
+            repository fields when missing.
+
+        Raises
+        ------
+        ValueError
+            If `dataset_repository_name` cannot be mapped to a valid
+            `DatasetProjectName`.
+        """
+        # Copy repository name to project name if project name is missing
+        if self.dataset_project_name is None:
+            # We try to convert repository enum to the corresponding project enum
+            try:
+                self.dataset_project_name = DatasetProjectName(
+                    self.dataset_repository_name.value
+                )
+            except ValueError as exc:
+                msg = (
+                    f"Repository '{self.dataset_repository_name.value}' "
+                    "cannot be mapped to a dataset project."
+                )
+                raise ValueError(msg) from exc
+
+        # Fallback: if project ID is missing, use repository ID
+        if self.dataset_id_in_project is None:
+            self.dataset_id_in_project = self.dataset_id_in_repository
+
+        # Fallback: if project URL is missing, use repository URL
+        if self.dataset_url_in_project is None:
+            self.dataset_url_in_project = self.dataset_url_in_repository
+
+        return self
+
+    @model_validator(mode="after")
+    def fill_date_last_fetched(self) -> "DatasetMetadata":
+        """
+        Populate date_last_fetched with the current timestamp when missing.
+
+        Returns
+        -------
+        DatasetMetadata
+            The validated model instance with date_last_fetched set if absent.
+        """
+        if self.date_last_fetched is None:
+            self.date_last_fetched = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+        return self

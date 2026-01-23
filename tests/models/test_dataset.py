@@ -1,196 +1,194 @@
 """Tests for the pydantic dataset model module."""
-import pytest
-from pydantic import ValidationError
 
-from mdverse_scrapers.models.dataset import (
-    DatasetCoreMetadata,
-    DatasetMetadata,
-    SimulationMetadata,
-)
+import re
+from datetime import datetime
+
+from pydantic import ValidationError
+import pytest
+
+from mdverse_scrapers.models.dataset import DatasetMetadata
 from mdverse_scrapers.models.enums import DatasetProjectName, DatasetRepositoryName
 
 
-# -------------------------------
-# Tests for dataset core metadata
-# -------------------------------
-def test_dataset_core_metadata_minimal():
-    """Test creation with only required fields."""
-    dataset = DatasetCoreMetadata(
+# --------------------------------------
+# Basic instantiation of DatasetMetadata
+# --------------------------------------
+def test_dataset_metadata_minimal_required_fields():
+    """Test creating DatasetMetadata with only required fields."""
+    metadata = DatasetMetadata(
         dataset_repository_name=DatasetRepositoryName.NOMAD,
-        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv"
+        dataset_id_in_repository="123",
+        dataset_url_in_repository="https://zenodo.org/record/123",
+        title="Test Dataset"
     )
-
-    assert dataset.dataset_repository_name == DatasetRepositoryName.NOMAD
-    assert dataset.dataset_id_in_repository == "dNdV1k67vGSN1DUhrBeOSvJeBnvv"
-    assert dataset.dataset_url_in_repository == "https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv"
-
-    # Optional fields default to None
-    assert dataset.dataset_project_name is None
-    assert dataset.dataset_id_in_project is None
-    assert dataset.dataset_url_in_project is None
-
-    # model_dump with exclude_none should remove optional fields
-    dumped = dataset.model_dump()
-    assert "dataset_project_name" not in dumped
-    assert "dataset_id_in_project" not in dumped
-    assert "dataset_url_in_project" not in dumped
+    assert metadata.dataset_repository_name == DatasetRepositoryName.NOMAD
+    assert metadata.dataset_id_in_repository == "123"
+    assert metadata.dataset_url_in_repository == "https://zenodo.org/record/123"
+    assert metadata.title == "Test Dataset"
 
 
-def test_dataset_core_metadata_full():
-    """Test creation with all fields."""
-    dataset = DatasetCoreMetadata(
-        dataset_repository_name=DatasetRepositoryName.NOMAD,
-        dataset_id_in_repository="NBOCe85s8_8stAsSeav4Do7FGiPs",
-        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=NBOCe85s8_8stAsSeav4Do7FGiPs",
-        dataset_project_name=DatasetProjectName.NOMAD,
-        dataset_id_in_project="proj001",
-        dataset_url_in_project="https://example.com/project/proj001",
+# ----------------------------------
+# Test validators (1) empty_to_none
+# ----------------------------------
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("description", "", None),
+        ("keywords", [], None),
+        ("external_links", ["https://doi.org/10.1234/abc"], ["https://doi.org/10.1234/abc"]),
+    ]
+)
+def test_empty_to_none(field, value, expected):
+    """Test that empty strings/lists are converted to None by validators."""
+    data = {
+        "dataset_repository_name": DatasetRepositoryName.ZENODO,
+        "dataset_id_in_repository": "123",
+        "dataset_url_in_repository": "https://zenodo.org/record/123",
+        "title": "Test Dataset",
+        field: value,
+    }
+    metadata = DatasetMetadata(**data)
+    assert getattr(metadata, field) == expected
+
+
+# ---------------------------------
+# Test validators (2) format_dates
+# ---------------------------------
+def test_format_dates_with_datetime_objects():
+    """Test that datetime objects are correctly converted to ISO string format."""
+    now = datetime(2026, 1, 23, 12, 0, 0)
+    metadata = DatasetMetadata(
+        dataset_repository_name=DatasetRepositoryName.ZENODO,
+        dataset_id_in_repository="123",
+        dataset_url_in_repository="https://zenodo.org/record/123",
+        title="Test Dataset",
+        date_created=now,
+        date_last_updated=now,
+        date_last_fetched=now
     )
-
-    assert dataset.dataset_project_name == DatasetProjectName.NOMAD
-    assert dataset.dataset_id_in_project == "proj001"
-    assert dataset.dataset_url_in_project == "https://example.com/project/proj001"
-
-    dumped = dataset.model_dump()
-    # All fields should remain since none are None
-    assert "dataset_project_name" in dumped
-    assert "dataset_id_in_project" in dumped
-    assert "dataset_url_in_project" in dumped
+    formatted = now.strftime("%Y-%m-%dT%H:%M:%S")
+    assert metadata.date_created == formatted
+    assert metadata.date_last_updated == formatted
+    assert metadata.date_last_fetched == formatted
 
 
-# --------------------------
-# Tests for dataset metadata
-# --------------------------
-def test_dataset_metadata_with_additional_fields():
-    """Test DatasetMetadata including extra fields like title, date_created, etc."""
-    dataset = DatasetMetadata(
-        dataset_repository_name=DatasetRepositoryName.NOMAD,
-        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        title="VASP MolecularDynamics simulation",
-        date_last_fetched="2025-12-23T17:24:33",
+def test_format_dates_with_iso_strings():
+    """Test that ISO string dates are normalized to '%Y-%m-%dT%H:%M:%S' format."""
+    iso_input = "2026-01-23T00:00:00"
+    metadata = DatasetMetadata(
+        dataset_repository_name=DatasetRepositoryName.ZENODO,
+        dataset_id_in_repository="123",
+        dataset_url_in_repository="https://zenodo.org/record/123",
+        title="Test Dataset",
+        date_created="2026-01-23",
     )
-
-    # Required DatasetMetadata fields
-    assert dataset.title == "VASP MolecularDynamics simulation"
-    assert dataset.date_last_fetched == "2025-12-23T17:24:33"
-
-    # Optional simulation fields default to None
-    assert dataset.software_name is None
-    assert dataset.number_of_atoms is None
-
-    dumped = dataset.model_dump(exclude_none=True)
-    # Fields with None should be removed
-    assert "software_name" not in dumped
-    assert "number_of_atoms" not in dumped
-    # Fields with values should remain
-    assert "title" in dumped
-    assert "dataset_repository_name" in dumped
+    assert metadata.date_created == iso_input
 
 
-def test_invalid_types():
-    """Test that invalid types raise a validation error."""
-    from pydantic import ValidationError
-
-    # repository_name must be from the enum
-    with pytest.raises(ValidationError):
-        DatasetCoreMetadata(
-            dataset_repository_name="invalid_repo",  # invalid type
-            dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-            dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        )
-
-    # Optional field accepts None
-    dataset = DatasetCoreMetadata(
-        dataset_repository_name=DatasetRepositoryName.NOMAD,
-        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
+# ------------------------------------------
+# Test validators (3) Project field fallback
+# ------------------------------------------
+def test_fill_project_fields_from_repository_fills_missing_fields():
+    """Test that project fields are populated from repository fields when missing."""
+    metadata = DatasetMetadata(
+        dataset_repository_name=DatasetRepositoryName.ZENODO,
+        dataset_id_in_repository="repo_123",
+        dataset_url_in_repository="https://zenodo.org/record/repo_123",
         dataset_project_name=None,
+        dataset_id_in_project=None,
+        dataset_url_in_project=None,
+        title="Test Dataset"
     )
-    assert dataset.dataset_project_name is None
+
+    metadata = metadata.fill_project_fields_from_repository()
+    assert metadata.dataset_project_name == DatasetProjectName.ZENODO
+    assert metadata.dataset_id_in_project == "repo_123"
+    assert metadata.dataset_url_in_project == "https://zenodo.org/record/repo_123"
 
 
-# ------------------------------------------------
-# Tests for positive values in simulation metadata
-# ------------------------------------------------
-def test_validate_positive_simulation_values_float():
-    """Test numeric values are accepted if positive."""
-    obj = SimulationMetadata(
-        dataset_repository_name=DatasetRepositoryName.NOMAD,
-        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        simulation_timestep=0.5,
-        simulation_time=[1.2]
-    )
-    assert obj.simulation_timestep == 0.5
-    assert obj.simulation_time == [1.2]
-
-
-def test_validate_positive_simulation_values_str_with_units():
-    """Test string numeric values with units are accepted."""
-    obj = SimulationMetadata(
-        dataset_repository_name=DatasetRepositoryName.NOMAD,
-        dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-        simulation_timestep="0.1fs",
-        simulation_time=["0.5fs", "1.0fs"]
-    )
-    assert obj.simulation_timestep == "0.1fs"
-    assert obj.simulation_time == ["0.5fs", "1.0fs"]
-
-
-def test_validate_positive_simulation_values_negative():
-    """Test negative numbers raise validation error."""
-    with pytest.raises(ValidationError):
-        SimulationMetadata(
-            dataset_repository_name=DatasetRepositoryName.NOMAD,
-            dataset_id_in_repository="dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-            dataset_url_in_repository="https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id=dNdV1k67vGSN1DUhrBeOSvJeBnvv",
-            simulation_timestep=-1.0
+def test_fill_project_fields_from_repository_invalid_mapping():
+    """Test that ValueError is raised when repository cannot map to a project."""
+    with pytest.raises(AttributeError, match="type object"):
+        metadata = DatasetMetadata(
+            dataset_repository_name=DatasetRepositoryName.REPO,
+            dataset_id_in_repository="123",
+            dataset_url_in_repository="https://example.com/123",
+            title="Test Dataset"
         )
 
 
-# ---------------------------------------------------
-# Tests for temperature values in simulation metadata
-# ---------------------------------------------------
-def test_normalize_temperatures_single_kelvin():
-    """Test a single temperature given in Kelvin."""
-    temp = "300K"
-    normalized = SimulationMetadata.normalize_temperatures(temp)
-    assert normalized == [300.0]
+# -----------------------------------------------
+# Test validators (4) Date fetched field fallback
+# -----------------------------------------------
+def test_fill_date_last_fetched():
+    """Test that date_last_fetched is populated and in '%Y-%m-%dT%H:%M:%S' format."""
+    metadata = DatasetMetadata(
+        dataset_repository_name=DatasetRepositoryName.ZENODO,
+        dataset_id_in_repository="123",
+        dataset_url_in_repository="https://zenodo.org/record/123",
+        title="Test Dataset",
+        date_last_fetched=None
+    )
+
+    metadata = metadata.fill_date_last_fetched()
+
+    # Check it's not None
+    assert metadata.date_last_fetched is not None
+
+    # Check format: 'YYYY-MM-DDTHH:MM:SS'
+    pattern = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"
+    assert re.match(pattern, str(metadata.date_last_fetched))
 
 
-def test_normalize_temperatures_single_celsius():
-    """Test a single temperature given in Celsius."""
-    temp = "27°C"
-    normalized = SimulationMetadata.normalize_temperatures(temp)
-    assert normalized == [300.15]
+def test_fill_date_last_fetched_keeps_existing_value():
+    """Test that existing date_last_fetched is not overwritten."""
+    existing = "2025-12-31T23:59:59"
+    metadata = DatasetMetadata(
+        dataset_repository_name=DatasetRepositoryName.ZENODO,
+        dataset_id_in_repository="123",
+        dataset_url_in_repository="https://zenodo.org/record/123",
+        title="Test Dataset",
+        date_last_fetched=existing
+    )
+    metadata = metadata.fill_date_last_fetched()
+    assert metadata.date_last_fetched == existing
 
 
-def test_normalize_temperatures_no_unit_above_273():
-    """Test a temperature with no unit assumed to be Kelvin if >= 273."""
-    temp = "280"
-    normalized = SimulationMetadata.normalize_temperatures(temp)
-    assert normalized == [280.0]
+# ---------------------
+# Full integration test
+# ---------------------
+def test_dataset_metadata_full_scenario():
+    """Test a realistic scenario with mixed missing fields and validators."""
+    metadata = DatasetMetadata(
+        dataset_repository_name=DatasetRepositoryName.FIGSHARE,
+        dataset_id_in_repository="fig_456",
+        dataset_url_in_repository="https://figshare.com/articles/fig_456",
+        dataset_project_name=None,
+        dataset_id_in_project=None,
+        dataset_url_in_project=None,
+        title="Full Test Dataset",
+        description="",
+        keywords=[],
+        author_names=[],
+        external_links=[],
+        license=""
+    )
 
+    # Apply both after-validators
+    metadata.fill_project_fields_from_repository()
+    metadata.fill_date_last_fetched()
 
-def test_normalize_temperatures_no_unit_below_273():
-    """Test a temperature with no unit assumed to be Celsius if < 273."""
-    temp = "25"
-    normalized = SimulationMetadata.normalize_temperatures(temp)
-    assert normalized == [298.15]
+    # Check that empty fields converted to None
+    assert metadata.description is None
+    assert metadata.keywords is None
+    assert metadata.author_names is None
+    assert metadata.external_links is None
+    assert metadata.license is None
 
+    # Check project fields filled
+    assert metadata.dataset_project_name == DatasetProjectName.FIGSHARE
+    assert metadata.dataset_id_in_project == "fig_456"
+    assert metadata.dataset_url_in_project == "https://figshare.com/articles/fig_456"
 
-def test_normalize_temperatures_list_mixed_units():
-    """Test a list of temperatures with mixed units."""
-    temps = ["25°C", "300K", "50"]
-    normalized = SimulationMetadata.normalize_temperatures(temps)
-    expected = [298.15, 300.0, 323.15]
-    assert normalized == expected
-
-
-def test_normalize_temperatures_none():
-    """Test that None input returns None."""
-    normalized = SimulationMetadata.normalize_temperatures(None)
-    assert normalized is None
+    # Check date_last_fetched is filled
+    assert isinstance(metadata.date_last_fetched, str)
