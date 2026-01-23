@@ -19,9 +19,16 @@ consistent, and ready for storage, indexing, or further analysis.
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from .enums import DatasetProjectName, DatasetRepositoryName
+from .simulation import SimulationMetadata
 
 DOI = Annotated[
     str,
@@ -30,51 +37,65 @@ DOI = Annotated[
 
 
 # =====================================================================
-# Base dataset class
+# Core provenance metadata
 # =====================================================================
-class DatasetMetadata(BaseModel):
+class DatasetCoreMetadata(BaseModel):
     """
-    Base Pydantic model for scraped molecular dynamics datasets.
+    Core provenance metadata shared by dataset-level and file-level models.
 
-    This class defines the common metadata schema shared by all supported
-    repositories (e.g. Zenodo, Figshare, OSF, NOMAD, ATLAS, GPCRmd).
-
-    Source-specific dataset models must inherit from this class and may
-    extend it with additional fields or stricter validation rules.
+    This model defines the minimal set of identifiers and URLs required
+    to uniquely reference a dataset within its source repository and,
+    optionally, within a higher-level project.
     """
 
-    # ------------------------------------------------------------------
-    # Core provenance
-    # ------------------------------------------------------------------
     dataset_repository_name: DatasetRepositoryName = Field(
         ...,
         description=(
-            "Name of the source repository. "
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
-        ),
-    )
-    dataset_project_name: DatasetProjectName | None = Field(
-        None,
-        description=(
-            "Name of the project."
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
+            "Name of the source data repository. "
+            "Allowed values in DatasetRepositoryName enum. "
+            "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDPOSIT..."
         ),
     )
     dataset_id_in_repository: str = Field(
         ...,
         description="Unique identifier of the dataset in the source repository.",
     )
-    dataset_id_in_project: str | None = Field(
-        None,
-        description="Unique identifier of the dataset in the project.",
-    )
     dataset_url_in_repository: str = Field(
         ...,
         description="Canonical URL to access the dataset in the repository.",
     )
-    dataset_url_in_project: str = Field(
-        ...,
-        description="Canonical URL to access the dataset in the project.",
+
+
+# =====================================================================
+# Dataset-level metadata
+# =====================================================================
+class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
+    """
+    Base Pydantic model for scraped molecular dynamics datasets.
+
+    This model extends DatasetCoreMetadata with dataset-specific metadata
+    such as descriptive information, temporal fields, statistics, and
+    simulation-related parameters.
+
+    Repository-specific dataset models must inherit from this class and
+    may extend it with additional fields or stricter validation rules.
+    """
+
+    # ------------------------------------------------------------------
+    # Project metadata
+    # ------------------------------------------------------------------
+    dataset_project_name: DatasetProjectName | None = Field(
+        None, description=(
+            "Name of the source data project. "
+            "Allowed values in DatasetProjectName enum. "
+            "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDDB..."
+        ),
+    )
+    dataset_id_in_project: str | None = Field(
+        None, description="Unique identifier of the dataset in the project.",
+    )
+    dataset_url_in_project: str | None = Field(
+        None, description="Canonical URL to access the dataset in the project.",
     )
 
     # ------------------------------------------------------------------
@@ -100,8 +121,8 @@ class DatasetMetadata(BaseModel):
         None,
         description="Date when the dataset metadata was last updated.",
     )
-    date_last_fetched: str = Field(
-        ...,
+    date_last_fetched: str | None = Field(
+        None,
         description="Date when the dataset was last fetched by the pipeline.",
     )
 
@@ -142,46 +163,9 @@ class DatasetMetadata(BaseModel):
     # ------------------------------------------------------------------
     # File-level metadata
     # ------------------------------------------------------------------
-    nb_files: int | None = Field(
+    number_of_files: int | None = Field(
         None,
         description="Total number of files in the dataset.",
-    )
-
-    # ------------------------------------------------------------------
-    # Simulation metadata
-    # ------------------------------------------------------------------
-    software_name: str | None = Field(
-        None,
-        description="Molecular dynamics engine used (e.g. GROMACS, NAMD).",
-    )
-    software_version: str | None = Field(
-        None,
-        description="Version of the simulation engine.",
-    )
-    nb_atoms: int | None = Field(
-        None,
-        description="Total number of atoms in the simulated system.",
-    )
-    molecule_names: list[str] | None = Field(
-        None,
-        description="Molecular composition of the system, if available.",
-    )
-    forcefield_model_name: str | None = Field(
-        None,
-        description="Molecular dynamics forcefield model used (e.g. AMBER).",
-    )
-    forcefield_model_version: str | None = Field(
-        None,
-        description="Version of the forcefield model.",
-    )
-    simulation_timestep: float | None = Field(
-        None, description="The time interval between new positions computation (in fs)."
-    )
-    simulation_time: list[str] | None = Field(
-        None, description="The accumulated simulation time (in μs)."
-    )
-    simulation_temperature: list[str] | None = Field(
-        None, description="The temperature chosen for the simulations (in K ou °C)."
     )
 
     # ------------------------------------------------------------------
@@ -190,7 +174,7 @@ class DatasetMetadata(BaseModel):
     @field_validator(
         "date_created", "date_last_updated", "date_last_fetched", mode="before"
     )
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
+    def format_dates(cls, v: datetime | str | None) -> str | None:  # noqa: N805
         """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
@@ -205,6 +189,8 @@ class DatasetMetadata(BaseModel):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
+        if v is None:
+            return None
         if isinstance(v, datetime):
             return v.strftime("%Y-%m-%dT%H:%M:%S")
         return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
@@ -215,7 +201,6 @@ class DatasetMetadata(BaseModel):
         "external_links",
         "license",
         "author_names",
-        "molecule_names",
         mode="before",
     )
     def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
@@ -239,3 +224,59 @@ class DatasetMetadata(BaseModel):
         if v == [] or v == "":
             return None
         return v
+
+    @model_validator(mode="after")
+    def fill_project_fields_from_repository(self) -> "DatasetMetadata":
+        """
+        Fallback project metadata to repository metadata when missing.
+
+        Returns
+        -------
+        DatasetMetadata
+            The validated model instance with project fields filled from
+            repository fields when missing.
+
+        Raises
+        ------
+        ValueError
+            If `dataset_repository_name` cannot be mapped to a valid
+            `DatasetProjectName`.
+        """
+        # Copy repository name to project name if project name is missing
+        if self.dataset_project_name is None:
+            # We try to convert repository enum to the corresponding project enum
+            try:
+                self.dataset_project_name = DatasetProjectName(
+                    self.dataset_repository_name.value
+                )
+            except ValueError as exc:
+                msg = (
+                    f"Repository '{self.dataset_repository_name.value}' "
+                    "cannot be mapped to a dataset project."
+                )
+                raise ValueError(msg) from exc
+
+        # Fallback: if project ID is missing, use repository ID
+        if self.dataset_id_in_project is None:
+            self.dataset_id_in_project = self.dataset_id_in_repository
+
+        # Fallback: if project URL is missing, use repository URL
+        if self.dataset_url_in_project is None:
+            self.dataset_url_in_project = self.dataset_url_in_repository
+
+        return self
+
+    @model_validator(mode="after")
+    def fill_date_last_fetched(self) -> "DatasetMetadata":
+        """
+        Populate date_last_fetched with the current timestamp when missing.
+
+        Returns
+        -------
+        DatasetMetadata
+            The validated model instance with date_last_fetched set if absent.
+        """
+        if self.date_last_fetched is None:
+            self.date_last_fetched = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+        return self

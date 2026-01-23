@@ -7,7 +7,7 @@ https://nomad-lab.eu/prod/v1/gui/search/entries
 import json
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,7 @@ from ..core.toolbox import export_list_of_models_to_parquet
 from ..models.dataset import DatasetMetadata
 from ..models.enums import DatasetProjectName, DatasetRepositoryName, DataType
 from ..models.file import FileMetadata
+from ..models.simulation import Molecule, Software
 from ..models.utils import validate_metadata_against_model
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
@@ -278,6 +279,115 @@ def scrape_files_for_one_dataset(
     return response.json()
 
 
+def extract_software_and_version(dataset: dict, entry_id: str,
+    logger: "loguru.Logger" = loguru.logger
+) -> list[Software]:
+    """
+    Extract software name and version from the nested dataset dictionary.
+
+    Parameters
+    ----------
+    dataset : dict
+        The dataset entry from which to extract software information.
+    entry_id : str
+        Identifier of the dataset entry, used for logging.
+    logger : logging.Logger
+        Logger to use for warnings.
+
+    Returns
+    -------
+    Software
+        A Software instance with `name` and `version` fields, possibly None.
+    """
+    name = None
+    version = None
+    try:
+        software_info = (
+            dataset.get("results", {}).get("method", {}).get("simulation", {}))
+        name = software_info.get("program_name")
+        version = software_info.get("program_version")
+    except (ValueError, KeyError) as e:
+        logger.warning(f"Error parsing software info for entry {entry_id}: {e}")
+
+    return [Software(name=name, version=version)]
+
+
+def extract_molecules_and_total_atoms(
+    dataset: dict, entry_id: str, logger: "loguru.Logger"
+) -> tuple[int | None, list[Molecule]]:
+    """
+    Extract molecules and total number of atoms from a dataset entry.
+
+    Parameters
+    ----------
+    dataset : dict
+        Dataset entry containing material/topology information.
+    entry_id : str
+        Identifier of the dataset entry, used for logging.
+
+    Returns
+    -------
+    tuple[int | None, list[Molecule]]
+        total_atoms: Number of atoms for the "original" label, or None if not found.
+        molecules: List of Molecule objects extracted from the topology.
+    """
+    total_atoms = None
+    molecules = []
+
+    try:
+        topology = dataset.get("results", {}).get("material", {}).get("topology", [])
+        if isinstance(topology, list):
+            # Extract total_atoms from the entry labeled "original"
+            for t in topology:
+                if t.get("label") == "original":
+                    total_atoms = t.get("n_atoms")
+                    break
+
+            # Extract molecules
+            for t in topology:
+                if t.get("structural_type") == "molecule":
+                    name = t.get("label", "unknown")
+                    n_atoms = t.get("n_atoms")
+                    molecules.append(Molecule(name=name, number_of_atoms=n_atoms))
+    except (ValueError, KeyError) as e:
+        logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
+
+    return total_atoms, molecules
+
+
+def extract_time_step(dataset: dict, entry_id: str, logger: "loguru.Logger"
+) -> list[float] | None:
+    """
+    Extract the simulation time_step from a dataset entry.
+
+    Parameters
+    ----------
+    dataset : dict
+        The dataset entry containing the thermodynamic/trajectory information.
+    entry_id : str
+        Identifier of the dataset entry, used for logging.
+
+    Returns
+    -------
+    list[float] | None
+        The time_step in fs in a list, or None if not found.
+    """
+    time_step = None
+    try:
+        time_step = (
+            dataset.get("results", {})
+                   .get("properties", {})
+                   .get("thermodynamic", {})
+                   .get("trajectory", [{}])[0]
+                   .get("provenance", {})
+                   .get("molecular_dynamics", {})
+                   .get("time_step")
+        )
+    except (ValueError, KeyError, IndexError) as e:
+        logger.warning(f"Could not extract time_step for entry {entry_id}: {e}")
+    return [time_step]
+
+
 def extract_datasets_metadata(
     datasets: list[dict[str, Any]],
     logger: "loguru.Logger" = loguru.logger,
@@ -304,71 +414,31 @@ def extract_datasets_metadata(
         )
         metadata = {
             "dataset_repository_name": DatasetRepositoryName.NOMAD,
-            "dataset_project_name": DatasetProjectName.NOMAD,
             "dataset_id_in_repository": entry_id,
-            "dataset_id_in_project": entry_id,
             "dataset_url_in_repository": entry_url,
-            "dataset_url_in_project": entry_url,
             "external_links": dataset.get("references"),
             "title": dataset.get("entry_name"),
             "date_created": dataset.get("entry_create_time"),
             "date_last_updated": dataset.get("last_processing_time"),
-            "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            "nb_files": len(dataset.get("files", [])),
+            "number_of_files": len(dataset.get("files", [])),
             "author_names": [a.get("name") for a in dataset.get("authors", [])],
             "license": dataset.get("license"),
             "description": dataset.get("comment"),
         }
         # Extract simulation metadata if available.
-        # Software name.
-        software_name = None
-        try:
-            software_name = (
-                dataset.get("results", {})
-                .get("method", {})
-                .get("simulation", {})
-                .get("program_name")
-            )
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error parsing software name for entry {entry_id}: {e}")
-        metadata["software_name"] = software_name
-        # Software version
-        software_version = None
-        try:
-            software_version = (
-                dataset.get("results", {})
-                .get("method", {})
-                .get("simulation", {})
-                .get("program_version")
-            )
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error parsing software version for entry {entry_id}: {e}")
-        metadata["software_version"] = software_version
-        # Molecules and number total of atoms.
-        total_atoms = None
-        molecules = None
-        try:
-            topology = (
-                dataset.get("results", {}).get("material", {}).get("topology", [])
-            )
-            if isinstance(topology, list):
-                total_atoms = next(
-                    (
-                        t.get("n_atoms")
-                        for t in topology
-                        if t.get("label") == "original"
-                    ),
-                    None,
-                )
-                molecules = [
-                    f"{t.get('label')} ({t.get('n_atoms')} atoms)"
-                    for t in topology
-                    if t.get("structural_type") == "molecule"
-                ]
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
-        metadata["nb_atoms"] = total_atoms
-        metadata["molecule_names"] = molecules
+        # Software names with their versions.
+        metadata["softwares"] = extract_software_and_version(dataset, entry_id, logger)
+        # Molecules with their nb of atoms and number total of atoms.
+        total_atoms, molecules = (
+            extract_molecules_and_total_atoms(dataset, entry_id, logger))
+        metadata["number_of_total_atoms"] = total_atoms
+        metadata["molecules"] = molecules
+        # Time step in fs
+        metadata["simulation_timestep_in_fs"] = (
+            extract_time_step(dataset, entry_id, logger))
+        # Temperature
+        metadata["simulation_temperature"] = None  # TODO?
+
         datasets_metadata.append(metadata)
     logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")
     return datasets_metadata
@@ -434,10 +504,12 @@ def extract_files_metadata(
     logger.info("Extracting files metadata...")
     files_metadata = []
     entry_id = raw_metadata["entry_id"]
+    entry_url = (
+            f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
+        )
     for nomad_file in raw_metadata.get("data", {}).get("files", []):
         file_path = Path(nomad_file.get("path", ""))
         file_name = file_path.name
-        file_type = file_path.suffix.lstrip(".")
         file_path_url = (
             f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/"
             f"{entry_id}/files/{file_name}"
@@ -447,11 +519,10 @@ def extract_files_metadata(
         parsed_file = {
             "dataset_repository_name": DatasetRepositoryName.NOMAD,
             "dataset_id_in_repository": entry_id,
+            "dataset_url_in_repository": entry_url,
             "file_name": file_name,
-            "file_type": file_type,
             "file_size_in_bytes": size,
             "file_url_in_repository": file_path_url,
-            "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         }
         files_metadata.append(parsed_file)
     logger.info(f"Extracted metadata for {len(files_metadata)} files.")
