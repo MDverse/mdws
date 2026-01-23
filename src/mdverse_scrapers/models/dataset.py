@@ -1,20 +1,4 @@
-"""Pydantic data models used to validate scraped molecular dynamics datasets.
-
-This module defines strongly-typed Pydantic schemas that serve as a unified
-data contract for MD datasets collected from heterogeneous sources such as
-Zenodo, Figshare, OSF, NOMAD, ATLAS, GPCRmd, and other domain-specific archives.
-
-The models are designed to:
-- Normalize metadata coming from different APIs and HTML structures
-- Enforce consistent typing and field presence across sources
-- Validate critical fields such as dates, URLs, and identifiers
-- Provide a common representation that downstream tools can rely on
-  regardless of the original data provider
-
-These schemas are intended to be used as the final validation layer of
-automated scraping pipelines, ensuring that extracted data is complete,
-consistent, and ready for storage, indexing, or further analysis.
-"""
+"""Pydantic data models used to validate scraped molecular dynamics datasets."""
 
 from datetime import datetime
 from typing import Annotated
@@ -23,11 +7,12 @@ from pydantic import (
     BaseModel,
     Field,
     StringConstraints,
+    computed_field,
     field_validator,
     model_validator,
 )
 
-from .enums import DatasetProjectName, DatasetRepositoryName
+from .enums import DatasetRepoProjectName
 from .simulation import SimulationMetadata
 
 DOI = Annotated[
@@ -41,28 +26,26 @@ DOI = Annotated[
 # =====================================================================
 class DatasetCoreMetadata(BaseModel):
     """
-    Core provenance metadata shared by dataset-level and file-level models.
+    Core provenance metadata shared by dataset and file models.
 
-    This model defines the minimal set of identifiers and URLs required
-    to uniquely reference a dataset within its source repository and,
-    optionally, within a higher-level project.
+    This model captures essential information about the source repository
     """
 
-    dataset_repository_name: DatasetRepositoryName = Field(
+    dataset_repository_name: DatasetRepoProjectName = Field(
         ...,
         description=(
             "Name of the source data repository. "
-            "Allowed values in DatasetRepositoryName enum. "
-            "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDPOSIT..."
+            "Allowed values in the DatasetRepoProjectName enum. "
+            "Examples: ZENODO, FIGSHARE, NOMAD..."
         ),
     )
     dataset_id_in_repository: str = Field(
         ...,
-        description="Unique identifier of the dataset in the source repository.",
+        description="Identifier of the dataset in the source repository.",
     )
     dataset_url_in_repository: str = Field(
         ...,
-        description="Canonical URL to access the dataset in the repository.",
+        description="URL to access the dataset in the repository.",
     )
 
 
@@ -71,31 +54,29 @@ class DatasetCoreMetadata(BaseModel):
 # =====================================================================
 class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     """
-    Base Pydantic model for scraped molecular dynamics datasets.
+    Base Pydantic model for molecular dynamics datasets.
 
-    This model extends DatasetCoreMetadata with dataset-specific metadata
-    such as descriptive information, temporal fields, statistics, and
-    simulation-related parameters.
-
-    Repository-specific dataset models must inherit from this class and
-    may extend it with additional fields or stricter validation rules.
+    This model extends DatasetCoreMetadata with dataset-specific metadata.
     """
 
     # ------------------------------------------------------------------
     # Project metadata
     # ------------------------------------------------------------------
-    dataset_project_name: DatasetProjectName | None = Field(
-        None, description=(
+    dataset_project_name: DatasetRepoProjectName | None = Field(
+        None,
+        description=(
             "Name of the source data project. "
-            "Allowed values in DatasetProjectName enum. "
-            "Examples: ZENODO, FIGSHARE, OSF, NOMAD, MDDB..."
+            "Allowed values in the DatasetRepoProjectName enum. "
+            "Examples: ZENODO, FIGSHARE, NOMAD..."
         ),
     )
     dataset_id_in_project: str | None = Field(
-        None, description="Unique identifier of the dataset in the project.",
+        None,
+        description="Identifier of the dataset in the project.",
     )
     dataset_url_in_project: str | None = Field(
-        None, description="Canonical URL to access the dataset in the project.",
+        None,
+        description="URL to access the dataset in the project.",
     )
 
     # ------------------------------------------------------------------
@@ -103,10 +84,12 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     # ------------------------------------------------------------------
     download_number: int | None = Field(
         None,
+        gt=0,
         description="Total number of downloads for the dataset.",
     )
     view_number: int | None = Field(
         None,
+        gt=0,
         description="Total number of views for the dataset.",
     )
 
@@ -121,10 +104,19 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         None,
         description="Date when the dataset metadata was last updated.",
     )
-    date_last_fetched: str | None = Field(
-        None,
-        description="Date when the dataset was last fetched by the pipeline.",
-    )
+
+    @computed_field
+    @property
+    def date_last_fetched(self) -> str:
+        """
+        Populate the date when the dataset metadata was last fetched.
+
+        Returns
+        -------
+        str
+            The current date and time in ISO 8601 format.
+        """
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
     # ------------------------------------------------------------------
     # Descriptive metadata
@@ -139,7 +131,7 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     )
     description: str | None = Field(
         None,
-        description="Abstract or description of the dataset.",
+        description="Description of the dataset.",
     )
     keywords: list[str] | None = Field(
         None, description="List of keywords describing the dataset."
@@ -149,15 +141,15 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         description="License under which the dataset is distributed.",
     )
     doi: DOI | None = Field(
-        default=None,
+        None,
         description=(
             "Digital Object Identifier (DOI) of the dataset. "
-            "Must start with '10.' and follow the standard DOI format."
+            "Must start with '10.' and follow the DOI format."
         ),
     )
     external_links: list[str] | None = Field(
         None,
-        description="External links to papers or other databases.",
+        description="External links to publications or other databases.",
     )
 
     # ------------------------------------------------------------------
@@ -165,23 +157,22 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     # ------------------------------------------------------------------
     number_of_files: int | None = Field(
         None,
+        gt=0,
         description="Total number of files in the dataset.",
     )
 
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
-    @field_validator(
-        "date_created", "date_last_updated", "date_last_fetched", mode="before"
-    )
-    def format_dates(cls, v: datetime | str | None) -> str | None:  # noqa: N805
-        """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
+    @field_validator("date_created", "date_last_updated", mode="before")
+    def format_dates(cls, value: datetime | str | None) -> str | None:  # noqa: N805
+        """Convert datetime objects or strings to '%Y-%m-%dT%H:%M:%S' format.
 
         Parameters
         ----------
         cls : type[BaseDataset]
             The Pydantic model class being validated.
-        v : str
+        value : datetime | str | None
             The input value of the 'date' field to validate.
 
         Returns
@@ -189,11 +180,11 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         str:
             The date in '%Y-%m-%dT%H:%M:%S' format.
         """
-        if v is None:
+        if value is None:
             return None
-        if isinstance(v, datetime):
-            return v.strftime("%Y-%m-%dT%H:%M:%S")
-        return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
+        if isinstance(value, datetime):
+            return value.strftime("%Y-%m-%dT%H:%M:%S")
+        return datetime.fromisoformat(value).strftime("%Y-%m-%dT%H:%M:%S")
 
     @field_validator(
         "description",
@@ -203,15 +194,15 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         "author_names",
         mode="before",
     )
-    def empty_to_none(cls, v: list | str) -> list | str | None:  # noqa: N805
+    def empty_to_none(cls, value: list | str | None) -> list | str | None:  # noqa: N805
         """
-        Normalize empty field values by converting them to None.
+        Normalize empty fields to None.
 
         Parameters
         ----------
         cls : type[BaseDataset]
             The Pydantic model class being validated.
-        v : Optional[list | str]
+        value : Optional[list | str]
             The raw input value of the field before conversion.
             Can be a list, a string, or None.
 
@@ -221,9 +212,9 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
             Returns None if the value is an empty list or empty string;
             otherwise returns the original value.
         """
-        if v == [] or v == "":
+        if value == [] or value == "":
             return None
-        return v
+        return value
 
     @model_validator(mode="after")
     def fill_project_fields_from_repository(self) -> "DatasetMetadata":
@@ -235,48 +226,14 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         DatasetMetadata
             The validated model instance with project fields filled from
             repository fields when missing.
-
-        Raises
-        ------
-        ValueError
-            If `dataset_repository_name` cannot be mapped to a valid
-            `DatasetProjectName`.
         """
-        # Copy repository name to project name if project name is missing
+        # Use repository name is project name is missing.
         if self.dataset_project_name is None:
-            # We try to convert repository enum to the corresponding project enum
-            try:
-                self.dataset_project_name = DatasetProjectName(
-                    self.dataset_repository_name.value
-                )
-            except ValueError as exc:
-                msg = (
-                    f"Repository '{self.dataset_repository_name.value}' "
-                    "cannot be mapped to a dataset project."
-                )
-                raise ValueError(msg) from exc
-
-        # Fallback: if project ID is missing, use repository ID
+            self.dataset_project_name = self.dataset_repository_name
+        # Use repository identifier is project identifier is missing.
         if self.dataset_id_in_project is None:
             self.dataset_id_in_project = self.dataset_id_in_repository
-
-        # Fallback: if project URL is missing, use repository URL
+        # Use repository URL is project URL is missing.
         if self.dataset_url_in_project is None:
             self.dataset_url_in_project = self.dataset_url_in_repository
-
-        return self
-
-    @model_validator(mode="after")
-    def fill_date_last_fetched(self) -> "DatasetMetadata":
-        """
-        Populate date_last_fetched with the current timestamp when missing.
-
-        Returns
-        -------
-        DatasetMetadata
-            The validated model instance with date_last_fetched set if absent.
-        """
-        if self.date_last_fetched is None:
-            self.date_last_fetched = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-
         return self
