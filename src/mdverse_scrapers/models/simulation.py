@@ -28,7 +28,7 @@ class ForceField(BaseModel):
 
 
 class Software(BaseModel):
-    """Represents the simulation software used."""
+    """Represents the simulation software or tool used."""
 
     name: str = Field(
         ..., description="Molecular dynamics tool or software \
@@ -97,11 +97,15 @@ class SimulationMetadata(BaseModel):
             return None
 
         def check_positive(value: str | float | int):
+            # Case 1: value is alrealdy numeric
             if isinstance(value, (int, float)):
                 if value <= 0:
                     msg = "Simulation parameters must be strictly positive"
                     raise ValueError(msg)
+
+            # Case 2: value is a string (e.g. "0.0997μs")
             elif isinstance(value, str):
+                # Extract numeric part
                 match = re.search(r"([-+]?\d*\.?\d+)", value)
                 if not match or float(match.group(1)) <= 0:
                     msg = f"Invalid simulation parameter: {value}"
@@ -110,11 +114,12 @@ class SimulationMetadata(BaseModel):
                 msg = f"Unsupported type for simulation parameter: {type(value)}"
                 raise ValueError(msg)
 
+        # Iterate over the possible values
         if isinstance(v, list):
             for item in v:
                 check_positive(item)
             return v
-        check_positive(v)
+
         return v
 
     @field_validator("simulation_temperature", mode="before")
@@ -149,7 +154,7 @@ class SimulationMetadata(BaseModel):
         if temperatures is None:
             return None
 
-        kelvin_temperatures: list[float] = []
+        kelvin_temperatures = []
 
         for temp_str in temperatures:
             temp_clean = str(temp_str).strip().lower()

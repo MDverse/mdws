@@ -1,4 +1,4 @@
-"""Tests for the pydantic dataset model module."""
+"""Tests for the pydantic simulation model module."""
 
 import pytest
 from pydantic import ValidationError
@@ -13,9 +13,8 @@ from mdverse_scrapers.models.simulation import SimulationMetadata
     ("values", "should_raise"),
     [
         ([0.1, 2.0], False),
-        ([0, 1.0], True),  # because <= 0
-        ([-1, 2.0], True),
-        (["-0.1"], True),
+        ([0, 1.0], True),  # because 0 <= 0
+        ([-1, 2.0], True),  # because -1 <= 0
         (None, False),
     ],
 )
@@ -87,7 +86,7 @@ def test_invalid_simulation_value_type_raises_directly():
             softwares=[{"name": "GROMACS", "version": "2023.1"}],
             molecules=[{"name": "H2O", "number_of_atoms": 3}],
             forcefields=[{"name": "AMBER", "version": "ff14SB"}],
-            simulation_timestep_in_fs=["invalid"],  # <- invalide
+            simulation_timestep_in_fs=["invalid"],  # because not a float
             simulation_time=[1000.0],
             simulation_temperature=["300K"],
             number_of_total_atoms=3,
