@@ -1,28 +1,17 @@
-"""Useful enumerations for MDverse scrapers."""
+"""Enumerations for MDverse scrapers and models."""
 
 from enum import StrEnum
 
 
 class DataType(StrEnum):
-    """Supported data types."""
+    """Data types."""
 
     DATASETS = "datasets"
     FILES = "files"
 
 
-class DatasetRepositoryName(StrEnum):
-    """Supported repositories from which molecular dynamics datasets are scraped."""
-
-    ZENODO = "zenodo"
-    FIGSHARE = "figshare"
-    OSF = "osf"
-    NOMAD = "nomad"
-    ATLAS = "atlas"
-    GPCRMD = "gpcrmd"
-
-
-class DatasetProjectName(StrEnum):
-    """Supported projects from which molecular dynamics datasets are scraped."""
+class DatasetRepoProjectName(StrEnum):
+    """Molecular dynamaics data repositories and projects."""
 
     ZENODO = "zenodo"
     FIGSHARE = "figshare"
