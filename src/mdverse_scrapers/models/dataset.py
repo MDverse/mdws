@@ -84,12 +84,12 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     # ------------------------------------------------------------------
     download_number: int | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Total number of downloads for the dataset.",
     )
     view_number: int | None = Field(
         None,
-        gt=0,
+        ge=0,
         description="Total number of views for the dataset.",
     )
 
