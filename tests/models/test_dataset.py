@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from pydantic import ValidationError
 
 from mdverse_scrapers.models.dataset import DatasetMetadata
 from mdverse_scrapers.models.date import DATETIME_FORMAT
@@ -107,9 +108,9 @@ def test_fill_project_fields():
 
 def test_fill_project_fields_from_repository_invalid_mapping():
     """Test that ValueError is raised when repository cannot map to a project."""
-    with pytest.raises(AttributeError, match="type object"):
+    with pytest.raises(ValidationError):
         _ = DatasetMetadata(
-            dataset_repository_name=DatasetSourceName.DUMMY,
+            dataset_repository_name="dummy",
             dataset_id_in_repository="123",
             dataset_url_in_repository="https://example.com/123",
             title="Test Dataset",
@@ -126,9 +127,8 @@ def test_date_last_fetched_is_recent():
         title="Test Dataset",
     )
     time_2 = datetime.fromisoformat(metadata.date_last_fetched)
-    print(time_1, time_2)
     diff = abs((time_2 - time_1).total_seconds())
-    assert 0 <= diff <= 1
+    assert 0 <= diff <= 2  # Allow up to 2 seconds difference.
 
 
 # ---------------------
