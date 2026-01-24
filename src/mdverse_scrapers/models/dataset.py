@@ -7,7 +7,6 @@ from pydantic import (
     BaseModel,
     Field,
     StringConstraints,
-    computed_field,
     field_validator,
     model_validator,
 )
@@ -105,19 +104,10 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
         None,
         description="Date when the dataset metadata was last updated.",
     )
-
-    @computed_field
-    @property
-    def date_last_fetched(self) -> str:
-        """
-        Populate the date when the dataset metadata was last fetched.
-
-        Returns
-        -------
-        str
-            The current date and time in ISO 8601 format.
-        """
-        return datetime.now().strftime(DATETIME_FORMAT)
+    date_last_fetched: str = Field(
+        default_factory=lambda: datetime.now().strftime(DATETIME_FORMAT),
+        description="Date when the dataset metadata was last fetched.",
+    )
 
     # ------------------------------------------------------------------
     # Descriptive metadata
