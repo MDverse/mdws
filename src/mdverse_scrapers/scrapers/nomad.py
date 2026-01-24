@@ -23,7 +23,7 @@ from ..core.network import (
 )
 from ..core.toolbox import export_list_of_models_to_parquet
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetProjectName, DatasetRepositoryName, DataType
+from ..models.enums import DatasetSourceName, DataType
 from ..models.file import FileMetadata
 from ..models.simulation import Molecule, Software
 from ..models.utils import validate_metadata_against_model
@@ -279,8 +279,8 @@ def scrape_files_for_one_dataset(
     return response.json()
 
 
-def extract_software_and_version(dataset: dict, entry_id: str,
-    logger: "loguru.Logger" = loguru.logger
+def extract_software_and_version(
+    dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
 ) -> list[Software]:
     """
     Extract software name and version from the nested dataset dictionary.
@@ -303,7 +303,8 @@ def extract_software_and_version(dataset: dict, entry_id: str,
     version = None
     try:
         software_info = (
-            dataset.get("results", {}).get("method", {}).get("simulation", {}))
+            dataset.get("results", {}).get("method", {}).get("simulation", {})
+        )
         name = software_info.get("program_name")
         version = software_info.get("program_version")
     except (ValueError, KeyError) as e:
@@ -355,7 +356,8 @@ def extract_molecules_and_total_atoms(
     return total_atoms, molecules
 
 
-def extract_time_step(dataset: dict, entry_id: str, logger: "loguru.Logger"
+def extract_time_step(
+    dataset: dict, entry_id: str, logger: "loguru.Logger"
 ) -> list[float] | None:
     """
     Extract the simulation time_step from a dataset entry.
@@ -376,12 +378,12 @@ def extract_time_step(dataset: dict, entry_id: str, logger: "loguru.Logger"
     try:
         time_step = (
             dataset.get("results", {})
-                   .get("properties", {})
-                   .get("thermodynamic", {})
-                   .get("trajectory", [{}])[0]
-                   .get("provenance", {})
-                   .get("molecular_dynamics", {})
-                   .get("time_step")
+            .get("properties", {})
+            .get("thermodynamic", {})
+            .get("trajectory", [{}])[0]
+            .get("provenance", {})
+            .get("molecular_dynamics", {})
+            .get("time_step")
         )
     except (ValueError, KeyError, IndexError) as e:
         logger.warning(f"Could not extract time_step for entry {entry_id}: {e}")
@@ -413,7 +415,7 @@ def extract_datasets_metadata(
             f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
         )
         metadata = {
-            "dataset_repository_name": DatasetRepositoryName.NOMAD,
+            "dataset_repository_name": DatasetSourceName.NOMAD,
             "dataset_id_in_repository": entry_id,
             "dataset_url_in_repository": entry_url,
             "external_links": dataset.get("references"),
@@ -427,17 +429,19 @@ def extract_datasets_metadata(
         }
         # Extract simulation metadata if available.
         # Software names with their versions.
-        metadata["softwares"] = extract_software_and_version(dataset, entry_id, logger)
+        metadata["software"] = extract_software_and_version(dataset, entry_id, logger)
         # Molecules with their nb of atoms and number total of atoms.
-        total_atoms, molecules = (
-            extract_molecules_and_total_atoms(dataset, entry_id, logger))
-        metadata["number_of_total_atoms"] = total_atoms
+        total_atoms, molecules = extract_molecules_and_total_atoms(
+            dataset, entry_id, logger
+        )
+        metadata["total_number_of_atoms"] = total_atoms
         metadata["molecules"] = molecules
         # Time step in fs
-        metadata["simulation_timestep_in_fs"] = (
-            extract_time_step(dataset, entry_id, logger))
+        metadata["simulation_timesteps_in_fs"] = extract_time_step(
+            dataset, entry_id, logger
+        )
         # Temperature
-        metadata["simulation_temperature"] = None  # TODO?
+        metadata["simulation_temperatures"] = None  # TODO?
 
         datasets_metadata.append(metadata)
     logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")
@@ -504,9 +508,7 @@ def extract_files_metadata(
     logger.info("Extracting files metadata...")
     files_metadata = []
     entry_id = raw_metadata["entry_id"]
-    entry_url = (
-            f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
-        )
+    entry_url = f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
     for nomad_file in raw_metadata.get("data", {}).get("files", []):
         file_path = Path(nomad_file.get("path", ""))
         file_name = file_path.name
@@ -517,7 +519,7 @@ def extract_files_metadata(
         size = nomad_file.get("size", None)
 
         parsed_file = {
-            "dataset_repository_name": DatasetRepositoryName.NOMAD,
+            "dataset_repository_name": DatasetSourceName.NOMAD,
             "dataset_id_in_repository": entry_id,
             "dataset_url_in_repository": entry_url,
             "file_name": file_name,
@@ -543,9 +545,9 @@ def extract_files_metadata(
 def main(output_dir_path: Path) -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
     # Create directories and logger.
-    output_dir_path = output_dir_path / DatasetProjectName.NOMAD.value
+    output_dir_path = output_dir_path / DatasetSourceName.NOMAD.value
     output_dir_path.mkdir(parents=True, exist_ok=True)
-    logfile_path = output_dir_path / f"{DatasetProjectName.NOMAD.value}_scraper.log"
+    logfile_path = output_dir_path / f"{DatasetSourceName.NOMAD.value}_scraper.log"
     logger = create_logger(logpath=logfile_path, level="INFO")
     logger.info("Starting Nomad data scraping...")
     start_time = time.perf_counter()
@@ -581,7 +583,7 @@ def main(output_dir_path: Path) -> None:
     # Save datasets metadata to parquet file.
     export_list_of_models_to_parquet(
         output_dir_path
-        / f"{DatasetProjectName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
+        / f"{DatasetSourceName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
         datasets_normalized_metadata,
         logger=logger,
     )
@@ -593,7 +595,7 @@ def main(output_dir_path: Path) -> None:
     # Save files metadata to parquet file.
     export_list_of_models_to_parquet(
         output_dir_path
-        / f"{DatasetProjectName.NOMAD.value}_{DataType.FILES.value}.parquet",
+        / f"{DatasetSourceName.NOMAD.value}_{DataType.FILES.value}.parquet",
         files_normalized_metadata,
         logger=logger,
     )
