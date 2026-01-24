@@ -44,7 +44,7 @@ class FileMetadata(DatasetCoreMetadata):
     # ------------------------------------------------------------------
     @field_validator("file_size_in_bytes", mode="before")
     @classmethod
-    def normalize_byte_string(cls, value: str | None) -> str | None:
+    def normalize_byte_string(cls, value: int | str | None) -> int | str | None:
         """
         Normalize the unit "Bytes" with "B" to make it acceptable for ByteSize.
 
@@ -52,7 +52,7 @@ class FileMetadata(DatasetCoreMetadata):
 
         Returns
         -------
-        str | None
+        int | str | None
             The normalized "Bytes" file size as "B", or None if input is None.
         """
         if value is None:
