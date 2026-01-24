@@ -417,7 +417,7 @@ def extract_time_step(
 
 
 def extract_datasets_metadata(
-    datasets: list[dict[str, Any]],
+    datasets: list[dict],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
     """
@@ -425,7 +425,7 @@ def extract_datasets_metadata(
 
     Parameters
     ----------
-    datasets : List[Dict[str, Any]]
+    datasets : list[dict]
         List of raw NOMAD datasets metadata.
     logger: "loguru.Logger"
         Logger object.
