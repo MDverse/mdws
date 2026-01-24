@@ -175,7 +175,7 @@ class SimulationMetadata(BaseModel):
         for temp_str in temperatures:
             temp_clean = str(temp_str).strip().lower()
             # Extract the numeric part.
-            match = re.search(r"([-+]?\d*\.?\d+([eE][-+]?\d+)?)", temp_str)
+            match = re.search(r"([-+]?\d*\.?\d+([eE][-+]?\d+)?)", temp_clean)
             if match is None:
                 msg = f"Cannot parse temperature: {temp_str}"
                 raise ValueError(msg)
