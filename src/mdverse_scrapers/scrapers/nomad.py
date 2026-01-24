@@ -33,17 +33,8 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
     "owner": "visible",
     "query": {"results.method.workflow_name:any": ["MolecularDynamics"]},
     "aggregations": {},
-    "pagination": {
-        "order_by": "upload_create_time",
-        "order": "desc",
-        "page_size": None,
-    },
-    "required": {
-        "exclude": [
-            "quantities",
-            "sections",
-        ]
-    },
+    "pagination": {"order_by": "upload_create_time", "order": "desc", "page_size": 10},
+    "required": {"exclude": ["quantities", "sections"]},
 }
 
 
@@ -307,8 +298,8 @@ def extract_software_and_version(
 
     Returns
     -------
-    Software
-        A Software instance with `name` and `version` fields, possibly None.
+    list[Software] | None
+        A list of Software instances with `name` and `version` fields, None otherwise.
     """
     name = None
     version = None
