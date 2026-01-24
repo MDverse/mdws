@@ -455,12 +455,12 @@ def extract_datasets_metadata(
         )
         metadata["total_number_of_atoms"] = total_atoms
         metadata["molecules"] = molecules
-        # Time step in fs
+        # Time step in fs.
         metadata["simulation_timesteps_in_fs"] = extract_time_step(
             dataset, entry_id, logger
         )
-        # Temperature
-        metadata["simulation_temperatures"] = None  # TODO?
+        # Temperatures.
+        metadata["simulation_temperatures_in_kelvin"] = None  # TODO?
 
         datasets_metadata.append(metadata)
     logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")
