@@ -322,10 +322,10 @@ def extract_molecules_and_total_atoms(
     Parameters
     ----------
     dataset : dict
-        Dataset entry containing material/topology information.
+        Dataset metadata obtained from the NOMAD API.
     entry_id : str
         Identifier of the dataset entry, used for logging.
-    logger: "loguru.Logger"
+    logger: "loguru.Logger" = loguru.logger
         Logger for logging messages.
 
     Returns
@@ -348,9 +348,13 @@ def extract_molecules_and_total_atoms(
             # Extract molecules
             for topology in topologies:
                 if topology.get("structural_type") == "molecule":
-                    name = topology.get("label", "unknown")
-                    n_atoms = topology.get("n_atoms")
-                    molecules.append(Molecule(name=name, number_of_atoms=n_atoms))
+                    molecules.append(  # noqa: PERF401
+                        Molecule(
+                            name=topology.get("label", "unknown"),
+                            number_of_atoms=topology.get("n_atoms"),
+                            formula=topology.get("chemical_formula_descriptive"),
+                        )
+                    )
         else:
             logger.warning(f"Topologies is not a list for entry {entry_id}.")
             logger.warning("Skipping molecules extraction.")

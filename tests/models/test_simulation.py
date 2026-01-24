@@ -42,7 +42,7 @@ def test_positive_simulation_values(values, should_raise_exception):
         (["300K", "300  K"], [300.0, 300.0]),
         (["27°C", "27 °C"], [300.15, 300.15]),
         (["0c", "100 Celcius"], [273.15, 373.15]),
-        (["-10C", "-10 °C", "-1"], [263.15, 263.15, 272.15]),
+        (["-10C", "-10 °C", "-1.87"], [263.15, 263.15, 271.28]),
         (None, None),
     ],
 )
@@ -59,7 +59,7 @@ def test_structured_fields_creation():
     """Test that software, molecules, and forcefields can be created."""
     metadata = SimulationMetadata(
         software=[Software(name="GROMACS", version="2023.1")],
-        molecules=[Molecule(name="H2O", number_of_atoms=3)],
+        molecules=[Molecule(name="H2O", number_of_atoms=3, formula="H2O")],
         forcefields=[ForceFieldModel(name="AMBER", version="ff14SB")],
     )
     assert metadata.software[0].name == "GROMACS"
@@ -73,7 +73,9 @@ def test_structured_fields_creation():
 def test_invalid_molecule_number_of_atoms():
     """Test that molecule number_of_atoms cannot be negative."""
     with pytest.raises(ValidationError):
-        SimulationMetadata(molecules=[Molecule(name="H2O", number_of_atoms=-1)])
+        SimulationMetadata(
+            molecules=[Molecule(name="H2O", number_of_atoms=-1, formula="H2O")]
+        )
 
 
 # -------------------------

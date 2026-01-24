@@ -18,6 +18,9 @@ class Molecule(BaseModel):
     number_of_atoms: int | None = Field(
         None, ge=0, description="Number of atoms in the molecule, if known."
     )
+    formula: str | None = Field(
+        None, description="Chemical formula of the molecule, if known."
+    )
 
 
 class ForceFieldModel(BaseModel):
