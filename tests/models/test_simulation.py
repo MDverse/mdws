@@ -1,16 +1,21 @@
-"""Tests for the pydantic simulation model module."""
+"""Tests for the Pydantic simulation model."""
 
 import pytest
 from pydantic import ValidationError
 
-from mdverse_scrapers.models.simulation import SimulationMetadata
+from mdverse_scrapers.models.simulation import (
+    ForceFieldModel,
+    Molecule,
+    SimulationMetadata,
+    Software,
+)
 
 
 # -------------------------------------------------------------------
 # Test simulation timestep and time positive values
 # -------------------------------------------------------------------
 @pytest.mark.parametrize(
-    ("values", "should_raise"),
+    ("values", "should_raise_exception"),
     [
         ([0.1, 2.0], False),
         ([0, 1.0], True),  # because 0 <= 0
@@ -18,35 +23,33 @@ from mdverse_scrapers.models.simulation import SimulationMetadata
         (None, False),
     ],
 )
-def test_positive_simulation_values(values, should_raise):
+def test_positive_simulation_values(values, should_raise_exception):
     """Test that simulation numeric parameters must be strictly positive."""
-    if should_raise:
-        with pytest.raises((ValueError, ValidationError),
-                            match=r"Simulation|Invalid"
-        ):
-            SimulationMetadata(simulation_timestep_in_fs=values)
+    if should_raise_exception:
+        with pytest.raises((ValueError, ValidationError), match=r"Simulation|Invalid"):
+            SimulationMetadata(simulation_timesteps_in_fs=values)
     else:
-        meta = SimulationMetadata(simulation_timestep_in_fs=values)
-        assert meta.simulation_timestep_in_fs == values
+        metadata = SimulationMetadata(simulation_timesteps_in_fs=values)
+        assert metadata.simulation_timesteps_in_fs == values
 
 
 # -------------------------------------------------------------------
 # Test temperature normalization
 # -------------------------------------------------------------------
 @pytest.mark.parametrize(
-    ("temps_input", "expected_kelvin"),
+    ("test_temp", "expected_temp_in_kelvin"),
     [
-        (["300K"], [300.0]),
-        (["27°C"], [300.15]),
+        (["300K", "300  K"], [300.0, 300.0]),
+        (["27°C", "27 °C"], [300.15, 300.15]),
         (["0c", "100 Celcius"], [273.15, 373.15]),
-        (["-10C", "-1"], [263.15, 272.15]),
+        (["-10C", "-10 °C", "-1.87"], [263.15, 263.15, 271.28]),
         (None, None),
     ],
 )
-def test_temperature_normalization(temps_input, expected_kelvin):
+def test_temperature_normalization(test_temp, expected_temp_in_kelvin):
     """Test normalization of simulation_temperature to Kelvin."""
-    meta = SimulationMetadata(simulation_temperature=temps_input)
-    assert meta.simulation_temperature == expected_kelvin
+    metadata = SimulationMetadata(simulation_temperatures_in_kelvin=test_temp)
+    assert metadata.simulation_temperatures_in_kelvin == expected_temp_in_kelvin
 
 
 # -------------------------------------------------------------------
@@ -54,15 +57,14 @@ def test_temperature_normalization(temps_input, expected_kelvin):
 # -------------------------------------------------------------------
 def test_structured_fields_creation():
     """Test that software, molecules, and forcefields can be created."""
-    meta = SimulationMetadata(
-        softwares=[{"name": "GROMACS", "version": "2023.1"}],
-        molecules=[{"name": "H2O", "number_of_atoms": 3}],
-        forcefields=[{"name": "AMBER", "version": "ff14SB"}],
+    metadata = SimulationMetadata(
+        software=[Software(name="GROMACS", version="2023.1")],
+        molecules=[Molecule(name="H2O", number_of_atoms=3, formula="H2O")],
+        forcefields=[ForceFieldModel(name="AMBER", version="ff14SB")],
     )
-
-    assert meta.softwares[0].name == "GROMACS"
-    assert meta.molecules[0].number_of_atoms == 3
-    assert meta.forcefields[0].version == "ff14SB"
+    assert metadata.software[0].name == "GROMACS"
+    assert metadata.molecules[0].number_of_atoms == 3
+    assert metadata.forcefields[0].version == "ff14SB"
 
 
 # -------------------------------------------------------------------
@@ -72,22 +74,16 @@ def test_invalid_molecule_number_of_atoms():
     """Test that molecule number_of_atoms cannot be negative."""
     with pytest.raises(ValidationError):
         SimulationMetadata(
-            molecules=[{"name": "H2O", "number_of_atoms": -1}]
+            molecules=[Molecule(name="H2O", number_of_atoms=-1, formula="H2O")]
         )
 
 
 # -------------------------
 # Test invalid simulation parameter type
 # -------------------------
-def test_invalid_simulation_value_type_raises_directly():
+def test_invalid_simulation_value_type():
     """Test that non-numeric strings raise ValidationError."""
     with pytest.raises(ValidationError):
         SimulationMetadata(
-            softwares=[{"name": "GROMACS", "version": "2023.1"}],
-            molecules=[{"name": "H2O", "number_of_atoms": 3}],
-            forcefields=[{"name": "AMBER", "version": "ff14SB"}],
-            simulation_timestep_in_fs=["invalid"],  # because not a float
-            simulation_time=[1000.0],
-            simulation_temperature=["300K"],
-            number_of_total_atoms=3,
+            simulation_timesteps_in_fs=["invalid-value"],  # because not a float
         )
