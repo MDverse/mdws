@@ -52,6 +52,15 @@ def is_nomad_connection_working(
 ) -> bool | None:
     """Test connection to the NOMAD API.
 
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    url : str
+        The URL endpoint.
+    logger: "loguru.Logger"
+        Logger object.
+
     Returns
     -------
     bool
@@ -88,6 +97,8 @@ def scrape_all_datasets(
         The entry point of the API request.
     page_size : int
         Number of entries to fetch per page.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -192,7 +203,7 @@ def scrape_files_for_all_datasets(
     datasets : list[DatasetMetadata]
         List of datasets to scrape files metadata for.
     logger: "loguru.Logger"
-        Logger for logging messages.
+        Logger object.
 
     Returns
     -------
@@ -258,7 +269,7 @@ def scrape_files_for_one_dataset(
     dataset_id : str
         The unique identifier of the dataset in NOMAD.
     logger: "loguru.Logger"
-        Logger for logging messages.
+        Logger object.
 
     Returns
     -------
@@ -281,7 +292,7 @@ def scrape_files_for_one_dataset(
 
 def extract_software_and_version(
     dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
-) -> list[Software]:
+) -> list[Software] | None:
     """
     Extract software name and version from the nested dataset dictionary.
 
@@ -291,8 +302,8 @@ def extract_software_and_version(
         The dataset entry from which to extract software information.
     entry_id : str
         Identifier of the dataset entry, used for logging.
-    logger : logging.Logger
-        Logger to use for warnings.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -307,10 +318,10 @@ def extract_software_and_version(
         )
         name = software_info.get("program_name")
         version = software_info.get("program_version")
+        return [Software(name=name, version=version)]
     except (ValueError, KeyError) as e:
         logger.warning(f"Error parsing software info for entry {entry_id}: {e}")
-
-    return [Software(name=name, version=version)]
+    return None
 
 
 def extract_molecules_and_total_atoms(
@@ -325,8 +336,8 @@ def extract_molecules_and_total_atoms(
         Dataset metadata obtained from the NOMAD API.
     entry_id : str
         Identifier of the dataset entry, used for logging.
-    logger: "loguru.Logger" = loguru.logger
-        Logger for logging messages.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -365,10 +376,12 @@ def extract_molecules_and_total_atoms(
 
 
 def extract_time_step(
-    dataset: dict, entry_id: str, logger: "loguru.Logger"
+    dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
 ) -> list[float] | None:
     """
-    Extract the simulation time_step from a dataset entry.
+    Extract the simulation time step from a dataset entry.
+
+    Convert the time step from seconds to femtoseconds.
 
     Parameters
     ----------
@@ -376,11 +389,13 @@ def extract_time_step(
         The dataset entry containing the thermodynamic/trajectory information.
     entry_id : str
         Identifier of the dataset entry, used for logging.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
-    list[float] | None
-        The time_step in fs in a list, or None if not found.
+    float | None
+        The time step in fs, or None if not found.
     """
     time_step = None
     try:
@@ -393,8 +408,11 @@ def extract_time_step(
             .get("molecular_dynamics", {})
             .get("time_step")
         )
+        time_step = float(time_step) * 1e15 if time_step is not None else None
     except (ValueError, KeyError, IndexError) as e:
-        logger.warning(f"Could not extract time_step for entry {entry_id}: {e}")
+        logger.warning(f"Could not extract time step for entry {entry_id}: {e}")
+    if time_step is None:
+        return None
     return [time_step]
 
 
@@ -409,6 +427,8 @@ def extract_datasets_metadata(
     ----------
     datasets : List[Dict[str, Any]]
         List of raw NOMAD datasets metadata.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -467,6 +487,8 @@ def normalize_datasets_metadata(
     ----------
     datasets : list[dict]
         List of dataset metadata dictionaries.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -507,6 +529,8 @@ def extract_files_metadata(
     ----------
     raw_metadata: dict
         Raw files metadata.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
