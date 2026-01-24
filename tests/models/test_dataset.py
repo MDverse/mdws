@@ -150,15 +150,15 @@ def test_dataset_metadata_full_scenario():
         external_links=[],
         license="",
     )
-    # Check that empty fields converted to None
+    # Check that empty fields are converted to None.
     assert metadata.description is None
     assert metadata.keywords is None
     assert metadata.author_names is None
     assert metadata.external_links is None
     assert metadata.license is None
-    # Check project fields filled
+    # Check that project fields are filled
     assert metadata.dataset_project_name == DatasetSourceName.FIGSHARE
     assert metadata.dataset_id_in_project == "fig_456"
     assert metadata.dataset_url_in_project == "https://figshare.com/articles/fig_456"
-    # Check date_last_fetched is filled
+    # Check that date_last_fetched is filled
     assert isinstance(metadata.date_last_fetched, str)

@@ -71,7 +71,7 @@ def test_file_size_normalization(
     ],
 )
 def test_file_type_computed_correctly(file_name: str, expected_file_type: str) -> None:
-    """Test that file_type is computed correctly from the file_name."""
+    """Test that the file_type is computed correctly from the file_name."""
     file = FileMetadata(
         dataset_repository_name=DatasetSourceName.NOMAD,
         dataset_id_in_repository="abc123",
