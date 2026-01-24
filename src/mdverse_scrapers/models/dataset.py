@@ -35,7 +35,7 @@ class DatasetCoreMetadata(BaseModel):
         ...,
         description=(
             "Name of the source data repository. "
-            "Allowed values in the DatasetRepoProjectName enum. "
+            "Allowed values in the DatasetSourceName enum. "
             "Examples: ZENODO, FIGSHARE, NOMAD..."
         ),
     )
