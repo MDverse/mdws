@@ -229,7 +229,7 @@ def scrape_files_for_all_datasets(
                 continue
             all_files_metadata.append(normalized_metadata)
         logger.info("Done.")
-        logger.info(f"Total files: {len(all_files_metadata):,}")
+        logger.info(f"Total files found: {len(all_files_metadata):,}")
         logger.info(
             "Extracted and validated files metadata for "
             f"{dataset_count:,}/{len(datasets):,} "
@@ -314,7 +314,7 @@ def extract_software_and_version(
 
 
 def extract_molecules_and_total_atoms(
-    dataset: dict, entry_id: str, logger: "loguru.Logger"
+    dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
 ) -> tuple[int | None, list[Molecule]]:
     """
     Extract molecules and total number of atoms from a dataset entry.
@@ -325,6 +325,8 @@ def extract_molecules_and_total_atoms(
         Dataset entry containing material/topology information.
     entry_id : str
         Identifier of the dataset entry, used for logging.
+    logger: "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
@@ -336,20 +338,22 @@ def extract_molecules_and_total_atoms(
     molecules = []
 
     try:
-        topology = dataset.get("results", {}).get("material", {}).get("topology", [])
-        if isinstance(topology, list):
-            # Extract total_atoms from the entry labeled "original"
-            for t in topology:
-                if t.get("label") == "original":
-                    total_atoms = t.get("n_atoms")
+        topologies = dataset.get("results", {}).get("material", {}).get("topology", [])
+        if isinstance(topologies, list):
+            # Extract total_atoms from the topology labeled "original".
+            for topology in topologies:
+                if topology.get("label") == "original":
+                    total_atoms = topology.get("n_atoms")
                     break
-
             # Extract molecules
-            for t in topology:
-                if t.get("structural_type") == "molecule":
-                    name = t.get("label", "unknown")
-                    n_atoms = t.get("n_atoms")
+            for topology in topologies:
+                if topology.get("structural_type") == "molecule":
+                    name = topology.get("label", "unknown")
+                    n_atoms = topology.get("n_atoms")
                     molecules.append(Molecule(name=name, number_of_atoms=n_atoms))
+        else:
+            logger.warning(f"Topologies is not a list for entry {entry_id}.")
+            logger.warning("Skipping molecules extraction.")
     except (ValueError, KeyError) as e:
         logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
 
