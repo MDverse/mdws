@@ -385,8 +385,8 @@ def extract_time_step(
 
     Returns
     -------
-    float | None
-        The time step in fs, or None if not found.
+    list[float] | None
+        A list containined the time step in fs, or None if not found.
     """
     time_step = None
     try:
