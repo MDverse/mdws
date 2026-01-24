@@ -49,7 +49,7 @@ class Software(BaseModel):
 
 
 class SimulationMetadata(BaseModel):
-    """Base Pydantic model for MD simulationmetadata.
+    """Base Pydantic model for MD simulation metadata.
 
     No field is required in this model; all are optional.
     """
