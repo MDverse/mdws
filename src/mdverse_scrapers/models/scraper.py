@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Self
 
 import loguru
-from pydantic import BaseModel, Field, computed_field, model_validator
+from pydantic import BaseModel, DirectoryPath, Field, FilePath, model_validator
 
 from .enums import DatasetSourceName, DataType
 
@@ -17,25 +17,35 @@ class ScraperContext(BaseModel):
         ...,
         description="Data repository to be scraped.",
     )
-    output_dir_path: str | Path = Field(
+    output_dir_path: DirectoryPath = Field(
         ...,
         description="Output directory path for the scraper results.",
     )
-    query_file_path: str | Path | None = Field(
+    query_file_path: FilePath | None = Field(
         None,
         description="Path to the query file for the scraper.",
     )
-    log_file_path: str | Path | None = Field(
+    log_file_path: Path | None = Field(
         None,
         description="Path to the log file for the scraper.",
     )
-    datasets_parquet_file_path: str | Path | None = Field(
+    datasets_parquet_file_path: Path | None = Field(
         None,
         description="Path to the output parquet file for datasets metadata.",
     )
-    files_parquet_file_path: str | Path | None = Field(
+    number_of_datasets_scraped: int = Field(
+        0,
+        ge=0,
+        description="Number of datasets scraped.",
+    )
+    files_parquet_file_path: Path | None = Field(
         None,
         description="Path to the output parquet file for files metadata.",
+    )
+    number_of_files_scraped: int = Field(
+        0,
+        ge=0,
+        description="Number of files scraped.",
     )
     token: str | None = Field(
         None,
@@ -45,12 +55,10 @@ class ScraperContext(BaseModel):
         loguru.logger,
         description="Logger instance for logging scraper activities.",
     )
-
-    @computed_field
-    @property
-    def start_time(self) -> datetime:
-        """Datetime when the scraper context was created."""
-        return datetime.now()
+    start_time: datetime = Field(
+        default_factory=lambda: datetime.now(),
+        description="Datetime when the scraper started.",
+    )
 
     @model_validator(mode="after")
     def create_output_dir_path(self) -> Self:
@@ -66,14 +74,14 @@ class ScraperContext(BaseModel):
         self.output_dir_path = (
             Path(self.output_dir_path)
             / self.data_source_name.value
-            / datetime.now().strftime("%Y%m%d")
+            / self.start_time.strftime("%Y%m%d")
         )
         self.output_dir_path.mkdir(parents=True, exist_ok=True)
         # Define log file path.
         self.log_file_path = (
             self.output_dir_path / f"{self.data_source_name.value}_scraper.log"
         )
-        # Define output parquet file path.
+        # Define output parquet file path for datasets and files metadata.
         self.datasets_parquet_file_path = (
             self.output_dir_path
             / f"{self.data_source_name.value}_{DataType.DATASETS.value}.parquet"
