@@ -11,7 +11,10 @@ from .enums import DatasetSourceName, DataType
 
 
 class ScraperContext(BaseModel):
-    """Pydantic model describing the context of a scraper."""
+    """Pydantic model describing the context of a scraper.
+
+    Mandatory fields are `data_source_name` and `output_dir_path`.
+    """
 
     data_source_name: DatasetSourceName = Field(
         ...,
