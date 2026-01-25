@@ -21,13 +21,13 @@ class FileMetadata(DatasetCoreMetadata):
     # ------------------------------------------------------------------
     # Descriptive metadata
     # ------------------------------------------------------------------
-    file_url_in_repository: str = Field(
-        ...,
-        description="URL to access the file in the repository.",
-    )
     file_name: str = Field(
         ...,
         description="File name.",
+    )
+    file_url_in_repository: str = Field(
+        ...,
+        description="URL to access the file in the repository.",
     )
     file_size_in_bytes: ByteSize | None = Field(None, description="File size in bytes.")
     file_md5: str | None = Field(None, description="MD5 checksum.")

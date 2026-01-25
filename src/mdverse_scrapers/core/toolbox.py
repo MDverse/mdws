@@ -7,7 +7,6 @@ import time
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -16,9 +15,7 @@ import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
 
-from ..models.dataset import DatasetMetadata
 from ..models.enums import DataType
-from ..models.file import FileMetadata
 from ..models.scraper import ScraperContext
 
 warnings.filterwarnings(
@@ -464,7 +461,8 @@ def remove_false_positive_datasets(
 def find_remove_false_positive_datasets(
     datasets_df: pd.DataFrame,
     files_df: pd.DataFrame,
-    ctx: ContextManager,
+    scraper: ScraperContext,
+    logger: "loguru.Logger" = loguru.logger,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Find and remove false-positive datasets.
 
@@ -476,8 +474,10 @@ def find_remove_false_positive_datasets(
         Dataframe with information about datasets.
     files_df : pd.DataFrame
         Dataframe with information about files.
-    ctx : toolbox.ContextManager
-        ContextManager object.
+    scraper : ScraperContext
+        ScraperContext object.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
@@ -487,29 +487,33 @@ def find_remove_false_positive_datasets(
         - files
     """
     # Read parameter file.
-    file_types, _, _, _ = read_query_file(ctx.query_file_name)
+    file_types, _, _, _ = read_query_file(scraper.query_file_name)
     # List file types from the query parameter file.
     file_types_lst = [file_type["type"] for file_type in file_types]
     # Zip is not a MD-specific file type.
     file_types_lst.remove("zip")
     # Find false-positive datasets.
     false_positive_datasets = find_false_positive_datasets(
-        files_df, file_types_lst, logger=ctx.logger
+        files_df, file_types_lst, logger=logger
     )
     # Remove false-positive datasets from all dataframes.
-    ctx.logger.info("Removing false-positive datasets in the datasets dataframe...")
+    logger.info("Removing false-positive datasets in the datasets dataframe...")
     datasets_df = remove_false_positive_datasets(
-        datasets_df, false_positive_datasets, logger=ctx.logger
+        datasets_df, false_positive_datasets, logger=logger
     )
-    ctx.logger.info("Removing false-positive datasets in the files dataframe...")
+    logger.info("Removing false-positive datasets in the files dataframe...")
     files_df = remove_false_positive_datasets(
-        files_df, false_positive_datasets, logger=ctx.logger
+        files_df, false_positive_datasets, logger=logger
     )
     return datasets_df, files_df
 
 
 def export_dataframe_to_parquet(
-    repository_name: str, suffix: DataType, df: pd.DataFrame, ctx: ContextManager
+    repository_name: str,
+    suffix: DataType,
+    df: pd.DataFrame,
+    scraper: ScraperContext,
+    logger: "loguru.Logger" = loguru.logger,
 ) -> None:
     """Export dataframes to parquet file.
 
@@ -521,47 +525,15 @@ def export_dataframe_to_parquet(
         Suffix for the parquet file name.
     df : pd.DataFrame
         Dataframe to export.
-    ctx : ContextManager
-        ContextManager object.
-    """
-    parquet_name = ctx.output_path / f"{repository_name}_{suffix}.parquet"
-    df.to_parquet(parquet_name, index=False)
-    ctx.logger.success(f"Dataframe with {len(df):,} rows exported to:")
-    ctx.logger.success(parquet_name)
-
-
-def export_list_of_models_to_parquet(
-    parquet_path: Path,
-    list_of_models: list[DatasetMetadata] | list[FileMetadata],
-    logger: "loguru.Logger" = loguru.logger,
-) -> int:
-    """Export list of Pydantic models to parquet file.
-
-    Parameters
-    ----------
-    parquet_path : Path
-        Path to the output parquet file.
-    list_of_models : list[DatasetMetadata] | list[FileMetadata]
-        List of Pydantic models to export.
+    scraper : ScraperContext
+        ScraperContext object.
     logger : "loguru.Logger"
         Logger for logging messages.
-
-    Returns
-    -------
-    int
-        Number of exported models.
     """
-    logger.info("Exporting models to parquet.")
-    try:
-        df = pd.DataFrame([model.model_dump() for model in list_of_models])
-        df.to_parquet(parquet_path, index=False)
-        logger.success(f"Exported {len(df):,} rows to:")
-        logger.success(parquet_path)
-        return len(df)
-    except (ValueError, TypeError, OSError) as e:
-        logger.error("Failed to export models to parquet.")
-        logger.error(e)
-        return 0
+    parquet_name = scraper.output_path / f"{repository_name}_{suffix}.parquet"
+    df.to_parquet(parquet_name, index=False)
+    logger.success(f"Dataframe with {len(df):,} rows exported to:")
+    logger.success(parquet_name)
 
 
 def validate_http_url(v: str) -> str:

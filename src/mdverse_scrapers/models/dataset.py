@@ -80,20 +80,6 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     )
 
     # ------------------------------------------------------------------
-    # Statistics metadata
-    # ------------------------------------------------------------------
-    download_number: int | None = Field(
-        None,
-        ge=0,
-        description="Total number of downloads for the dataset.",
-    )
-    view_number: int | None = Field(
-        None,
-        ge=0,
-        description="Total number of views for the dataset.",
-    )
-
-    # ------------------------------------------------------------------
     # Temporal metadata
     # ------------------------------------------------------------------
     date_created: str | None = Field(
@@ -141,6 +127,20 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     external_links: list[str] | None = Field(
         None,
         description="External links to publications or other databases.",
+    )
+
+    # ------------------------------------------------------------------
+    # Statistics metadata
+    # ------------------------------------------------------------------
+    download_number: int | None = Field(
+        None,
+        ge=0,
+        description="Total number of downloads for the dataset.",
+    )
+    view_number: int | None = Field(
+        None,
+        ge=0,
+        description="Total number of views for the dataset.",
     )
 
     # ------------------------------------------------------------------
