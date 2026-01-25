@@ -59,16 +59,16 @@ class ScraperContext(BaseModel):
     )
 
     @model_validator(mode="after")
-    def create_output_dir_path(self) -> Self:
+    def define_output_dir_file_paths(self) -> Self:
         """
-        Create output directory path if it does not exist.
+        Define output subdirectory path and output files paths.
 
         Returns
         -------
         Self
             The ScraperContext instance with updated paths.
         """
-        # Update and create output directory path.
+        # Update and create output subdirectory path.
         self.output_dir_path = (
             Path(self.output_dir_path)
             / self.data_source_name.value
