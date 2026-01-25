@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Self
 
+import loguru
 from pydantic import BaseModel, Field, computed_field, model_validator
 
 from .enums import DatasetSourceName, DataType
@@ -20,6 +21,10 @@ class ScraperContext(BaseModel):
         ...,
         description="Output directory path for the scraper results.",
     )
+    query_file_path: str | Path | None = Field(
+        None,
+        description="Path to the query file for the scraper.",
+    )
     log_file_path: str | Path | None = Field(
         None,
         description="Path to the log file for the scraper.",
@@ -35,6 +40,10 @@ class ScraperContext(BaseModel):
     token: str | None = Field(
         None,
         description="Access token or API key.",
+    )
+    logger: "loguru.Logger" = Field(
+        loguru.logger,
+        description="Logger instance for logging scraper activities.",
     )
 
     @computed_field
