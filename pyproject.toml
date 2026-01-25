@@ -25,13 +25,16 @@ dependencies = [
     "pyyaml>=6.0.2",
     "requests>=2.32.3",
     "scipy>=1.15.2",
+    "selenium>=4.40.0",
 ]
 
 [dependency-groups]
 dev = [
+    "bandit>=1.9.2",
     "jupyterlab>=4.4.9",
     "matplotlib>=3.10.1",
     "plotly>=6.0.0",
+    "prek>=0.2.29",
     "pysankeybeta>=1.4.2",
     "pytest>=9.0.2",
     "ruff>=0.11.0",

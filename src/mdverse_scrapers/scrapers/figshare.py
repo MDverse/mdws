@@ -1,18 +1,21 @@
 """Scrape molecular dynamics datasets and files from Figshare."""
+from arrow import get
 
 import json
 import os
-import pathlib
 import sys
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
+import click
 import loguru
 import pandas as pd
 from dotenv import load_dotenv
 
 from ..core.figshare_api import FigshareAPI
 from ..core.logger import create_logger
+from ..core.network import get_html_page_with_selenium
 from ..core.toolbox import (
     ContextManager,
     DataType,
@@ -21,7 +24,6 @@ from ..core.toolbox import (
     extract_date,
     extract_file_extension,
     find_remove_false_positive_datasets,
-    get_scraper_cli_arguments,
     make_http_get_request_with_retries,
     read_query_file,
     remove_excluded_files,
@@ -61,12 +63,13 @@ def extract_files_from_json_response(
 
 
 def extract_files_from_zip_file(
-    file_id: str, logger: "loguru.Logger" = loguru.logger, max_attempts: int = 3
-) -> list[str]:
+    file_id: str, logger: "loguru.Logger" = loguru.logger) -> list[str]:
     """Extract files from a zip file content.
 
     No endpoint is available in the Figshare API.
     We perform a direct HTTP GET request to the zip file content url.
+    We need to use the Selenium library to emulate a browser request
+    as direct requests fail with a 202 status code.
 
     Known issue with:
     https://figshare.com/ndownloader/files/31660220/preview/31660220/structure.json
@@ -75,10 +78,8 @@ def extract_files_from_zip_file(
     ----------
     file_id : str
         ID of the zip file to get content from.
-    logger : loguru.Logger
+    logger : "loguru.Logger"
         Logger object.
-    max_attempts : int
-        Maximum number of attempts to fetch the zip file content.
 
     Returns
     -------
@@ -90,23 +91,17 @@ def extract_files_from_zip_file(
         f"https://figshare.com/ndownloader/files/{file_id}"
         f"/preview/{file_id}/structure.json"
     )
-    response = make_http_get_request_with_retries(
-        url=url,
-        logger=logger,
-        max_attempts=max_attempts,
-        timeout=30,
-        delay_before_request=2,
-    )
+    response = get_html_page_with_selenium(url, tag="pre", logger=logger)
     if response is None:
         logger.warning("Cannot get zip file content.")
         return file_names
     # Extract file names from JSON response.
     try:
-        file_names = extract_files_from_json_response(response.json())
+        file_names = extract_files_from_json_response(json.loads(response))
     except (json.decoder.JSONDecodeError, ValueError) as exc:
-        logger.warning(f"Cannot extract files from JSON response: {exc}")
-        logger.debug(f"Status code: {response.status_code}")
-        logger.debug(response.text)
+        logger.warning(f"Cannot extract files from HTML response: {exc}")
+        logger.debug("Response content:")
+        logger.debug(response)
     logger.success(f"Found {len(file_names)} files.")
     return file_names
 
@@ -435,21 +430,37 @@ def get_metadata_for_datasets(
     return datasets_df, files_df
 
 
-def main() -> None:
+@click.command(
+    help="Command line interface for MDverse scrapers",
+    epilog="Happy scraping!",
+)
+@click.option(
+    "--output-dir",
+    "output_dir_path",
+    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    required=True,
+    help="Output directory path to save results.",
+)
+@click.option(
+    "--query-file",
+    "query_file_path",
+    type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Query parameters file (YAML format).",
+)
+def main(output_dir_path: Path, query_file_path: Path) -> None:
     """Scrape Figshare datasets and files."""
     # Define data repository name.
     repository_name = "figshare"
     # Keep track of script duration.
     start_time = time.perf_counter()
-    # Parse input CLI arguments.
-    args = get_scraper_cli_arguments()
     # Create context manager.
-    output_path = pathlib.Path(args.output) / repository_name
+    output_path = output_dir_path / repository_name
     output_path.mkdir(parents=True, exist_ok=True)
     context = ContextManager(
         logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
         output_path=output_path,
-        query_file_name=pathlib.Path(args.query),
+        query_file_name=query_file_path,
     )
     # Log script name and doctring.
     context.logger.info(__file__)
@@ -483,7 +494,9 @@ def main() -> None:
 
     # Remove unwanted files based on exclusion lists.
     context.logger.info("Removing unwanted files...")
-    _, _, exclude_files, exclude_paths = read_query_file(args.query, context.logger)
+    _, _, exclude_files, exclude_paths = read_query_file(
+        query_file_path, context.logger
+    )
     files_df = remove_excluded_files(files_df, exclude_files, exclude_paths)
     context.logger.info("-" * 30)
 

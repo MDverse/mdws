@@ -16,9 +16,8 @@ from zipfile import ZipFile
 
 import pandas as pd
 import pooch
-from tqdm import tqdm
-
 import toolbox
+from tqdm import tqdm
 
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
@@ -176,7 +175,7 @@ def download_file(
                 progressbar=True,
             )
         except Exception as exc:
-            print(f"Cannot download {url} (attempt {attempt+1}/{retry_if_failed})")
+            print(f"Cannot download {url} (attempt {attempt + 1}/{retry_if_failed})")
             print(f"Will retry in {time_between_attempt} secondes")
             print(f"Exception type: {exc.__class__}")
             print(f"Exception message: {exc}\n")

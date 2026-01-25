@@ -6,7 +6,7 @@ Web form: https://osf.io/search/. Example with .mdp files: https://osf.io/search
 
 Query follows [Lucene Search Query Help](https://extensions.xwiki.org/xwiki/bin/view/Extension/Search+Application+Query+Syntax)
 
-> **Note**  
+> **Note**
 > OSF does not allow to search by file extension
 
 ## API
@@ -37,7 +37,7 @@ Dataset with components:
 
 - [Voltage-sensing](https://osf.io/ugkwa/). Gromacs files.
 
-Dataset with zip files: 
+Dataset with zip files:
 
 - [Molecular dynamics simulation of floating sphere...](https://osf.io/a3gjv/)
 - [LN17351-MD model-NAMD conf.](https://osf.io/a3cpn/). Overview of the content of [`AllModel.zip`](https://osf.io/p7wmj)

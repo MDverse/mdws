@@ -35,11 +35,12 @@ def get_cli_output_dir(output_dir_path: Path):
 )
 @click.option(
     "--query-file",
+    "query_file_path",
     type=click.Path(exists=True, file_okay=True, dir_okay=False, path_type=Path),
     required=True,
     help="Query parameters file (YAML format).",
 )
-def get_cli_output_dir_query_file(output_dir_path: Path, query_file: Path):
+def get_cli_output_dir_query_file(output_dir_path: Path, query_file_path: Path):
     """Parse scraper scripts command line.
 
     Returns

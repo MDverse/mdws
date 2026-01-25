@@ -1,19 +1,17 @@
 """Scrape molecular dynamics datasets and files from OSF."""
 
-from datetime import datetime
 import logging
 import math
 import os
 import pathlib
 import time
+from datetime import datetime
 
 import dotenv
 import pandas as pd
-import tqdm
 import requests
-
-
 import toolbox
+import tqdm
 
 # Rewire the print function from the toolbox module to logging.info
 toolbox.print = logging.info
@@ -176,11 +174,15 @@ def search_datasets(token, file_types, query_keywords, excluded_files, excluded_
                     if not file_info["attributes"]["name"].endswith(file_type["type"]):
                         break
                     if file_info["relationships"]["target"]["data"]["type"] == "nodes":
-                        datasets_tmp.add(file_info["relationships"]["target"]["data"]["id"])
+                        datasets_tmp.add(
+                            file_info["relationships"]["target"]["data"]["id"]
+                        )
                 except KeyError:
                     print("KeyError!")
                     print('Cannot get ["attributes"]["kind"] or ["attributes"]["name"]')
-                    print('or ["relationships"]["target"]["data"]["type"] or ["relationships"]["target"]["data"]["id"]')
+                    print(
+                        'or ["relationships"]["target"]["data"]["type"] or ["relationships"]["target"]["data"]["id"]'
+                    )
                     print(file_info)
         datasets_count_old = len(datasets)
         datasets.update(datasets_tmp)
@@ -258,7 +260,7 @@ def add_children_parent_datasets(token, dataset_ids):
         ):
             dataset_ids_out.add(relationships["parent"]["data"]["id"])
     print(
-        f"Found {len(dataset_ids_out)-len(dataset_ids)} new children / parent datasets"
+        f"Found {len(dataset_ids_out) - len(dataset_ids)} new children / parent datasets"
     )
     print(f"Total datasets: {len(dataset_ids_out)}")
     print("-" * 30)
@@ -424,8 +426,7 @@ def index_files_from_one_dataset(token, dataset_id, dataset_files_url):
                         "origin_zip_file": "none",
                     }
                     # Remove / at beginning of file path.
-                    if file_dict["file_name"].startswith("/"):
-                        file_dict["file_name"] = file_dict["file_name"][1:]
+                    file_dict["file_name"] = file_dict["file_name"].removeprefix("/")
                     files_lst.append(file_dict)
             page += 1
     print(f"Files found in dataset {dataset_id}: {len(files_lst)}")
@@ -502,12 +503,12 @@ if __name__ == "__main__":
     datasets_df.drop(columns="files_url").to_csv(
         DATASETS_EXPORT_PATH, sep="\t", index=False
     )
-    print(f"Results saved in {str(DATASETS_EXPORT_PATH)}")
+    print(f"Results saved in {DATASETS_EXPORT_PATH!s}")
 
     # Save text datasets dataframe to disk.
     TEXTS_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_datasets_text.tsv"
     texts_df.to_csv(TEXTS_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {str(TEXTS_EXPORT_PATH)}")
+    print(f"Results saved in {TEXTS_EXPORT_PATH!s}")
 
     # Query files.
     files_lst = index_files_from_all_datasets(OSF_TOKEN, datasets_df)
@@ -516,7 +517,7 @@ if __name__ == "__main__":
     # Save files dataframe to disk.
     FILES_EXPORT_PATH = pathlib.Path(ARGS.output) / "osf_files.tsv"
     files_df.to_csv(FILES_EXPORT_PATH, sep="\t", index=False)
-    print(f"Results saved in {str(FILES_EXPORT_PATH)}")
+    print(f"Results saved in {FILES_EXPORT_PATH!s}")
     print(f"Total number of API calls: {query_osf_api.counter}")
     print("-" * 30)
 

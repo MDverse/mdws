@@ -29,7 +29,7 @@ def validate_metadata_against_model(
         Validated model instance or None if validation fails.
     """
     try:
-        return model(**metadata)
+        return model.model_validate(metadata)
     except ValidationError as exc:
         logger.warning("Validation error!")
         for error in exc.errors():

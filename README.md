@@ -2,6 +2,8 @@
 
 Parquet files and codebook are available on Zenodo: [10.5281/zenodo.7856523](https://doi.org/10.5281/zenodo.7856523)
 
+See [CONTRIBUTING](CONTRIBUTING.md) if you want to contribute to this project.
+
 ## Setup your environment
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/).
@@ -11,12 +13,6 @@ Clone this repository:
 ```bash
 git clone https://github.com/MDverse/mdws.git
 ```
-
-> [!TIP]
-> For maintainers only:
-> ```bash
-> git clone git@github.com:MDverse/mdws.git
-> ```
 
 Move to the new directory:
 
@@ -34,7 +30,7 @@ uv sync
 
 Have a look to the notes regarding [Zenodo](docs/zenodo.md) and how its API works.
 
-Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>  
+Create a token here: <https://zenodo.org/account/settings/applications/tokens/new/>
 and store it in the file `.env`:
 
 ```none
@@ -46,13 +42,13 @@ This file is automatically ignored by git and won't be pushed on GitHub.
 Scrape Zenodo for MD-related datasets and files:
 
 ```bash
-uv run scrape-zenodo --query params/query.yml --output-path data
+uv run scrape-zenodo --query-file params/query.yml --output-dir data
 ```
 
 Scrape Zenodo with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape-zenodo --query params/query_dev.yml --output-path tmp
+uv run scrape-zenodo --query-file params/query_dev.yml --output-dir tmp
 ```
 
 The scraping takes some time (about 5 hours). A mechanism has been set up to avoid overloading the Zenodo API. Be patient.
@@ -61,25 +57,25 @@ Eventually, the scraper will produce two files: `zenodo_datasets.parquet` and `z
 
 Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
 
-## Scrape FigShare
+## Scrape Figshare
 
 Have a look to the notes regarding [Figshare](docs/figshare.md) and how its API works.
 
-Scrape FigShare for MD-related datasets and files:
+Scrape Figshare for MD-related datasets and files:
 
 ```bash
-uv run scrape-figshare --query params/query.yml --output-path data
+uv run scrape-figshare --query-file params/query.yml --output-dir data
 ```
 
-Scrape FigShare with a small query, for development or demo purpose:
+Scrape Figshare with a small query, for development or demo purpose:
 
 ```bash
-uv run scrape-figshare --query params/query_dev.yml --output-path tmp
+uv run scrape-figshare --query-file params/query_dev.yml --output-dir tmp
 ```
 
 The scraping takes some time (about 5 hours). Be patient.
 
-Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles: 
+Eventually, the scraper will produce two files: `figshare_datasets.parquet` and `figshare_files.parquet` :sparkles:
 
 ## Scrape OSF
 
@@ -111,6 +107,8 @@ The scraping takes some time (~ 30 min). Be patient.
 Eventually, the scraper will produce three files: `osf_datasets.tsv`, `osf_datasets_text.tsv` and `osf_files.tsv` :sparkles:
 
 ## Scrape NOMAD
+
+Have a look to the notes regarding [NOMAD](docs/nomad.md) and its API.
 
 Scrape NOMAD:
 
@@ -263,7 +261,7 @@ bash run_all.sh
 Update metadata:
 
 ```bash
-uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json 
+uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/zenodo_metadata.json
 ```
 
 Update files:

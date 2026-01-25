@@ -3,10 +3,9 @@
 This script scrapes molecular dynamics datasets from the NOMAD repository
 https://nomad-lab.eu/prod/v1/gui/search/entries
 """
+
 import json
 import sys
-import time
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -20,10 +19,12 @@ from ..core.network import (
     create_httpx_client,
     make_http_request_with_retries,
 )
-from ..core.toolbox import export_list_of_models_to_parquet
+from ..core.toolbox import export_list_of_models_to_parquet, print_statistics
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetProjectName, DatasetRepositoryName, DataType
+from ..models.enums import DatasetSourceName
 from ..models.file import FileMetadata
+from ..models.scraper import ScraperContext
+from ..models.simulation import Molecule, Software
 from ..models.utils import validate_metadata_against_model
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
@@ -31,17 +32,8 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
     "owner": "visible",
     "query": {"results.method.workflow_name:any": ["MolecularDynamics"]},
     "aggregations": {},
-    "pagination": {
-        "order_by": "upload_create_time",
-        "order": "desc",
-        "page_size": None,
-    },
-    "required": {
-        "exclude": [
-            "quantities",
-            "sections",
-        ]
-    },
+    "pagination": {"order_by": "upload_create_time", "order": "desc", "page_size": 10},
+    "required": {"exclude": ["quantities", "sections"]},
 }
 
 
@@ -49,6 +41,15 @@ def is_nomad_connection_working(
     client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
 ) -> bool | None:
     """Test connection to the NOMAD API.
+
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    url : str
+        The URL endpoint.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -86,6 +87,8 @@ def scrape_all_datasets(
         The entry point of the API request.
     page_size : int
         Number of entries to fetch per page.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -172,7 +175,7 @@ def scrape_all_datasets(
             f"({len(all_datasets):,}/{total_datasets:,}"
             f":{len(all_datasets) / total_datasets:.0%})"
         )
-    logger.success(f"Scraped {len(all_datasets)} datasets in NOMAD.")
+    logger.success(f"Scraped {len(all_datasets):,} datasets in NOMAD.")
     return all_datasets
 
 
@@ -190,7 +193,7 @@ def scrape_files_for_all_datasets(
     datasets : list[DatasetMetadata]
         List of datasets to scrape files metadata for.
     logger: "loguru.Logger"
-        Logger for logging messages.
+        Logger object.
 
     Returns
     -------
@@ -227,7 +230,7 @@ def scrape_files_for_all_datasets(
                 continue
             all_files_metadata.append(normalized_metadata)
         logger.info("Done.")
-        logger.info(f"Total files: {len(all_files_metadata):,}")
+        logger.info(f"Total files found: {len(all_files_metadata):,}")
         logger.info(
             "Extracted and validated files metadata for "
             f"{dataset_count:,}/{len(datasets):,} "
@@ -256,7 +259,7 @@ def scrape_files_for_one_dataset(
     dataset_id : str
         The unique identifier of the dataset in NOMAD.
     logger: "loguru.Logger"
-        Logger for logging messages.
+        Logger object.
 
     Returns
     -------
@@ -277,8 +280,134 @@ def scrape_files_for_one_dataset(
     return response.json()
 
 
+def extract_software_and_version(
+    dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
+) -> list[Software] | None:
+    """
+    Extract software name and version from the nested dataset dictionary.
+
+    Parameters
+    ----------
+    dataset : dict
+        The dataset entry from which to extract software information.
+    entry_id : str
+        Identifier of the dataset entry, used for logging.
+    logger: "loguru.Logger"
+        Logger object.
+
+    Returns
+    -------
+    list[Software] | None
+        A list of Software instances with `name` and `version` fields, None otherwise.
+    """
+    name = None
+    version = None
+    try:
+        software_info = (
+            dataset.get("results", {}).get("method", {}).get("simulation", {})
+        )
+        name = software_info.get("program_name")
+        version = software_info.get("program_version")
+        return [Software(name=name, version=version)]
+    except (ValueError, KeyError) as e:
+        logger.warning(f"Error parsing software info for entry {entry_id}: {e}")
+    return None
+
+
+def extract_molecules_and_total_atoms(
+    dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
+) -> tuple[int | None, list[Molecule]]:
+    """
+    Extract molecules and total number of atoms from a dataset entry.
+
+    Parameters
+    ----------
+    dataset : dict
+        Dataset metadata obtained from the NOMAD API.
+    entry_id : str
+        Identifier of the dataset entry, used for logging.
+    logger: "loguru.Logger"
+        Logger object.
+
+    Returns
+    -------
+    tuple[int | None, list[Molecule]]
+        total_atoms: Number of atoms for the "original" label, or None if not found.
+        molecules: List of Molecule objects extracted from the topology.
+    """
+    total_atoms = None
+    molecules = []
+
+    try:
+        topologies = dataset.get("results", {}).get("material", {}).get("topology", [])
+        if isinstance(topologies, list):
+            # Extract total_atoms from the topology labeled "original".
+            for topology in topologies:
+                if topology.get("label") == "original":
+                    total_atoms = topology.get("n_atoms")
+                    break
+            # Extract molecules
+            for topology in topologies:
+                if topology.get("structural_type") == "molecule":
+                    molecules.append(  # noqa: PERF401
+                        Molecule(
+                            name=topology.get("label", "unknown"),
+                            number_of_atoms=topology.get("n_atoms"),
+                            formula=topology.get("chemical_formula_descriptive"),
+                        )
+                    )
+        else:
+            logger.warning(f"Topologies is not a list for entry {entry_id}.")
+            logger.warning("Skipping molecules extraction.")
+    except (ValueError, KeyError) as e:
+        logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
+
+    return total_atoms, molecules
+
+
+def extract_time_step(
+    dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
+) -> list[float] | None:
+    """
+    Extract the simulation time step from a dataset entry.
+
+    Convert the time step from seconds to femtoseconds.
+
+    Parameters
+    ----------
+    dataset : dict
+        The dataset entry containing the thermodynamic/trajectory information.
+    entry_id : str
+        Identifier of the dataset entry, used for logging.
+    logger: "loguru.Logger"
+        Logger object.
+
+    Returns
+    -------
+    list[float] | None
+        A list containined the time step in fs, or None if not found.
+    """
+    time_step = None
+    try:
+        time_step = (
+            dataset.get("results", {})
+            .get("properties", {})
+            .get("thermodynamic", {})
+            .get("trajectory", [{}])[0]
+            .get("provenance", {})
+            .get("molecular_dynamics", {})
+            .get("time_step")
+        )
+        time_step = float(time_step) * 1e15 if time_step is not None else None
+    except (ValueError, KeyError, IndexError) as e:
+        logger.warning(f"Could not extract time step for entry {entry_id}: {e}")
+    if time_step is None:
+        return None
+    return [time_step]
+
+
 def extract_datasets_metadata(
-    datasets: list[dict[str, Any]],
+    datasets: list[dict],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
     """
@@ -286,8 +415,10 @@ def extract_datasets_metadata(
 
     Parameters
     ----------
-    datasets : List[Dict[str, Any]]
+    datasets : list[dict]
         List of raw NOMAD datasets metadata.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -302,72 +433,34 @@ def extract_datasets_metadata(
             f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
         )
         metadata = {
-            "dataset_repository_name": DatasetRepositoryName.NOMAD,
-            "dataset_project_name": DatasetProjectName.NOMAD,
+            "dataset_repository_name": DatasetSourceName.NOMAD,
             "dataset_id_in_repository": entry_id,
-            "dataset_id_in_project": entry_id,
             "dataset_url_in_repository": entry_url,
-            "dataset_url_in_project": entry_url,
             "external_links": dataset.get("references"),
             "title": dataset.get("entry_name"),
             "date_created": dataset.get("entry_create_time"),
             "date_last_updated": dataset.get("last_processing_time"),
-            "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            "nb_files": len(dataset.get("files", [])),
+            "number_of_files": len(dataset.get("files", [])),
             "author_names": [a.get("name") for a in dataset.get("authors", [])],
             "license": dataset.get("license"),
             "description": dataset.get("comment"),
         }
         # Extract simulation metadata if available.
-        # Software name.
-        software_name = None
-        try:
-            software_name = (
-                dataset.get("results", {})
-                .get("method", {})
-                .get("simulation", {})
-                .get("program_name")
-            )
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error parsing software name for entry {entry_id}: {e}")
-        metadata["software_name"] = software_name
-        # Software version
-        software_version = None
-        try:
-            software_version = (
-                dataset.get("results", {})
-                .get("method", {})
-                .get("simulation", {})
-                .get("program_version")
-            )
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error parsing software version for entry {entry_id}: {e}")
-        metadata["software_version"] = software_version
-        # Molecules and number total of atoms.
-        total_atoms = None
-        molecules = None
-        try:
-            topology = (
-                dataset.get("results", {}).get("material", {}).get("topology", [])
-            )
-            if isinstance(topology, list):
-                total_atoms = next(
-                    (
-                        t.get("n_atoms")
-                        for t in topology
-                        if t.get("label") == "original"
-                    ),
-                    None,
-                )
-                molecules = [
-                    f"{t.get('label')} ({t.get('n_atoms')} atoms)"
-                    for t in topology
-                    if t.get("structural_type") == "molecule"
-                ]
-        except (ValueError, KeyError) as e:
-            logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
-        metadata["nb_atoms"] = total_atoms
-        metadata["molecule_names"] = molecules
+        # Software names with their versions.
+        metadata["software"] = extract_software_and_version(dataset, entry_id, logger)
+        # Molecules with their nb of atoms and number total of atoms.
+        total_atoms, molecules = extract_molecules_and_total_atoms(
+            dataset, entry_id, logger
+        )
+        metadata["total_number_of_atoms"] = total_atoms
+        metadata["molecules"] = molecules
+        # Time step in fs.
+        metadata["simulation_timesteps_in_fs"] = extract_time_step(
+            dataset, entry_id, logger
+        )
+        # Temperatures.
+        metadata["simulation_temperatures_in_kelvin"] = None  # TODO?
+
         datasets_metadata.append(metadata)
     logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")
     return datasets_metadata
@@ -384,6 +477,8 @@ def normalize_datasets_metadata(
     ----------
     datasets : list[dict]
         List of dataset metadata dictionaries.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -424,6 +519,8 @@ def extract_files_metadata(
     ----------
     raw_metadata: dict
         Raw files metadata.
+    logger: "loguru.Logger"
+        Logger object.
 
     Returns
     -------
@@ -433,10 +530,10 @@ def extract_files_metadata(
     logger.info("Extracting files metadata...")
     files_metadata = []
     entry_id = raw_metadata["entry_id"]
+    entry_url = f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
     for nomad_file in raw_metadata.get("data", {}).get("files", []):
         file_path = Path(nomad_file.get("path", ""))
         file_name = file_path.name
-        file_type = file_path.suffix.lstrip(".")
         file_path_url = (
             f"https://nomad-lab.eu/prod/v1/gui/search/entries/entry/id/"
             f"{entry_id}/files/{file_name}"
@@ -444,13 +541,12 @@ def extract_files_metadata(
         size = nomad_file.get("size", None)
 
         parsed_file = {
-            "dataset_repository_name": DatasetRepositoryName.NOMAD,
+            "dataset_repository_name": DatasetSourceName.NOMAD,
             "dataset_id_in_repository": entry_id,
+            "dataset_url_in_repository": entry_url,
             "file_name": file_name,
-            "file_type": file_type,
             "file_size_in_bytes": size,
             "file_url_in_repository": file_path_url,
-            "date_last_fetched": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         }
         files_metadata.append(parsed_file)
     logger.info(f"Extracted metadata for {len(files_metadata)} files.")
@@ -464,19 +560,20 @@ def extract_files_metadata(
 @click.option(
     "--output-dir",
     "output_dir_path",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
     required=True,
     help="Output directory path to save results.",
 )
 def main(output_dir_path: Path) -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
-    # Create directories and logger.
-    output_dir_path = output_dir_path / DatasetProjectName.NOMAD.value
-    output_dir_path.mkdir(parents=True, exist_ok=True)
-    logfile_path = output_dir_path / f"{DatasetProjectName.NOMAD.value}_scraper.log"
-    logger = create_logger(logpath=logfile_path, level="INFO")
+    # Create scraper context.
+    scraper = ScraperContext(
+        data_source_name=DatasetSourceName.NOMAD,
+        output_dir_path=output_dir_path,
+    )
+    logger = create_logger(logpath=scraper.log_file_path, level="INFO")
+    logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
     logger.info("Starting Nomad data scraping...")
-    start_time = time.perf_counter()
     # Create HTTPX client
     client = create_httpx_client()
     # Check connection to NOMAD API
@@ -504,13 +601,11 @@ def main(output_dir_path: Path) -> None:
     )
     # Parse and validate NOMAD dataset metadata with a pydantic model (DatasetMetadata)
     datasets_normalized_metadata = normalize_datasets_metadata(
-        datasets_selected_metadata,
-        logger=logger
+        datasets_selected_metadata, logger=logger
     )
     # Save datasets metadata to parquet file.
-    export_list_of_models_to_parquet(
-        output_dir_path
-        / f"{DatasetProjectName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
+    scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
+        scraper.datasets_parquet_file_path,
         datasets_normalized_metadata,
         logger=logger,
     )
@@ -520,16 +615,14 @@ def main(output_dir_path: Path) -> None:
     )
 
     # Save files metadata to parquet file.
-    export_list_of_models_to_parquet(
-        output_dir_path
-        / f"{DatasetProjectName.NOMAD.value}_{DataType.FILES.value}.parquet",
+    scraper.number_of_files_scraped = export_list_of_models_to_parquet(
+        scraper.files_parquet_file_path,
         files_normalized_metadata,
         logger=logger,
     )
 
     # Print script duration.
-    elapsed_time = int(time.perf_counter() - start_time)
-    logger.success(f"Scraped NOMAD in: {timedelta(seconds=elapsed_time)} 🎉")
+    print_statistics(scraper, logger=logger)
 
 
 if __name__ == "__main__":
