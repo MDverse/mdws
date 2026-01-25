@@ -6,8 +6,6 @@ https://nomad-lab.eu/prod/v1/gui/search/entries
 
 import json
 import sys
-import time
-from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -21,10 +19,11 @@ from ..core.network import (
     create_httpx_client,
     make_http_request_with_retries,
 )
-from ..core.toolbox import export_list_of_models_to_parquet
+from ..core.toolbox import export_list_of_models_to_parquet, print_statistics
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetSourceName, DataType
+from ..models.enums import DatasetSourceName
 from ..models.file import FileMetadata
+from ..models.scraper import ScraperContext
 from ..models.simulation import Molecule, Software
 from ..models.utils import validate_metadata_against_model
 
@@ -176,7 +175,7 @@ def scrape_all_datasets(
             f"({len(all_datasets):,}/{total_datasets:,}"
             f":{len(all_datasets) / total_datasets:.0%})"
         )
-    logger.success(f"Scraped {len(all_datasets)} datasets in NOMAD.")
+    logger.success(f"Scraped {len(all_datasets):,} datasets in NOMAD.")
     return all_datasets
 
 
@@ -567,13 +566,14 @@ def extract_files_metadata(
 )
 def main(output_dir_path: Path) -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
-    # Create directories and logger.
-    output_dir_path = output_dir_path / DatasetSourceName.NOMAD.value
-    output_dir_path.mkdir(parents=True, exist_ok=True)
-    logfile_path = output_dir_path / f"{DatasetSourceName.NOMAD.value}_scraper.log"
-    logger = create_logger(logpath=logfile_path, level="INFO")
+    # Create scraper context.
+    scraper = ScraperContext(
+        data_source_name=DatasetSourceName.NOMAD,
+        output_dir_path=output_dir_path,
+    )
+    logger = create_logger(logpath=scraper.log_file_path, level="INFO")
+    print(scraper.model_dump_json(indent=4))
     logger.info("Starting Nomad data scraping...")
-    start_time = time.perf_counter()
     # Create HTTPX client
     client = create_httpx_client()
     # Check connection to NOMAD API
@@ -604,9 +604,8 @@ def main(output_dir_path: Path) -> None:
         datasets_selected_metadata, logger=logger
     )
     # Save datasets metadata to parquet file.
-    export_list_of_models_to_parquet(
-        output_dir_path
-        / f"{DatasetSourceName.NOMAD.value}_{DataType.DATASETS.value}.parquet",
+    scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
+        scraper.datasets_parquet_file_path,
         datasets_normalized_metadata,
         logger=logger,
     )
@@ -616,16 +615,14 @@ def main(output_dir_path: Path) -> None:
     )
 
     # Save files metadata to parquet file.
-    export_list_of_models_to_parquet(
-        output_dir_path
-        / f"{DatasetSourceName.NOMAD.value}_{DataType.FILES.value}.parquet",
+    scraper.number_of_files_scraped = export_list_of_models_to_parquet(
+        scraper.files_parquet_file_path,
         files_normalized_metadata,
         logger=logger,
     )
 
     # Print script duration.
-    elapsed_time = int(time.perf_counter() - start_time)
-    logger.success(f"Scraped NOMAD in: {timedelta(seconds=elapsed_time)} 🎉")
+    print_statistics(scraper, logger=logger)
 
 
 if __name__ == "__main__":
