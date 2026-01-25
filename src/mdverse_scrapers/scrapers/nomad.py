@@ -52,7 +52,7 @@ def is_nomad_connection_working(
     url : str
         The URL endpoint.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -75,6 +75,7 @@ def scrape_all_datasets(
     page_size: int = 50,
     json_payload: dict[str, Any] | None = None,
     logger: "loguru.Logger" = loguru.logger,
+    scraper: ScraperContext | None = None,
 ) -> list[dict]:
     """
     Scrape Molecular Dynamics-related datasets from the NOMAD API.
@@ -91,7 +92,7 @@ def scrape_all_datasets(
     page_size : int
         Number of entries to fetch per page.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -178,6 +179,9 @@ def scrape_all_datasets(
             f"({len(all_datasets):,}/{total_datasets:,}"
             f":{len(all_datasets) / total_datasets:.0%})"
         )
+        if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 120:
+            logger.warning("Debug mode is ON: stopping after 120 datasets.")
+            return all_datasets
     logger.success(f"Scraped {len(all_datasets):,} datasets in NOMAD.")
     return all_datasets
 
@@ -196,7 +200,7 @@ def scrape_files_for_all_datasets(
     datasets : list[DatasetMetadata]
         List of datasets to scrape files metadata for.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -217,11 +221,11 @@ def scrape_files_for_all_datasets(
         # Extract relevant files metadata.
         logger.info(f"Getting files metadata for dataset: {dataset_id}")
         files_metadata = extract_files_metadata(files_metadata, logger=logger)
-        all_files_metadata.append(files_metadata)
+        all_files_metadata += files_metadata
         # Normalize files metadata with pydantic model (FileMetadata)
         logger.info(f"Total files found: {len(all_files_metadata):,}")
         logger.info(
-            "Extracted metadata for "
+            "Extracted files metadata for "
             f"{dataset_count:,}/{len(datasets):,} "
             f"({dataset_count / len(datasets):.0%}) datasets."
         )
@@ -248,7 +252,7 @@ def scrape_files_for_one_dataset(
     dataset_id : str
         The unique identifier of the dataset in NOMAD.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -282,7 +286,7 @@ def extract_software_and_version(
     entry_id : str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -316,7 +320,7 @@ def extract_molecules_and_total_atoms(
     entry_id : str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -369,7 +373,7 @@ def extract_time_step(
     entry_id : str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -407,7 +411,7 @@ def extract_datasets_metadata(
     datasets : list[dict]
         List of raw NOMAD datasets metadata.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -467,7 +471,7 @@ def extract_files_metadata(
     raw_metadata: dict
         Raw files metadata.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -511,12 +515,20 @@ def extract_files_metadata(
     required=True,
     help="Output directory path to save results.",
 )
-def main(output_dir_path: Path) -> None:
+@click.option(
+    "--debug",
+    "is_in_debug_mode",
+    is_flag=True,
+    default=False,
+    help="Enable debug mode.",
+)
+def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
     # Create scraper context.
     scraper = ScraperContext(
         data_source_name=DatasetSourceName.NOMAD,
         output_dir_path=output_dir_path,
+        is_in_debug_mode=is_in_debug_mode,
     )
     logger = create_logger(logpath=scraper.log_file_path, level="INFO")
     logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
@@ -537,6 +549,7 @@ def main(output_dir_path: Path) -> None:
         query_entry_point="entries/query",
         json_payload=JSON_PAYLOAD_NOMAD_REQUEST,
         logger=logger,
+        scraper=scraper,
     )
     if not datasets_raw_metadata:
         logger.critical("No datasets found in NOMAD.")

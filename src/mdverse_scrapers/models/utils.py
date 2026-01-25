@@ -61,7 +61,7 @@ def normalize_datasets_metadata(
     datasets : list[dict]
         List of dataset metadata dictionaries.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -79,7 +79,8 @@ def normalize_datasets_metadata(
         if not normalized_metadata:
             logger.error(
                 f"Metadata normalization failed for dataset "
-                f"{dataset['dataset_id_in_repository']}"
+                f"{dataset['dataset_id_in_repository']} "
+                f"from {dataset['dataset_repository_name']}"
             )
             continue
         datasets_metadata.append(normalized_metadata)
@@ -103,7 +104,7 @@ def normalize_files_metadata(
     files : list[dict]
         List of file metadata dictionaries.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -123,7 +124,10 @@ def normalize_files_metadata(
             logger.error(
                 f"Metadata normalization failed for file: {file_meta['file_name']}"
             )
-            logger.info(f"In dataset: {file_meta['dataset_id_in_repository']}")
+            logger.info(
+                f"In dataset: {file_meta['dataset_id_in_repository']}"
+                f" from {file_meta['dataset_repository_name']}"
+            )
             continue
         files_metadata.append(normalized_metadata)
         logger.info(
@@ -155,7 +159,6 @@ def export_list_of_models_to_parquet(
     int
         Number of exported models.
     """
-    logger.info("Exporting models to parquet.")
     try:
         df = pd.DataFrame([model.model_dump() for model in list_of_models])
         df.to_parquet(parquet_path, index=False)

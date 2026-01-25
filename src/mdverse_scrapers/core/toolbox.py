@@ -7,6 +7,7 @@ import time
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
@@ -15,7 +16,9 @@ import pandas as pd
 import yaml
 from bs4 import BeautifulSoup
 
+from ..models.dataset import DatasetMetadata
 from ..models.enums import DataType
+from ..models.file import FileMetadata
 from ..models.scraper import ScraperContext
 
 warnings.filterwarnings(
@@ -162,14 +165,14 @@ def get_scraper_cli_arguments():
     return parser.parse_args()
 
 
-def read_query_file(query_file_path, logger: "loguru.Logger" = loguru.logger):
+def read_query_file(query_file_path: Path, logger: "loguru.Logger" = loguru.logger):
     """Read the query definition file.
 
     The query definition file is formatted in yaml.
 
     Parameters
     ----------
-    query_file_path : str
+    query_file_path : Path
         Path to the query definition file.
     logger : "loguru.Logger"
         Logger for logging messages.
@@ -316,10 +319,11 @@ def extract_date(date_str):
 
 
 def remove_excluded_files(
-    files_df: pd.DataFrame,
+    files_metadata: list[FileMetadata],
     exclusion_file_patterns: list[str],
     exclusion_path_patterns: list[str],
-) -> pd.DataFrame:
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[FileMetadata]:
     """Remove excluded files.
 
     Excluded files are, for example:
@@ -328,45 +332,54 @@ def remove_excluded_files(
 
     Parameters
     ----------
-    files_df : Pandas dataframe
-        Pandas dataframe with files metadata.
-    exclusion_file_patterns : list
+    files_metadata : list[FileMetadata]
+        List of files metadata.
+    exclusion_file_patterns : list[str]
         Patterns for file exclusion.
-    exclusion_path_patterns : list
+    exclusion_path_patterns : list[str]
         Patterns for path exclusion.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    Pandas dataframe
-        Dataframe without excluded files and paths.
+    list[FileMetadata]
+        List of files metadata without excluded files and paths.
     """
-    df_tmp = files_df.copy(deep=True)
-    # For file names with path, extract file name only:
-    df_tmp["name"] = df_tmp["file_name"].apply(lambda x: x.split("/")[-1])
-
-    boolean_mask = pd.Series(data=False, index=files_df.index)
-    print("-" * 30)
-
-    for pattern in exclusion_path_patterns:
-        print(f"Selecting file paths containing: {pattern}")
-        selection = df_tmp["file_name"].str.contains(pat=pattern, regex=False)
-        print(f"Found {sum(selection)} files")
-        boolean_mask = boolean_mask | selection
-
-    for pattern in exclusion_file_patterns:
-        print(f"Selecting file names starting with: {pattern}")
-        selection = df_tmp["name"].str.startswith(pattern)
-        print(f"Found {sum(selection)} files")
-        boolean_mask = boolean_mask | selection
-
-    print(f"Removed {sum(boolean_mask)} excluded files")
-    print(f"Remaining files: {sum(~boolean_mask)}")
-    print("-" * 30)
-    return files_df[~boolean_mask]
+    excluded_files_count = {}
+    files_remaining = []
+    for file_meta in files_metadata:
+        is_excluded = False
+        # Search exclusion patterns in file path.
+        for pattern in exclusion_path_patterns:
+            if pattern in file_meta.file_name:
+                pattern_label = f"in path: {pattern}"
+                excluded_files_count[pattern_label] = (
+                    excluded_files_count.get(pattern_label, 0) + 1
+                )
+                is_excluded = True
+                break
+        # Search exclusion patterns in file name.
+        name = file_meta.file_name.split("/")[-1]
+        for pattern in exclusion_file_patterns:
+            if name.startswith(pattern):
+                pattern_label = f"starting with: {pattern}"
+                excluded_files_count[pattern_label] = (
+                    excluded_files_count.get(pattern_label, 0) + 1
+                )
+                is_excluded = True
+                break
+        if not is_excluded:
+            files_remaining.append(file_meta)
+    logger.info(f"Removed {len(files_metadata) - len(files_remaining)} excluded files")
+    for pattern_label, count in excluded_files_count.items():
+        logger.info(f"- {count} files excluded for pattern -> {pattern_label}")
+    logger.info(f"Remaining files: {len(files_remaining)}")
+    return files_remaining
 
 
 def find_false_positive_datasets(
-    files_df: pd.DataFrame,
+    files_metadata: list[FileMetadata],
     md_file_types: list[str],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[str]:
@@ -377,21 +390,22 @@ def find_false_positive_datasets(
 
     Parameters
     ----------
-    files_df : pd.DataFrame
-        Dataframe which contains all files metadata from a given repo.
-    md_file_types: list
-        List containing molecular dynamics file types.
+    files_metadata : list[FileMetadata]
+        List of files metadata.
+    md_file_types: list[str]
+        List of molecular dynamics file types.
     logger : "loguru.Logger"
         Logger for logging messages.
 
     Returns
     -------
-    list
+    list[str]
         List of false positive dataset ids.
     """
     # Get total number of files and unique file types per dataset.
+    files_df = pd.DataFrame([file_meta.model_dump() for file_meta in files_metadata])
     unique_file_types_per_dataset = (
-        files_df.groupby("dataset_id")["file_type"]
+        files_df.groupby("dataset_id_in_repository")["file_type"]
         .agg(["count", "unique"])
         .rename(columns={"count": "total_files", "unique": "unique_file_types"})
         .sort_values(by="total_files", ascending=False)
@@ -402,9 +416,9 @@ def find_false_positive_datasets(
             unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"]
         )
         number_of_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
-        dataset_url = files_df.query(f"dataset_id == '{dataset_id}'").iloc[0][
-            "dataset_url"
-        ]
+        dataset_url = files_df.query(
+            f"dataset_id_in_repository == '{dataset_id}'"
+        ).iloc[0]["dataset_url_in_repository"]
         # For a given dataset, if there is no MD file types in the entire set
         # of the dataset file types, then we probably have a false-positive dataset,
         # i.e. a dataset that does not contain any MD data.
@@ -416,64 +430,63 @@ def find_false_positive_datasets(
             logger.info(f"Dataset will be removed with its {number_of_files} files.")
             logger.info("List of the first file types:")
             logger.info(" ".join(dataset_file_types[:20]))
-            logger.info("---")
+            logger.info("-" * 30)
             false_positive_datasets.append(dataset_id)
     logger.info(
-        f"In total, {len(false_positive_datasets):,} false positive datasets "
-        "will be removed."
+        f"In total, {len(false_positive_datasets):,} "
+        "false positive datasets will be removed."
     )
-    logger.info("---")
+    logger.info("-" * 30)
     return false_positive_datasets
 
 
 def remove_false_positive_datasets(
-    df_to_clean: pd.DataFrame,
+    metadata: list[DatasetMetadata] | list[FileMetadata],
     dataset_ids_to_remove: list[str],
     logger: "loguru.Logger" = loguru.logger,
-) -> pd.DataFrame:
-    """Remove false positive datasets from file.
+) -> list[DatasetMetadata] | list[FileMetadata]:
+    """Remove false positive datasets from datasets or files metadata.
 
     Parameters
     ----------
-    df_to_clean : pd.DataFrame
-        Dataframe to clean.
-    dataset_ids_to_remove : list
+    metadata : list[DatasetMetadata] | list[FileMetadata]
+        List of metadata to clean (datasets or files).
+    dataset_ids_to_remove : list[str]
         List of dataset ids to remove.
     logger : "loguru.Logger"
         Logger for logging messages.
 
     Returns
     -------
-    pd.DataFrame
-        Cleaned dataframe.
+    list[DatasetMetadata] | list[FileMetadata]
+        Cleaned metadata.
     """
-    records_count_old = len(df_to_clean)
-    # We keep rows NOT associated to false-positive dataset ids
-    df_clean = df_to_clean[~df_to_clean["dataset_id"].isin(dataset_ids_to_remove)]
-    records_count_clean = len(df_clean)
-    logger.info(
-        f"Removing {records_count_old - records_count_clean:,} lines "
-        f"({records_count_old:,} -> {records_count_clean:,}) in dataframe."
-    )
-    return df_clean
+    metadata_clean = [
+        meta
+        for meta in metadata
+        if meta.dataset_id_in_repository not in dataset_ids_to_remove
+    ]
+    logger.info(f"Removed: {len(metadata) - len(metadata_clean):,}")
+    logger.info(f"Remaining: {len(metadata_clean):,}")
+    return metadata_clean
 
 
 def find_remove_false_positive_datasets(
-    datasets_df: pd.DataFrame,
-    files_df: pd.DataFrame,
+    datasets_metadata: list[DatasetMetadata],
+    files_metadata: list[FileMetadata],
     scraper: ScraperContext,
     logger: "loguru.Logger" = loguru.logger,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[list[DatasetMetadata], list[FileMetadata]]:
     """Find and remove false-positive datasets.
 
     False-positive datasets do not contain MD-related files.
 
     Parameters
     ----------
-    datasets_df : pd.DataFrame
-        Dataframe with information about datasets.
-    files_df : pd.DataFrame
-        Dataframe with information about files.
+    datasets_metadata : list[DatasetMetadata]
+        List of datasets metadata.
+    files_metadata : list[FileMetadata]
+        List of files metadata.
     scraper : ScraperContext
         ScraperContext object.
     logger : "loguru.Logger"
@@ -481,31 +494,29 @@ def find_remove_false_positive_datasets(
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        Cleaned dataframes for:
-        - datasets
-        - files
+    tuple[list[DatasetMetadata], list[FileMetadata]]
+        Cleaned lists of metadata for datasets and files.
     """
     # Read parameter file.
-    file_types, _, _, _ = read_query_file(scraper.query_file_name)
+    file_types, _, _, _ = read_query_file(scraper.query_file_path, logger=logger)
     # List file types from the query parameter file.
     file_types_lst = [file_type["type"] for file_type in file_types]
     # Zip is not a MD-specific file type.
     file_types_lst.remove("zip")
     # Find false-positive datasets.
     false_positive_datasets = find_false_positive_datasets(
-        files_df, file_types_lst, logger=logger
+        files_metadata, file_types_lst, logger=logger
     )
     # Remove false-positive datasets from all dataframes.
-    logger.info("Removing false-positive datasets in the datasets dataframe...")
-    datasets_df = remove_false_positive_datasets(
-        datasets_df, false_positive_datasets, logger=logger
+    logger.info("Removing false-positive datasets in datasets...")
+    datasets_metadata = remove_false_positive_datasets(
+        datasets_metadata, false_positive_datasets, logger=logger
     )
-    logger.info("Removing false-positive datasets in the files dataframe...")
-    files_df = remove_false_positive_datasets(
-        files_df, false_positive_datasets, logger=logger
+    logger.info("Removing false-positive datasets in files...")
+    files_metadata = remove_false_positive_datasets(
+        files_metadata, false_positive_datasets, logger=logger
     )
-    return datasets_df, files_df
+    return datasets_metadata, files_metadata
 
 
 def export_dataframe_to_parquet(
@@ -622,7 +633,7 @@ def print_statistics(
     logger: "loguru.Logger"
         Logger for logging messages.
     """
-    logger.info("-" * 40)
+    logger.info("-" * 30)
     logger.success(
         f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}"
     )
@@ -634,3 +645,5 @@ def print_statistics(
         f"Scraped {scraper.data_source_name} in: {timedelta(seconds=elapsed_time)} 🎉"
     )
     logger.info(f"Saved log file in: {scraper.log_file_path}")
+    if scraper.is_in_debug_mode:
+        logger.warning("---Debug mode was ON---")

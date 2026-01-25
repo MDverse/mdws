@@ -7,7 +7,6 @@ from pathlib import Path
 
 import click
 import loguru
-import pandas as pd
 from dotenv import load_dotenv
 
 from ..core.figshare_api import FigshareAPI
@@ -80,7 +79,7 @@ def extract_files_from_zip_file(
     file_id : str
         ID of the zip file to get content from.
     logger : "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -124,7 +123,7 @@ def get_stats_for_dataset(
     dataset_id: str
         Dataset id.
     logger: loguru.Logger
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -152,8 +151,8 @@ def get_stats_for_dataset(
 
 
 def scrap_zip_files_content(
-    files_df: pd.DataFrame, logger: "loguru.Logger" = loguru.logger
-) -> pd.DataFrame:
+    all_files_metadata, logger: "loguru.Logger" = loguru.logger
+) -> list[dict]:
     """Scrap information from files contained in zip archives.
 
     Only get file name and file type.
@@ -161,53 +160,45 @@ def scrap_zip_files_content(
 
     Arguments
     ---------
-    files_df: Pandas dataframe
-        Dataframe with information about files.
-    logger: loguru.Logger
-        Logger object.
+    all_files_metadata: list[dict]
+        List of dictionaries with files metadata.
+    logger: "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    zip_df: Pandas dataframe
-        Dataframe with information about files found in zip archive.
+    list[dict]
+        List of dictionaries with files metadata found in zip archive.
     """
-    files_in_zip_lst = []
-    zip_files_counter = 0
-    zip_files_df = files_df[files_df["file_type"] == "zip"]
-    logger.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
-    for zip_files_counter, zip_idx in enumerate(zip_files_df.index, start=1):
-        zip_file = zip_files_df.loc[zip_idx]
-        file_id = zip_file["file_url"].split("/")[-1]
+    files_in_zip_metadata = []
+    # Select zip files only.
+    zip_files = [f_meta for f_meta in all_files_metadata if f_meta.file_type == "zip"]
+    logger.info(f"Number of zip files to scrap content from: {len(zip_files):,}")
+    for zip_files_counter, zip_file in enumerate(zip_files, start=1):
+        zip_file_id = zip_file.file_url_in_repository.split("/")[-1]
         logger.info("Extracting files from zip file:")
-        logger.info(zip_file["file_url"])
-        file_names = extract_files_from_zip_file(file_id, logger)
-        if file_names == []:
+        logger.info(zip_file.file_url_in_repository)
+        file_names = extract_files_from_zip_file(zip_file_id, logger)
+        if not file_names:
             logger.warning("No file found!")
             continue
         # Add other metadata.
         for name in file_names:
-            file_metadata = {}
-            file_metadata["dataset_repository_name"] = zip_file[
-                "dataset_repository_name"
-            ]
-            file_metadata["dataset_id_in_repository"] = zip_file[
-                "dataset_id_in_repository"
-            ]
-            file_metadata["dataset_url_in_repository"] = zip_file[
-                "dataset_url_in_repository"
-            ]
-            file_metadata["file_name"] = name
-            file_metadata["file_url_in_repository"] = zip_file["file_url_in_repository"]
-            file_metadata["containing_archive_file_name"] = zip_file["file_name"]
-            files_in_zip_lst.append(file_metadata)
+            file_meta = {}
+            file_meta["dataset_repository_name"] = zip_file.dataset_repository_name
+            file_meta["dataset_id_in_repository"] = zip_file.dataset_id_in_repository
+            file_meta["dataset_url_in_repository"] = zip_file.dataset_url_in_repository
+            file_meta["file_name"] = name
+            file_meta["file_url_in_repository"] = zip_file.file_url_in_repository
+            file_meta["containing_archive_file_name"] = zip_file.file_name
+            files_in_zip_metadata.append(file_meta)
         logger.info(
-            f"{zip_files_counter} Figshare zip files processed "
-            f"({zip_files_counter}/{len(zip_files_df)}"
-            f":{zip_files_counter / len(zip_files_df):.0%})"
+            f"{zip_files_counter} zip files from Figshare processed "
+            f"({zip_files_counter:,}/{len(zip_files):,}"
+            f":{zip_files_counter / len(zip_files):.0%})"
         )
-    files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     logger.success("Done extracting files from zip archives.")
-    return files_in_zip_df
+    return files_in_zip_metadata
 
 
 def extract_metadata_from_single_dataset_record(
@@ -252,18 +243,16 @@ def extract_metadata_from_single_dataset_record(
         "title": clean_text(record_json["title"]),
         "author": clean_text(record_json["authors"][0]["full_name"]),
         "description": clean_text(record_json["description"]),
-        "keywords": "",
         "license": record_json["license"]["name"],
         "doi": record_json["doi"],
         "download_number": dataset_stats["download_number"],
         "view_number": dataset_stats["view_number"],
         "number_of_files": len(record_json["files"]),
     }
-    # Add keywords only if any.
-    if "tags" in record_json:
-        dataset_info["keywords"] = ";".join(
-            [clean_text(keyword) for keyword in record_json["tags"]]
-        )
+    # Add keywords.
+    dataset_info["keywords"] = [
+        clean_text(keyword) for keyword in record_json.get("tags", [])
+    ]
     for file_in in record_json["files"]:
         file_dict = {
             "dataset_repository_name": dataset_info["dataset_repository_name"],
@@ -389,7 +378,7 @@ def get_metadata_for_datasets_and_files(
     found_datasets: list[str],
     scraper: ScraperContext,
     logger: "loguru.Logger" = loguru.logger,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[list[dict], list[dict]]:
     """Get metadata for all selected datasets.
 
     Parameters
@@ -405,8 +394,8 @@ def get_metadata_for_datasets_and_files(
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        Dataframes for:
+    tuple[list[dict], list[dict]]
+        Lists of dictionaries for:
         - datasets
         - files
     """
@@ -418,7 +407,7 @@ def get_metadata_for_datasets_and_files(
     for datasets_counter, dataset_id in enumerate(found_datasets, start=1):
         logger.info(
             f"Fetching metadata for Figshare dataset id: {dataset_id} "
-            f"({datasets_counter}/{len(found_datasets)}"
+            f"({datasets_counter:,}/{len(found_datasets):,}"
             f":{datasets_counter / len(found_datasets):.0%})"
         )
         results = api.query(endpoint=f"/articles/{dataset_id}")
@@ -432,10 +421,7 @@ def get_metadata_for_datasets_and_files(
         logger.info("Done.")
         datasets_lst.append(dataset_info)
         files_lst += files_info
-    # Convert list to dataframes.
-    datasets_df = pd.DataFrame(data=datasets_lst)
-    files_df = pd.DataFrame(data=files_lst)
-    return datasets_df, files_df
+    return datasets_lst, files_lst
 
 
 @click.command(
@@ -456,12 +442,26 @@ def get_metadata_for_datasets_and_files(
     required=True,
     help="Query parameters file (YAML format).",
 )
-def main(output_dir_path: Path, query_file_path: Path) -> None:
+@click.option(
+    "--debug",
+    "is_in_debug_mode",
+    is_flag=True,
+    default=False,
+    help="Enable debug mode.",
+)
+def main(
+    output_dir_path: Path,
+    query_file_path: Path,
+    *,
+    is_in_debug_mode: bool = False,
+) -> None:
     """Scrape Figshare datasets and files."""
     # Create scraper context.
     scraper = ScraperContext(
         data_source_name=DatasetSourceName.FIGSHARE,
         output_dir_path=output_dir_path,
+        query_file_path=query_file_path,
+        is_in_debug_mode=is_in_debug_mode,
     )
     logger = create_logger(logpath=scraper.log_file_path, level="INFO")
     # Log script name and doctring.
@@ -483,47 +483,55 @@ def main(output_dir_path: Path, query_file_path: Path) -> None:
         sys.exit(1)
     # Search datasets.
     found_datasets = search_all_datasets(api, scraper, logger=logger)
+    if scraper.is_in_debug_mode:
+        # Limit number of datasets for debugging purpose.
+        found_datasets = found_datasets[:20] + found_datasets[-20:]
+        logger.warning("Debug mode is ON.")
+        logger.warning("Limiting number of datasets to 40.")
     # Extract information for all found datasets.
-    datasets_df, files_df = get_metadata_for_datasets_and_files(
+    datasets_all, files_all = get_metadata_for_datasets_and_files(
         api, found_datasets, scraper, logger=logger
     )
-    logger.success(f"Total number of datasets found: {datasets_df.shape[0]}")
-    logger.success(f"Total number of files found: {files_df.shape[0]}")
-
+    logger.success(f"Total number of datasets found: {len(datasets_all)}")
+    logger.success(f"Total number of files found: {len(files_all)}")
+    # Normalize datasets and files metadata.
+    datasets_all_normalized = normalize_datasets_metadata(datasets_all, logger=logger)
+    files_all_normalized = normalize_files_metadata(files_all, logger=logger)
+    logger.success(f"Number of normalized datasets: {len(datasets_all_normalized)}")
+    logger.success(f"Number of normalized files: {len(files_all_normalized)}")
+    if (len(datasets_all_normalized) == 0) or (len(files_all_normalized) == 0):
+        logger.error("No dataset or file left after normalization. Exiting.")
+        sys.exit(1)
     # Add files inside zip archives.
-    zip_df = scrap_zip_files_content(files_df, logger)
-    logger.success(f"Number of files found inside zip files: {zip_df.shape[0]}")
-    files_df = pd.concat([files_df, zip_df], ignore_index=True)
-    logger.success(f"Total number of files found: {files_df.shape[0]}")
-
+    files_zip = scrap_zip_files_content(files_all_normalized, logger)
+    logger.success(f"Number of files found inside zip files: {len(files_zip)}")
+    # Normalize files metadata found inside zip archives.
+    files_zip_normalized = normalize_files_metadata(files_zip, logger=logger)
+    files_all_normalized += files_zip_normalized
+    logger.success(f"Total number of files found: {len(files_all_normalized)}")
     # Remove unwanted files based on exclusion lists.
     logger.info("Removing unwanted files...")
-    _, _, exclude_files, exclude_paths = read_query_file(query_file_path, logger)
-    files_df = remove_excluded_files(files_df, exclude_files, exclude_paths)
+    _, _, exclude_files, exclude_paths = read_query_file(
+        scraper.query_file_path, logger=logger
+    )
+    files_all_normalized = remove_excluded_files(
+        files_all_normalized, exclude_files, exclude_paths, logger=logger
+    )
     logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files.
-    datasets_df, files_df = find_remove_false_positive_datasets(
-        datasets_df, files_df, scraper, logger=logger
+    datasets_all_normalized, files_all_normalized = find_remove_false_positive_datasets(
+        datasets_all_normalized, files_all_normalized, scraper, logger=logger
     )
-
-    # Normalize datasets metadata with Pydantic model.
-    datasets_metadata = datasets_df.to_dict(orient="records")
-    datasets_normalized_metadata = normalize_datasets_metadata(
-        datasets_metadata, logger=logger
-    )
-    # Normalize files metadata with Pydantic model.
-    files_metadata = files_df.to_dict(orient="records")
-    files_normalized_metadata = normalize_files_metadata(files_metadata, logger=logger)
     # Save metadata to parquet files.
-    export_list_of_models_to_parquet(
+    scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
         scraper.datasets_parquet_file_path,
-        datasets_normalized_metadata,
+        datasets_all_normalized,
         logger=logger,
     )
-    export_list_of_models_to_parquet(
+    scraper.number_of_files_scraped = export_list_of_models_to_parquet(
         scraper.files_parquet_file_path,
-        files_normalized_metadata,
+        files_all_normalized,
         logger=logger,
     )
     # Print scraping statistics.
