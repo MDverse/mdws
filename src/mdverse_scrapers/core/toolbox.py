@@ -650,9 +650,12 @@ def print_statistics(
     logger: "loguru.Logger"
         Logger for logging messages.
     """
-    logger.info(f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}")
+    logger.info("-" * 40)
+    logger.success(
+        f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}"
+    )
     logger.info(f"Saved in: {scraper.datasets_parquet_file_path}")
-    logger.info(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
+    logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
     logger.info(f"Saved in: {scraper.files_parquet_file_path}")
     elapsed_time = int((datetime.now() - scraper.start_time).total_seconds())
     logger.success(
