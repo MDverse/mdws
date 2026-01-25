@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Self
 
-import loguru
 from pydantic import BaseModel, DirectoryPath, Field, FilePath, model_validator
 
 from .enums import DatasetSourceName, DataType
@@ -28,12 +27,12 @@ class ScraperContext(BaseModel):
         None,
         description="Path to the query file for the scraper.",
     )
-    log_file_path: Path | None = Field(
-        None,
+    log_file_path: Path = Field(
+        Path(""),
         description="Path to the log file for the scraper.",
     )
-    datasets_parquet_file_path: Path | None = Field(
-        None,
+    datasets_parquet_file_path: Path = Field(
+        Path(""),
         description="Path to the output parquet file for datasets metadata.",
     )
     number_of_datasets_scraped: int = Field(
@@ -41,8 +40,8 @@ class ScraperContext(BaseModel):
         ge=0,
         description="Number of datasets scraped.",
     )
-    files_parquet_file_path: Path | None = Field(
-        None,
+    files_parquet_file_path: Path = Field(
+        Path(""),
         description="Path to the output parquet file for files metadata.",
     )
     number_of_files_scraped: int = Field(
@@ -53,10 +52,6 @@ class ScraperContext(BaseModel):
     token: str | None = Field(
         None,
         description="Access token or API key.",
-    )
-    logger: "loguru.Logger" = Field(
-        loguru.logger,
-        description="Logger instance for logging scraper activities.",
     )
     start_time: datetime = Field(
         default_factory=lambda: datetime.now(),
@@ -77,7 +72,7 @@ class ScraperContext(BaseModel):
         self.output_dir_path = (
             Path(self.output_dir_path)
             / self.data_source_name.value
-            / self.start_time.strftime("%Y%m%d")
+            / self.start_time.strftime("%Y-%m-%d")
         )
         self.output_dir_path.mkdir(parents=True, exist_ok=True)
         # Define log file path.
