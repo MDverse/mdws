@@ -560,7 +560,7 @@ def extract_files_metadata(
 @click.option(
     "--output-dir",
     "output_dir_path",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
     required=True,
     help="Output directory path to save results.",
 )
