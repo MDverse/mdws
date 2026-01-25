@@ -572,7 +572,6 @@ def main(output_dir_path: Path) -> None:
         output_dir_path=output_dir_path,
     )
     logger = create_logger(logpath=scraper.log_file_path, level="INFO")
-    print(scraper.model_dump_json(indent=4))
     logger.info("Starting Nomad data scraping...")
     # Create HTTPX client
     client = create_httpx_client()
