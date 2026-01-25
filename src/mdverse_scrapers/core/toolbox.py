@@ -6,7 +6,7 @@ import re
 import time
 import warnings
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,6 +19,7 @@ from bs4 import BeautifulSoup
 from ..models.dataset import DatasetMetadata
 from ..models.enums import DataType
 from ..models.file import FileMetadata
+from ..models.scraper import ScraperContext
 
 warnings.filterwarnings(
     "ignore",
@@ -533,7 +534,7 @@ def export_list_of_models_to_parquet(
     parquet_path: Path,
     list_of_models: list[DatasetMetadata] | list[FileMetadata],
     logger: "loguru.Logger" = loguru.logger,
-) -> None:
+) -> int:
     """Export list of Pydantic models to parquet file.
 
     Parameters
@@ -544,16 +545,23 @@ def export_list_of_models_to_parquet(
         List of Pydantic models to export.
     logger : "loguru.Logger"
         Logger for logging messages.
+
+    Returns
+    -------
+    int
+        Number of exported models.
     """
-    logger.info(f"Exporting {len(list_of_models):,} models to parquet.")
+    logger.info("Exporting models to parquet.")
     try:
         df = pd.DataFrame([model.model_dump() for model in list_of_models])
         df.to_parquet(parquet_path, index=False)
         logger.success(f"Exported {len(df):,} rows to:")
         logger.success(parquet_path)
+        return len(df)
     except (ValueError, TypeError, OSError) as e:
         logger.error("Failed to export models to parquet.")
         logger.error(e)
+        return 0
 
 
 def validate_http_url(v: str) -> str:
@@ -630,29 +638,27 @@ def format_date(date: datetime | str) -> str:
     raise TypeError(msg)
 
 
-def ensure_dir(ctx, param, value: Path) -> Path:
-    """
-    Create the directory if it does not already exist.
-
-    Callback for Click options to ensure the provided path
-    is a valid directory. Behaves like `mkdir -p`.
+def print_statistics(
+    scraper: ScraperContext, logger: "loguru.Logger" = loguru.logger
+) -> None:
+    """Print scraping statistics.
 
     Parameters
     ----------
-    ctx : click.Context
-        The Click context for the current command invocation.
-        (Required by Click callbacks but unused in this function.)
-    param : click.Parameter
-        The Click parameter associated with this callback.
-        (Required by Click callbacks but unused in this function.)
-    value : Path
-        The directory path provided by the user, already converted
-        into a `pathlib.Path` object by Click.
-
-    Returns
-    -------
-    Path
-        The same path, after ensuring the directory exists.
+    scraper : ScraperContext
+        Context of the scraper.
+    logger: "loguru.Logger"
+        Logger for logging messages.
     """
-    value.mkdir(parents=True, exist_ok=True)
-    return value
+    logger.info("-" * 40)
+    logger.success(
+        f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}"
+    )
+    logger.info(f"Saved in: {scraper.datasets_parquet_file_path}")
+    logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
+    logger.info(f"Saved in: {scraper.files_parquet_file_path}")
+    elapsed_time = int((datetime.now() - scraper.start_time).total_seconds())
+    logger.success(
+        f"Scraped {scraper.data_source_name} in: {timedelta(seconds=elapsed_time)} 🎉"
+    )
+    logger.info(f"Saved log file in: {scraper.log_file_path}")
