@@ -18,7 +18,7 @@ In ATLAS, each dataset corresponds to a molecular dynamics simulation of a **pro
 
 The list of all available datasets can be obtained from the ATLAS index page: <https://www.dsimb.inserm.fr/ATLAS/>
 
-All datasets (pdb chains) are extracted from this page.
+All datasets (pdb chains) are extracted from this page with a regular expression.
 
 ### Metadata for a given dataset
 
@@ -58,3 +58,5 @@ Example with dataset id `1k5n_A`:
 - [1k5n_A_analysis.zip](https://www.dsimb.inserm.fr/ATLAS/database/ATLAS/1k5n_A/1k5n_A_analysis.zip)
 - [1k5n_A_protein.zip](https://www.dsimb.inserm.fr/ATLAS/database/ATLAS/1k5n_A/1k5n_A_protein.zip)
 - [1k5n_A_total.zip](https://www.dsimb.inserm.fr/ATLAS/database/ATLAS/1k5n_A/1k5n_A_total.zip)
+
+We parse HTML content of dataset page and use regular expressions to extract URLs, file names and file sizes.
