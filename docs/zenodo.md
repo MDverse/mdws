@@ -10,8 +10,7 @@ So we don't expect much files to have an individual size above 50 GB.
 
 ## API
 
-### Documentation
-
+- Base URL: <https://zenodo.org/>
 - [REST API](https://developers.zenodo.org/)
 - List of [HTTP status codes](https://developers.zenodo.org/#http-status-codes)
 
@@ -20,10 +19,6 @@ So we don't expect much files to have an individual size above 50 GB.
 Zenodo requires a token to access its API with higher rate limits. See "[Authentication](https://developers.zenodo.org/#authentication)" to get a token and "[Quickstart - Upload](https://developers.zenodo.org/#quickstart-upload)" to test it.
 
 Example of direct API link for a given dataset: <https://zenodo.org/api/records/8183728>
-
-### Base ULR
-
-<https://zenodo.org/>
 
 ### Query
 

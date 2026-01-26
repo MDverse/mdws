@@ -17,6 +17,7 @@ from ..core.logger import create_logger
 from ..core.network import (
     HttpMethod,
     create_httpx_client,
+    is_connection_to_server_working,
     make_http_request_with_retries,
 )
 from ..core.toolbox import print_statistics
@@ -38,35 +39,6 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
     "pagination": {"order_by": "upload_create_time", "order": "desc", "page_size": 10},
     "required": {"exclude": ["quantities", "sections"]},
 }
-
-
-def is_nomad_connection_working(
-    client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
-) -> bool | None:
-    """Test connection to the NOMAD API.
-
-    Parameters
-    ----------
-    client : httpx.Client
-        The HTTPX client to use for making requests.
-    url : str
-        The URL endpoint.
-    logger: "loguru.Logger"
-        Logger for logging messages.
-
-    Returns
-    -------
-    bool
-        True if the connection is successful, False otherwise.
-    """
-    logger.debug("Testing connection to NOMAD API...")
-    response = make_http_request_with_retries(client, url, method=HttpMethod.GET)
-    if not response:
-        logger.error("Cannot connect to the NOMAD API.")
-        return False
-    if response and hasattr(response, "headers"):
-        logger.debug(response.headers)
-    return True
 
 
 def scrape_all_datasets(
@@ -531,13 +503,20 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
         output_dir_path=output_dir_path,
         is_in_debug_mode=is_in_debug_mode,
     )
-    logger = create_logger(logpath=scraper.log_file_path, level="INFO")
+    # Create logger.
+    level = "INFO"
+    if scraper.is_in_debug_mode:
+        level = "DEBUG"
+    logger = create_logger(logpath=scraper.log_file_path, level=level)
+    # Print scraper configuration.
     logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
-    logger.info("Starting Nomad data scraping...")
+    logger.info("Starting NOMAD data scraping...")
     # Create HTTPX client
     client = create_httpx_client()
     # Check connection to NOMAD API
-    if is_nomad_connection_working(client, f"{BASE_NOMAD_URL}/entries"):
+    if is_connection_to_server_working(
+        client, f"{BASE_NOMAD_URL}/entries", logger=logger
+    ):
         logger.success("Connection to NOMAD API successful!")
     else:
         logger.critical("Connection to NOMAD API failed.")

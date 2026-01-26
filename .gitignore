@@ -27,6 +27,3 @@ __pycache__/
 
 # MAC tmp files
 .DS_Store
-
-Test/*
-!Test/Github_version
