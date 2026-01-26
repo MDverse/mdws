@@ -310,7 +310,7 @@ def extract_metadata_from_json(
     try:
         _ = response_json["hits"]["hits"]
     except KeyError:
-        logger.warning("Cannot extract hits the response JSON.")
+        logger.warning("Cannot extract hits from the response JSON.")
         return datasets, files
     for hit in response_json["hits"]["hits"]:
         # 'hit' is a Python dictionary.
