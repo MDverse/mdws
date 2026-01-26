@@ -50,7 +50,7 @@ def validate_metadata_against_model(
 
 
 def normalize_datasets_metadata(
-    datasets: list[dict],
+    datasets_list: list[dict],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[DatasetMetadata]:
     """
@@ -58,7 +58,7 @@ def normalize_datasets_metadata(
 
     Parameters
     ----------
-    datasets : list[dict]
+    datasets_list : list[dict]
         List of dataset metadata dictionaries.
     logger: "loguru.Logger"
         Logger for logging messages.
@@ -69,7 +69,7 @@ def normalize_datasets_metadata(
         List of successfully validated `DatasetMetadata` objects.
     """
     datasets_metadata = []
-    for dataset in datasets:
+    for dataset in datasets_list:
         logger.info(
             f"Normalizing metadata for dataset: {dataset['dataset_id_in_repository']}"
         )
@@ -86,14 +86,14 @@ def normalize_datasets_metadata(
         datasets_metadata.append(normalized_metadata)
     logger.info(
         "Normalized metadata for "
-        f"{len(datasets_metadata)}/{len(datasets)} "
-        f"({len(datasets_metadata) / len(datasets):.0%}) datasets."
+        f"{len(datasets_metadata):,}/{len(datasets_list):,} "
+        f"({len(datasets_metadata) / len(datasets_list):.0%}) datasets."
     )
     return datasets_metadata
 
 
 def normalize_files_metadata(
-    files: list[dict],
+    files_list: list[dict],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[FileMetadata]:
     """
@@ -101,7 +101,7 @@ def normalize_files_metadata(
 
     Parameters
     ----------
-    files : list[dict]
+    files_list : list[dict]
         List of file metadata dictionaries.
     logger: "loguru.Logger"
         Logger for logging messages.
@@ -112,11 +112,12 @@ def normalize_files_metadata(
         List of successfully validated `FileMetadata` objects.
     """
     files_metadata = []
-    for file_meta in files:
-        logger.info(
-            "Normalizing metadata for files in dataset: "
-            f"{file_meta['dataset_id_in_repository']}"
-        )
+    previous_dataset_id = ""
+    for file_meta in files_list:
+        dataset_id = file_meta["dataset_id_in_repository"]
+        # Print info only when changing dataset.
+        if dataset_id != previous_dataset_id:
+            logger.info(f"Normalizing metadata for files in dataset: {dataset_id}")
         normalized_metadata = validate_metadata_against_model(
             file_meta, FileMetadata, logger=logger
         )
@@ -125,16 +126,18 @@ def normalize_files_metadata(
                 f"Metadata normalization failed for file: {file_meta['file_name']}"
             )
             logger.info(
-                f"In dataset: {file_meta['dataset_id_in_repository']}"
-                f" from {file_meta['dataset_repository_name']}"
+                f"In dataset: {dataset_id}from {file_meta['dataset_repository_name']}"
             )
             continue
         files_metadata.append(normalized_metadata)
-        logger.info(
-            "Normalized metadata for "
-            f"{len(files_metadata)}/{len(files)} "
-            f"({len(files_metadata) / len(files):.0%}) files."
-        )
+        # Print info only when changing dataset.
+        if dataset_id != previous_dataset_id:
+            previous_dataset_id = dataset_id
+            logger.info(
+                "Normalized metadata for "
+                f"{len(files_metadata):,}/{len(files_list):,} "
+                f"({len(files_metadata) / len(files_list):.0%}) files."
+            )
     return files_metadata
 
 
