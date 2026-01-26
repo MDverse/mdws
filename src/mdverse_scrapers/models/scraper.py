@@ -57,6 +57,10 @@ class ScraperContext(BaseModel):
         default_factory=lambda: datetime.now(),
         description="Datetime when the scraper started.",
     )
+    is_in_debug_mode: bool = Field(
+        False,  # noqa: FBT003
+        description="Flag indicating if the scraper is running in debug mode.",
+    )
 
     @model_validator(mode="after")
     def define_output_dir_file_paths(self) -> Self:

@@ -1,32 +1,9 @@
 """Tests for the figshare scraper module."""
 
-from pathlib import Path
-
-import loguru
-import pytest
-
-import mdverse_scrapers.core.toolbox as toolbox
 import mdverse_scrapers.scrapers.figshare as figshare_scraper
 
 
-@pytest.fixture
-def create_context():
-    """Create a context for testing.
-
-    Returns
-    -------
-    toolbox.ContextManager
-        A context manager.
-    """
-    ctx = toolbox.ContextManager(
-        logger=loguru.logger,
-        output_path=Path(""),
-        query_file_name=Path(""),
-    )
-    return ctx
-
-
-def test_extract_files_from_zip_file(create_context):
+def test_extract_files_from_zip_file():
     """Test the extract_files_from_zip_file function."""
     expected_file_names = [
         "topologies/martini/betacarotene-CG.itp",
