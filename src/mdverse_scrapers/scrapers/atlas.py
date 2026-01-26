@@ -254,9 +254,8 @@ def scrape_all_files(
     files_metadata = []
     for dataset_counter, dataset_meta in enumerate(datasets_metadata, start=1):
         pdb_chain = dataset_meta.dataset_id_in_repository
-        logger.info(f"Scraping of files metadata for dataset: {pdb_chain}")
+        logger.info(f"Scraping files metadata for dataset: {pdb_chain}")
         url = dataset_meta.dataset_url_in_repository
-        logger.info(url)
         response = make_http_request_with_retries(
             client, url, HttpMethod.GET, delay_before_request=0.5, logger=logger
         )
