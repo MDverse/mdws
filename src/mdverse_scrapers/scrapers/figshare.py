@@ -9,6 +9,8 @@ import click
 import loguru
 from dotenv import load_dotenv
 
+from mdverse_scrapers.models.file import FileMetadata
+
 from ..core.figshare_api import FigshareAPI
 from ..core.logger import create_logger
 from ..core.network import get_html_page_with_selenium
@@ -151,7 +153,7 @@ def get_stats_for_dataset(
 
 
 def scrap_zip_files_content(
-    all_files_metadata, logger: "loguru.Logger" = loguru.logger
+    all_files_metadata: list[FileMetadata], logger: "loguru.Logger" = loguru.logger
 ) -> list[dict]:
     """Scrap information from files contained in zip archives.
 
@@ -160,8 +162,8 @@ def scrap_zip_files_content(
 
     Arguments
     ---------
-    all_files_metadata: list[dict]
-        List of dictionaries with files metadata.
+    all_files_metadata: list[FileMetadata]
+        List of files metadata.
     logger: "loguru.Logger"
         Logger for logging messages.
 
