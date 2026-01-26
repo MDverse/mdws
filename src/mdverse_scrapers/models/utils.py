@@ -114,7 +114,7 @@ def normalize_files_metadata(
     files_metadata = []
     previous_dataset_id = ""
     for file_meta in files_list:
-        dataset_id = file_meta["dataset_id_in_repository"]
+        dataset_id = file_meta.get("dataset_id_in_repository")
         # Print info only when changing dataset.
         if dataset_id != previous_dataset_id:
             logger.info(f"Normalizing metadata for files in dataset: {dataset_id}")
@@ -123,10 +123,12 @@ def normalize_files_metadata(
         )
         if not normalized_metadata:
             logger.error(
-                f"Metadata normalization failed for file: {file_meta['file_name']}"
+                "Metadata normalization failed for file: "
+                f"{file_meta.get('file_name', 'Unknown')}"
             )
             logger.info(
-                f"In dataset: {dataset_id}from {file_meta['dataset_repository_name']}"
+                f"In dataset: {dataset_id} from "
+                f"{file_meta.get('dataset_repository_name', 'Unknown')}"
             )
             continue
         files_metadata.append(normalized_metadata)
