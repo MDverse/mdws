@@ -41,6 +41,7 @@ class DatasetCoreMetadata(BaseModel):
     )
     dataset_id_in_repository: str = Field(
         ...,
+        min_length=1,
         description="Identifier of the dataset in the source repository.",
     )
     dataset_url_in_repository: str = Field(
