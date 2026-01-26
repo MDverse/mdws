@@ -275,6 +275,9 @@ def remove_excluded_files(
                 )
                 is_excluded = True
                 break
+        # Don't check file name patterns if already excluded by path.
+        if is_excluded:
+            continue
         # Search exclusion patterns in file name.
         name = file_meta.file_name.split("/")[-1]
         for pattern in exclusion_file_patterns:
