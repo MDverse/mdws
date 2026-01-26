@@ -70,17 +70,16 @@ def normalize_datasets_metadata(
     """
     datasets_metadata = []
     for dataset in datasets_list:
-        logger.info(
-            f"Normalizing metadata for dataset: {dataset['dataset_id_in_repository']}"
-        )
+        dataset_id = dataset.get("dataset_id_in_repository")
+        logger.info(f"Normalizing metadata for dataset: {dataset_id}")
         normalized_metadata = validate_metadata_against_model(
             dataset, DatasetMetadata, logger=logger
         )
         if not normalized_metadata:
             logger.error(
                 f"Metadata normalization failed for dataset "
-                f"{dataset['dataset_id_in_repository']} "
-                f"from {dataset['dataset_repository_name']}"
+                f"{dataset_id} "
+                f"from {dataset.get('dataset_repository_name', 'Unknown')}"
             )
             continue
         datasets_metadata.append(normalized_metadata)
