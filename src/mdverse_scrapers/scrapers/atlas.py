@@ -141,17 +141,11 @@ def scrape_metadata_for_a_dataset(
         f"https://www.dsimb.inserm.fr/ATLAS/database/ATLAS/{chain_id}/{chain_id}.html"
     )
     response = make_http_request_with_retries(
-        client, api_url, HttpMethod.GET, logger=logger
+        client, api_url, HttpMethod.GET, delay_before_request=0.5, logger=logger
     )
     if not response:
         logger.warning(f"Failed to fetch API data for {chain_id}. Skipping.")
         return None
-    # html = make_http_request_with_retries(
-    #     client, dataset_url, HttpMethod.GET, logger=logger
-    # )
-    # if not html:
-    #     logger.warning(f"Failed to fetch HTML page for {chain_id}. Skipping.")
-    #     return None
     meta_json = None
     try:
         meta_json = response.json().get(f"{chain_id}")
@@ -191,7 +185,7 @@ def search_all_datasets(client: httpx.Client, logger: "loguru.Logger") -> set[st
     """
     logger.info("Fetching index page listing ATLAS datasets...")
     response = make_http_request_with_retries(
-        client, INDEX_URL, HttpMethod.GET, logger=logger
+        client, INDEX_URL, HttpMethod.GET, delay_before_request=0.5, logger=logger
     )
     if not response:
         logger.critical("Failed to fetch index page.")
@@ -228,11 +222,13 @@ def scrape_all_datasets(
     datasets_meta = []
     logger.info("Starting scraping of all datasets...")
     for pdb_counter, pdb_chain in enumerate(pdb_chains, start=1):
-        logger.info(f"Scraping dataset: {pdb_chain}")
         metadata = scrape_metadata_for_a_dataset(client, pdb_chain, logger=logger)
         if metadata:
             datasets_meta.append(metadata)
-        logger.info(f"Scraped {pdb_counter}/{len(pdb_chains)} datasets")
+        logger.info(
+            f"Scraped {pdb_counter:,}/{len(pdb_chains):,} "
+            f"({pdb_counter / len(pdb_chains):.0%}) datasets"
+        )
     return datasets_meta
 
 
@@ -262,12 +258,12 @@ def scrape_all_files(
         url = dataset_meta.dataset_url_in_repository
         logger.info(url)
         response = make_http_request_with_retries(
-            client, url, HttpMethod.GET, logger=logger
+            client, url, HttpMethod.GET, delay_before_request=0.5, logger=logger
         )
         if not response:
             logger.warning(f"Failed to fetch HTML page for {pdb_chain}. Skipping.")
             continue
-        files_meta = extract_file_sizes_from_html(response.text)
+        files_meta = extract_file_sizes_from_html(response.text, logger=logger)
         for meta in files_meta:
             metadata = {
                 "dataset_repository_name": dataset_meta.dataset_repository_name,
