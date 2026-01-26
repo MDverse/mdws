@@ -15,7 +15,6 @@ import yaml
 from bs4 import BeautifulSoup
 
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DataType
 from ..models.file import FileMetadata
 from ..models.scraper import ScraperContext
 
@@ -436,34 +435,6 @@ def find_remove_false_positive_datasets(
         files_metadata, false_positive_datasets, logger=logger
     )
     return datasets_metadata, files_metadata
-
-
-def export_dataframe_to_parquet(
-    repository_name: str,
-    suffix: DataType,
-    df: pd.DataFrame,
-    scraper: ScraperContext,
-    logger: "loguru.Logger" = loguru.logger,
-) -> None:
-    """Export dataframes to parquet file.
-
-    Parameters
-    ----------
-    repository_name : str
-        Name of the data repository.
-    suffix : DataType
-        Suffix for the parquet file name.
-    df : pd.DataFrame
-        Dataframe to export.
-    scraper : ScraperContext
-        ScraperContext object.
-    logger : "loguru.Logger"
-        Logger for logging messages.
-    """
-    parquet_name = scraper.output_path / f"{repository_name}_{suffix}.parquet"
-    df.to_parquet(parquet_name, index=False)
-    logger.success(f"Dataframe with {len(df):,} rows exported to:")
-    logger.success(parquet_name)
 
 
 def validate_http_url(v: str) -> str:
