@@ -476,7 +476,9 @@ def search_all_datasets(
         logger.info(f"{query}")
         # First, get the total number of hits for a given query.
         # This is needed to compute the number of pages of results to get.
-        json_response = search_zenodo(query, scraper, page=1, number_of_results=1)
+        json_response = search_zenodo(
+            query, scraper, page=1, number_of_results=1, logger=logger
+        )
         if json_response is None or int(json_response["hits"]["total"]) == 0:
             logger.error("Getting next file type...")
             logger.info("-" * 30)
@@ -495,7 +497,11 @@ def search_all_datasets(
                 f"Starting page {page}/{page_max} for filetype: {file_type['type']}"
             )
             json_response = search_zenodo(
-                query, scraper, page=page, number_of_results=max_hits_per_page
+                query,
+                scraper,
+                page=page,
+                number_of_results=max_hits_per_page,
+                logger=logger,
             )
             if json_response is None:
                 logger.warning("Failed to get response from the Zenodo API.")
