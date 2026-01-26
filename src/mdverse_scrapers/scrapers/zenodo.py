@@ -193,7 +193,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
             file_lst.append(
                 {
                     "file_name": path,
-                    "file_size": size,
+                    "file_size_in_bytes": size,
                 }
             )
     logger.success(f"Found {len(file_lst)} files.")
