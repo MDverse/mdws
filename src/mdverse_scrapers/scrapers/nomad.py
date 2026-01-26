@@ -309,7 +309,7 @@ def extract_software_and_version(
 
 def extract_molecules_and_total_atoms(
     dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
-) -> tuple[int | None, list[Molecule]]:
+) -> tuple[list[Molecule], int | None]:
     """
     Extract molecules and total number of atoms from a dataset entry.
 
@@ -324,12 +324,12 @@ def extract_molecules_and_total_atoms(
 
     Returns
     -------
-    tuple[int | None, list[Molecule]]
-        total_atoms: Number of atoms for the "original" label, or None if not found.
+    tuple[list[Molecule], int | None]
         molecules: List of Molecule objects extracted from the topology.
+        total_atoms: Number of atoms for the "original" label, or None if not found.
     """
-    total_atoms = None
     molecules = []
+    total_atoms = None
 
     try:
         topologies = dataset.get("results", {}).get("material", {}).get("topology", [])
@@ -339,7 +339,7 @@ def extract_molecules_and_total_atoms(
                 if topology.get("label") == "original":
                     total_atoms = topology.get("n_atoms")
                     break
-            # Extract molecules
+            # Extract molecules.
             for topology in topologies:
                 if topology.get("structural_type") == "molecule":
                     molecules.append(  # noqa: PERF401
@@ -353,9 +353,10 @@ def extract_molecules_and_total_atoms(
             logger.warning(f"Topologies is not a list for entry {entry_id}.")
             logger.warning("Skipping molecules extraction.")
     except (ValueError, KeyError) as e:
-        logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
+        logger.warning(f"Error parsing molecules for entry: {entry_id}")
+        logger.warning(e)
 
-    return total_atoms, molecules
+    return molecules, total_atoms
 
 
 def extract_time_step(
@@ -420,7 +421,7 @@ def extract_datasets_metadata(
     """
     datasets_metadata = []
     for dataset in datasets:
-        entry_id = dataset.get("entry_id")
+        entry_id = str(dataset.get("entry_id"))
         logger.info(f"Extracting relevant metadata for dataset: {entry_id}")
         entry_url = (
             f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
@@ -442,7 +443,7 @@ def extract_datasets_metadata(
         # Software names with their versions.
         metadata["software"] = extract_software_and_version(dataset, entry_id, logger)
         # Molecules with their nb of atoms and number total of atoms.
-        total_atoms, molecules = extract_molecules_and_total_atoms(
+        molecules, total_atoms = extract_molecules_and_total_atoms(
             dataset, entry_id, logger
         )
         metadata["total_number_of_atoms"] = total_atoms
