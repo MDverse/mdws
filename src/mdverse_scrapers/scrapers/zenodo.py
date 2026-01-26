@@ -622,7 +622,7 @@ def main(
     files_normalized_metadata += zip_normalized_metadata
     logger.info(f"Total number of files found: {len(files_normalized_metadata)}")
     files_normalized_metadata = remove_excluded_files(
-        files_normalized_metadata, excluded_files, excluded_paths
+        files_normalized_metadata, excluded_files, excluded_paths, logger=logger
     )
     logger.info("-" * 30)
 
