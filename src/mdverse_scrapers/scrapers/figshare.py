@@ -228,46 +228,49 @@ def extract_metadata_from_single_dataset_record(
     list
         List of files metadata.
     """
-    dataset_info = {}
-    files_info = []
-    if record_json["is_embargoed"]:
-        return dataset_info, files_info
-    dataset_id = str(record_json["id"])
+    dataset_metadata = {}
+    files_metadata = []
+    if record_json.get("is_embargoed"):
+        return dataset_metadata, files_metadata
+    dataset_id = str(record_json.get("id", ""))
     # Disable stats for now.
     # dataset_stats = get_stats_for_dataset(dataset_id)
     dataset_stats = {"download_number": None, "view_number": None}
-    dataset_info = {
+    dataset_metadata = {
         "dataset_repository_name": scraper.data_source_name,
         "dataset_id_in_repository": dataset_id,
-        "dataset_url_in_repository": record_json["url_public_html"],
-        "date_created": record_json["created_date"],
-        "date_last_updated": record_json["modified_date"],
-        "title": clean_text(record_json["title"]),
-        "author": clean_text(record_json["authors"][0]["full_name"]),
-        "description": clean_text(record_json["description"]),
-        "license": record_json["license"]["name"],
-        "doi": record_json["doi"],
+        "dataset_url_in_repository": record_json.get("url_public_html"),
+        "date_created": record_json.get("created_date"),
+        "date_last_updated": record_json.get("modified_date"),
+        "title": clean_text(record_json.get("title")),
+        "author_names": [
+            clean_text(author.get("full_name"))
+            for author in record_json.get("authors", [])
+        ],
+        "description": clean_text(record_json.get("description")),
+        "license": record_json.get("license", {}).get("name"),
+        "doi": record_json.get("doi"),
         "download_number": dataset_stats["download_number"],
         "view_number": dataset_stats["view_number"],
-        "number_of_files": len(record_json["files"]),
+        "number_of_files": len(record_json.get("files", [])),
     }
     # Add keywords.
-    dataset_info["keywords"] = [
-        clean_text(keyword) for keyword in record_json.get("tags", [])
+    dataset_metadata["keywords"] = [
+        clean_text(keyword) for keyword in record_json.get("keywords", [])
     ]
-    for file_in in record_json["files"]:
-        file_dict = {
-            "dataset_repository_name": dataset_info["dataset_repository_name"],
-            "dataset_id_in_repository": dataset_info["dataset_id_in_repository"],
-            "dataset_url_in_repository": dataset_info["dataset_url_in_repository"],
-            "file_name": file_in["name"],
-            "file_url_in_repository": file_in["download_url"],
-            "file_size_in_bytes": file_in["size"],
-            "file_md5": file_in["computed_md5"],
+    for file_in in record_json.get("files", []):
+        file_meta = {
+            "dataset_repository_name": dataset_metadata["dataset_repository_name"],
+            "dataset_id_in_repository": dataset_metadata["dataset_id_in_repository"],
+            "dataset_url_in_repository": dataset_metadata["dataset_url_in_repository"],
+            "file_name": file_in.get("name"),
+            "file_url_in_repository": file_in.get("download_url"),
+            "file_size_in_bytes": file_in.get("size"),
+            "file_md5": file_in.get("computed_md5"),
             "containing_archive_file_name": None,
         }
-        files_info.append(file_dict)
-    return dataset_info, files_info
+        files_metadata.append(file_meta)
+    return dataset_metadata, files_metadata
 
 
 def search_all_datasets(
@@ -417,12 +420,15 @@ def get_metadata_for_datasets_and_files(
             logger.warning("Failed to fetch dataset.")
             continue
         resp_json_article = results["response"]
-        dataset_info, files_info = extract_metadata_from_single_dataset_record(
+        dataset_metadata, files_metadata = extract_metadata_from_single_dataset_record(
             resp_json_article, scraper
         )
         logger.info("Done.")
-        datasets_lst.append(dataset_info)
-        files_lst += files_info
+        # Append non-empty metadata to datasets and files lists.
+        if dataset_metadata:
+            datasets_lst.append(dataset_metadata)
+        if files_metadata:
+            files_lst += files_metadata
     return datasets_lst, files_lst
 
 
