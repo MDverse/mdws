@@ -1,11 +1,9 @@
 """Common functions and utilities used in the project."""
 
 import argparse
-import pathlib
 import re
 import time
 import warnings
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
@@ -27,16 +25,6 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
-
-
-@dataclass(kw_only=True)
-class ContextManager:
-    """ContextManager dataclass."""
-
-    logger: "loguru.Logger" = loguru.logger
-    output_path: pathlib.Path = pathlib.Path("")
-    query_file_name: pathlib.Path = pathlib.Path("")
-    token: str = ""
 
 
 def make_http_get_request_with_retries(
@@ -202,54 +190,24 @@ def read_query_file(query_file_path: Path, logger: "loguru.Logger" = loguru.logg
     return file_types, keywords, exclusion_file_patterns, exclusion_path_patterns
 
 
-def verify_file_exists(filename):
-    """Verify file exists.
+def remove_duplicates_in_list_of_dicts(input_list: list[dict]) -> list[dict]:
+    """Remove duplicates in a list while preserving the original order.
 
     Parameters
     ----------
-    filename : str
-        Name of file to verify existence
+    input_list : list
+        List with possible duplicate entries.
 
-    Raises
-    ------
-    FileNotFoundError
-        If file does not exist or is not a file.
+    Returns
+    -------
+    list
+        List without duplicates.
     """
-    file_in = pathlib.Path(filename)
-    if not file_in.exists():
-        msg = f"File {filename} not found"
-        raise FileNotFoundError(msg)
-    if not file_in.is_file():
-        msg = f"{filename} is not a file"
-        raise FileNotFoundError(msg)
-
-
-def verify_output_directory(directory, logger: "loguru.Logger" = loguru.logger):
-    """Verify output directory exists.
-
-    Create it if necessary.
-
-    Parameters
-    ----------
-    directory : str
-        Path to directory to store results
-    logger : "loguru.Logger"
-        Logger for logging messages.
-
-    Raises
-    ------
-    FileNotFoundError
-        If directory path is an existing file.
-    """
-    directory_path = pathlib.Path(directory)
-    if directory_path.is_file():
-        msg = f"{directory} is an existing file."
-        raise FileNotFoundError(msg)
-    if directory_path.is_dir():
-        logger.info(f"Output directory {directory} already exists.")
-    else:
-        directory_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created output directory {directory}")
+    output_list = []
+    for dict_item in input_list:
+        if dict_item not in output_list:
+            output_list.append(dict_item)
+    return output_list
 
 
 def clean_text(string):
@@ -274,48 +232,6 @@ def clean_text(string):
     # Remove multi spaces
     text_decode = re.sub(r" {2,}", " ", text_decode)
     return text_decode
-
-
-def extract_file_extension(file_path: str) -> str:
-    """Extract file extension from file path.
-
-    Parameters
-    ----------
-    file_path : str
-        File path
-        Example: "/something/here/file.txt"
-
-    Returns
-    -------
-    str
-        File extension without a dot.
-        Example: "txt"
-    """
-    # Extract the file name for its path.
-    file_name = file_path.split("/")[-1]
-    file_type = "none"
-    if "." in file_name:
-        file_type = file_name.split(".")[-1].lower()
-    return file_type
-
-
-def extract_date(date_str):
-    """Extract and format date from a string.
-
-    Parameters
-    ----------
-    date_str : str
-        Date as a string in ISO 8601.
-        For example: 2020-07-29T19:22:57.752335+00:00
-
-    Returns
-    -------
-    str
-        Date as in string in YYYY-MM-DD format.
-        For example: 2020-07-29
-    """
-    date = datetime.fromisoformat(date_str)
-    return f"{date:%Y-%m-%d}"
 
 
 def remove_excluded_files(
