@@ -553,25 +553,25 @@ def print_statistics(
     if not scraper.datasets_parquet_file_path.is_file():
         logger.error("Datasets parquet file not found!")
         logger.error(f"{scraper.datasets_parquet_file_path} is missing.")
-        return
-    datasets_parquet_file_size = convert_file_size_to_human_readable(
-        scraper.datasets_parquet_file_path.stat().st_size
-    )
-    logger.info(
-        f"Saved in: {scraper.datasets_parquet_file_path} ({datasets_parquet_file_size})"
-    )
+    else:
+        datasets_parquet_size = convert_file_size_to_human_readable(
+            scraper.datasets_parquet_file_path.stat().st_size
+        )
+        logger.info(
+            f"Saved in: {scraper.datasets_parquet_file_path} ({datasets_parquet_size})"
+        )
     # Print statistics for files.
     logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
     if not scraper.files_parquet_file_path.is_file():
         logger.error("Files parquet file not found!")
         logger.error(f"{scraper.files_parquet_file_path} is missing.")
-        return
-    files_parquet_file_size = convert_file_size_to_human_readable(
-        scraper.files_parquet_file_path.stat().st_size
-    )
-    logger.info(
-        f"Saved in: {scraper.files_parquet_file_path} ({files_parquet_file_size})"
-    )
+    else:
+        files_parquet_size = convert_file_size_to_human_readable(
+            scraper.files_parquet_file_path.stat().st_size
+        )
+        logger.info(
+            f"Saved in: {scraper.files_parquet_file_path} ({files_parquet_size})"
+        )
     # Print elapsed time.
     elapsed_time = int((datetime.now() - scraper.start_time).total_seconds())
     logger.success(
