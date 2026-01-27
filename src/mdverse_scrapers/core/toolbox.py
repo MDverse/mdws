@@ -511,7 +511,7 @@ def format_date(date: datetime | str) -> str:
     raise TypeError(msg)
 
 
-def convert_file_size_in_bytes_to_human_readable_format(size_in_bytes: float) -> str:
+def convert_file_size_to_human_readable(size_in_bytes: float) -> str:
     """Convert file size in bytes to a human-readable format.
 
     Parameters
@@ -522,12 +522,14 @@ def convert_file_size_in_bytes_to_human_readable_format(size_in_bytes: float) ->
     Returns
     -------
     str
-        File size in a human-readable format (e.g., '10.5 MB').
+        File size in a human-readable format (e.g., '10.52 MB').
     """
+    if size_in_bytes < 0:
+        return "Negative size!"
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size_in_bytes < 1024.0:
+        if size_in_bytes < 1000.0:
             return f"{size_in_bytes:.2f} {unit}"
-        size_in_bytes /= 1024.0
+        size_in_bytes /= 1000.0
     return "File too big!"
 
 
@@ -544,22 +546,38 @@ def print_statistics(
         Logger for logging messages.
     """
     logger.info("-" * 30)
+    # Print statistics for datasets.
     logger.success(
         f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}"
     )
-    file_size = convert_file_size_in_bytes_to_human_readable_format(
+    if not scraper.datasets_parquet_file_path.is_file():
+        logger.error("Datasets parquet file not found!")
+        logger.error(f"{scraper.datasets_parquet_file_path} is missing.")
+        return
+    datasets_parquet_file_size = convert_file_size_to_human_readable(
         scraper.datasets_parquet_file_path.stat().st_size
     )
-    logger.info(f"Saved in: {scraper.datasets_parquet_file_path} ({file_size})")
-    file_size = convert_file_size_in_bytes_to_human_readable_format(
+    logger.info(
+        f"Saved in: {scraper.datasets_parquet_file_path} ({datasets_parquet_file_size})"
+    )
+    # Print statistics for files.
+    logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
+    if not scraper.files_parquet_file_path.is_file():
+        logger.error("Files parquet file not found!")
+        logger.error(f"{scraper.files_parquet_file_path} is missing.")
+        return
+    files_parquet_file_size = convert_file_size_to_human_readable(
         scraper.files_parquet_file_path.stat().st_size
     )
-    logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
-    logger.info(f"Saved in: {scraper.files_parquet_file_path} ({file_size})")
+    logger.info(
+        f"Saved in: {scraper.files_parquet_file_path} ({files_parquet_file_size})"
+    )
+    # Print elapsed time.
     elapsed_time = int((datetime.now() - scraper.start_time).total_seconds())
     logger.success(
         f"Scraped {scraper.data_source_name} in: {timedelta(seconds=elapsed_time)} 🎉"
     )
+    # Print where log file is saved.
     logger.info(f"Saved log file in: {scraper.log_file_path}")
     if scraper.is_in_debug_mode:
         logger.warning("---Debug mode was ON---")
