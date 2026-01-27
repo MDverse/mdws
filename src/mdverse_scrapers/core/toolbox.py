@@ -511,6 +511,26 @@ def format_date(date: datetime | str) -> str:
     raise TypeError(msg)
 
 
+def convert_file_size_in_bytes_to_human_readable_format(size_in_bytes: float) -> str:
+    """Convert file size in bytes to a human-readable format.
+
+    Parameters
+    ----------
+    size_in_bytes : float
+        File size in bytes.
+
+    Returns
+    -------
+    str
+        File size in a human-readable format (e.g., '10.5 MB').
+    """
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size_in_bytes < 1024:
+            return f"{size_in_bytes:.2f} {unit}"
+        size_in_bytes /= 1024
+    return "File too big!"
+
+
 def print_statistics(
     scraper: ScraperContext, logger: "loguru.Logger" = loguru.logger
 ) -> None:
@@ -527,9 +547,15 @@ def print_statistics(
     logger.success(
         f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}"
     )
-    logger.info(f"Saved in: {scraper.datasets_parquet_file_path}")
+    file_size = convert_file_size_in_bytes_to_human_readable_format(
+        scraper.datasets_parquet_file_path.stat().st_size
+    )
+    logger.info(f"Saved in: {scraper.datasets_parquet_file_path} ({file_size})")
+    file_size = convert_file_size_in_bytes_to_human_readable_format(
+        scraper.files_parquet_file_path.stat().st_size
+    )
     logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
-    logger.info(f"Saved in: {scraper.files_parquet_file_path}")
+    logger.info(f"Saved in: {scraper.files_parquet_file_path} ({file_size})")
     elapsed_time = int((datetime.now() - scraper.start_time).total_seconds())
     logger.success(
         f"Scraped {scraper.data_source_name} in: {timedelta(seconds=elapsed_time)} 🎉"
