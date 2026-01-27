@@ -58,7 +58,7 @@ def extract_pdb_chains_from_html(
     Returns
     -------
     set[str]
-        List of PDB chain identifiers found.
+        Set of PDB chain identifiers found.
     """
     pdb_chains = []
     pdb_chain_pattern = re.compile(
@@ -106,7 +106,8 @@ def extract_file_sizes_from_html(
                 {
                     "file_name": Path(href).name,
                     "file_url_in_repository": href,
-                    # File size are sometimes expressed with comma as decimal separator.
+                    # File sizes are sometimes expressed with comma
+                    # as decimal separator.
                     "file_size_in_bytes": match_size.group(1).replace(",", "."),
                 }
             )
@@ -150,7 +151,7 @@ def scrape_metadata_for_a_dataset(
     try:
         meta_json = response.json().get(f"{chain_id}")
     except (json.decoder.JSONDecodeError, KeyError) as exc:
-        logger.warning("Failed to deconde JSON response fromthe ATLAS API.")
+        logger.warning("Failed to decode JSON response from the ATLAS API.")
         logger.warning(f"Error: {exc}")
         return None
     metadata = {
@@ -181,7 +182,7 @@ def search_all_datasets(client: httpx.Client, logger: "loguru.Logger") -> set[st
     Returns
     -------
     set[str]
-        List of PDB chains (datasets) found.
+        Set of PDB chains (datasets) found.
     """
     logger.info("Fetching index page listing ATLAS datasets...")
     response = make_http_request_with_retries(
@@ -318,7 +319,7 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
     logger.info("Starting ATLAS data scraping...")
     # Create HTTPX client
     client = create_httpx_client()
-    # Check connection to NOMAD API
+    # Check connection to the ATLAS API
     if is_connection_to_server_working(
         client, f"{BASE_API_URL}/ATLAS/metadata/16pk_A", logger=logger
     ):

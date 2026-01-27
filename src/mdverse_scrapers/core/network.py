@@ -53,7 +53,7 @@ def create_httpx_client(
 
 def is_connection_to_server_working(
     client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
-) -> bool | None:
+) -> bool:
     """Test connection to a web server.
 
     Parameters
