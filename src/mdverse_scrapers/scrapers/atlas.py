@@ -190,11 +190,11 @@ def search_all_datasets(client: httpx.Client, logger: "loguru.Logger") -> set[st
     )
     if not response:
         logger.critical("Failed to fetch index page.")
-        logger.critical("Cannot list available datasets. Aborting.")
+        logger.critical("Cannot list available datasets. Aborting!")
         sys.exit(1)
     if not hasattr(response, "text") or not response.text:
         logger.critical("Index page response is empty.")
-        logger.critical("Cannot list available datasets. Aborting.")
+        logger.critical("Cannot list available datasets. Aborting!")
         sys.exit(1)
     chain_ids = extract_pdb_chains_from_html(response.text, logger=logger)
     logger.info(f"Found {len(chain_ids)} datasets.")
