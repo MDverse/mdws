@@ -2,11 +2,14 @@
 
 import json
 
+import pytest
+
 import mdverse_scrapers.core.network as network
 import mdverse_scrapers.core.toolbox as toolbox
 from mdverse_scrapers.core.logger import create_logger
 
 
+@pytest.mark.network
 def test_make_http_get_request_with_retries_200():
     """Test the make_http_get_request_with_retries function."""
     url = "https://httpbin.org/get"
@@ -20,6 +23,7 @@ def test_make_http_get_request_with_retries_200():
     assert response.status_code == 200
 
 
+@pytest.mark.network
 def test_make_http_get_request_with_retries_202():
     """Test the make_http_get_request_with_retries function."""
     url = "https://httpbin.org/status/202"
@@ -32,6 +36,7 @@ def test_make_http_get_request_with_retries_202():
     assert response is None
 
 
+@pytest.mark.network
 def test_make_http_get_request_with_retries_404():
     """Test the make_http_get_request_with_retries function."""
     url = "https://httpbin.org/status/404"
@@ -44,6 +49,7 @@ def test_make_http_get_request_with_retries_404():
     assert response is None
 
 
+@pytest.mark.network
 def test_get_html_page_with_selenium_good_url():
     """Test the get_html_page_with_selenium function with a bad URL."""
     url = "https://figshare.com/ndownloader/files/21988230/preview/21988230/structure.json"
@@ -67,6 +73,7 @@ def test_get_html_page_with_selenium_good_url():
     assert json.loads(content) == expected_json
 
 
+@pytest.mark.network
 def test_get_html_page_with_selenium_bad_url(capsys) -> None:
     """Test the get_html_page_with_selenium function with a bad URL."""
     url = "https://figshare.com/ndownloader/files/28089615/preview/28089615/structure.json"
