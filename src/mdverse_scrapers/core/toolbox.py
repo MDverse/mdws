@@ -524,12 +524,13 @@ def convert_file_size_to_human_readable(size_in_bytes: float) -> str:
     str
         File size in a human-readable format (e.g., '10.52 MB').
     """
-    if size_in_bytes < 0:
+    size = size_in_bytes
+    if size < 0:
         return "Negative size!"
     for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if size_in_bytes < 1000.0:
-            return f"{size_in_bytes:.2f} {unit}"
-        size_in_bytes /= 1000.0
+        if size < 1000.0:
+            return f"{size:.2f} {unit}"
+        size /= 1000.0
     return "File too big!"
 
 
