@@ -24,7 +24,7 @@
     uv sync --dev
     ```
 
-6. Install pre-commit hook:
+6. Install pre-commit hooks:
 
     ```sh
     uv run prek install
