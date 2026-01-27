@@ -5,8 +5,8 @@ from mdverse_scrapers.core.toolbox import (
 )
 
 
-class TestConvertFileSizeInBytesToHumanReadableFormat:
-    """Tests for convert_file_size_in_bytes_to_human_readable_format function."""
+class TestConvertFileSizeToHumanReadable:
+    """Tests for convert_file_size_to_human_readable function."""
 
     def test_bytes(self):
         """Test conversion for values in bytes range."""
