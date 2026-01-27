@@ -17,7 +17,7 @@ from .simulation import SimulationMetadata
 
 DOI = Annotated[
     str,
-    StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-.]+$"),
+    StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-./]+$"),
 ]
 
 

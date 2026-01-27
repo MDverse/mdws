@@ -51,6 +51,37 @@ def create_httpx_client(
     return httpx.Client(base_url=base_url, headers=headers)
 
 
+def is_connection_to_server_working(
+    client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
+) -> bool:
+    """Test connection to a web server.
+
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    url : str
+        The URL endpoint.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    bool
+        True if the connection is successful, False otherwise.
+    """
+    logger.debug("Testing connection to server...")
+    response = make_http_request_with_retries(
+        client, url, method=HttpMethod.GET, max_attempts=2, logger=logger
+    )
+    if not response:
+        logger.error("Cannot connect to server.")
+        return False
+    if response and hasattr(response, "headers"):
+        logger.debug(response.headers)
+    return True
+
+
 def make_http_request_with_retries(
     client: httpx.Client,
     url: str,
