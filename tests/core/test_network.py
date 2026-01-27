@@ -51,7 +51,7 @@ def test_make_http_get_request_with_retries_404():
 
 @pytest.mark.network
 def test_get_html_page_with_selenium_good_url():
-    """Test the get_html_page_with_selenium function with a bad URL."""
+    """Test the get_html_page_with_selenium function with a good URL."""
     url = "https://figshare.com/ndownloader/files/21988230/preview/21988230/structure.json"
     expected_json = {
         "files": [],
