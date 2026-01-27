@@ -514,6 +514,9 @@ def format_date(date: datetime | str) -> str:
 def convert_file_size_to_human_readable(size_in_bytes: float) -> str:
     """Convert file size in bytes to a human-readable format.
 
+    We use multiples of 1000 (not 1024) for conversion.
+    If file size is 123.456 bytes, the function returns '123.46 KB'.
+
     Parameters
     ----------
     size_in_bytes : float
