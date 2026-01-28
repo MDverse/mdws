@@ -3,8 +3,6 @@
 import json
 import os
 import sys
-import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
@@ -15,20 +13,22 @@ from dotenv import load_dotenv
 
 from ..core.logger import create_logger
 from ..core.toolbox import (
-    ContextManager,
     clean_text,
-    export_dataframe_to_parquet,
-    extract_date,
-    extract_file_extension,
     find_remove_false_positive_datasets,
     make_http_get_request_with_retries,
+    print_statistics,
     read_query_file,
+    remove_duplicates_in_list_of_dicts,
     remove_excluded_files,
-    verify_output_directory,
 )
-from ..models.enums import DataType
-
-# logging.getLogger("httpx").setLevel(logging.DEBUG)
+from ..models.enums import DatasetSourceName
+from ..models.file import FileMetadata
+from ..models.scraper import ScraperContext
+from ..models.utils import (
+    export_list_of_models_to_parquet,
+    normalize_datasets_metadata,
+    normalize_files_metadata,
+)
 
 
 def get_rate_limit_info(
@@ -73,55 +73,6 @@ def get_rate_limit_info(
         logger.info(f"Header retry-after: {response.headers.get('retry-after', None)}")
 
 
-def normalize_file_size(file_str):
-    """Normalize file size in bytes.
-
-    Parameters
-    ----------
-    file_str : str
-        File size with unit.
-        For instance: 1.8 GB, 108.7 kB
-
-    Returns
-    -------
-    int
-        File size in bytes.
-    """
-    size, unit = file_str.split()
-    if unit == "GB":
-        size_in_bytes = float(size) * 1_000_000_000
-    elif unit == "MB":
-        size_in_bytes = float(size) * 1_000_000
-    elif unit == "kB":
-        size_in_bytes = float(size) * 1_000
-    elif unit == "Bytes":
-        size_in_bytes = float(size)
-    else:
-        size_in_bytes = 0
-    return int(size_in_bytes)
-
-
-def extract_license(metadata):
-    """Extract license from metadata.
-
-    Parameters
-    ----------
-    metadata : dict
-        Metadata from Zenodo API.
-
-    Returns
-    -------
-    str
-        License.
-        Empty string if no license found.
-    """
-    try:
-        license_name = metadata["license"]["id"]
-    except KeyError:
-        license_name = ""
-    return license_name
-
-
 def get_files_structure_from_zip(ul):
     """Get files structure from zip file preview.
 
@@ -153,7 +104,9 @@ def get_files_structure_from_zip(ul):
       <li>
         <div class="ui equal width grid">
         <div class="row">
-          <div class="no-padding left floated column"><span><i class="file outline icon"></i></i> flow_00001.dat</span></div>
+          <div class="no-padding left floated column">
+            <span><i class="file outline icon"></i></i> flow_00001.dat</span>
+          </div>
           <div class="no-padding right aligned column">4.6 kB</div>
         </div>
       </div>
@@ -161,7 +114,9 @@ def get_files_structure_from_zip(ul):
       <li>
         <div class="ui equal width grid">
         <div class="row">
-          <div class="no-padding left floated column"><span><i class="file outline icon"></i></i> flow_00003.dat</span></div>
+          <div class="no-padding left floated column">
+            <span><i class="file outline icon"></i></i> flow_00003.dat</span>
+          </div>
           <div class="no-padding right aligned column">4.6 kB</div>
         </div>
       </div>
@@ -235,12 +190,12 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
     # Normalize file size.
     for path, size in files_dict.items():
         if size:
-            file_dict = {
-                "file_name": path,
-                "file_size": normalize_file_size(size),
-                "file_type": extract_file_extension(path),
-            }
-            file_lst.append(file_dict)
+            file_lst.append(
+                {
+                    "file_name": path,
+                    "file_size_in_bytes": size,
+                }
+            )
     logger.success(f"Found {len(file_lst)} files.")
     return file_lst
 
@@ -280,8 +235,8 @@ def is_zenodo_connection_working(
 
 
 def scrap_zip_content(
-    files_df, logger: "loguru.Logger" = loguru.logger
-) -> pd.DataFrame:
+    files_metadata: list[FileMetadata], logger: "loguru.Logger" = loguru.logger
+) -> list[dict]:
     """Scrap information from files contained in zip archives.
 
     Zenodo provides a preview only for the first 1000 files within a zip file.
@@ -292,55 +247,50 @@ def scrap_zip_content(
 
     Arguments
     ---------
-    files_df: dataframe
-        Dataframe with information about files.
+    files_metadata: list[FileMetadata]
+        List of files metadata.
 
     Returns
     -------
-    zip_df: dataframe
-        Dataframe with information about files in zip archive.
+    list[dict]
+        List of dictionaries with metadata of files found in zip archive.
     """
     files_in_zip_lst = []
-    zip_counter = 0
-    zip_files_df = files_df[files_df["file_type"] == "zip"]
-    logger.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
+    # Select zip files only.
+    zip_files = [f_meta for f_meta in files_metadata if f_meta.file_type == "zip"]
+    logger.info(f"Number of zip files to scrap content from: {len(zip_files)}")
     # The Zenodo API does not provide any endpoint to get the content of zip files.
     # We use direct GET requests on the HTML preview of the zip files.
-    # We wait 1.5 seconds between each request,
-    # to be gentle with the Zenodo servers.
-    for zip_counter, zip_idx in enumerate(zip_files_df.index, start=1):
-        zip_file = zip_files_df.loc[zip_idx]
+    for zip_counter, zip_file in enumerate(zip_files, start=1):
         url = (
-            f"https://zenodo.org/records/{zip_file['dataset_id']}"
-            f"/preview/{zip_file.loc['file_name']}"
+            f"https://zenodo.org/records/{zip_file.dataset_id_in_repository}"
+            f"/preview/{zip_file.file_name}"
         )
         files_tmp = extract_data_from_zip_file(
             url,
             logger=logger,
         )
-        if files_tmp == []:
+        if not files_tmp:
             continue
         # Add common extra fields
-        for idx in range(len(files_tmp)):
-            files_tmp[idx]["dataset_origin"] = zip_file["dataset_origin"]
-            files_tmp[idx]["dataset_id"] = zip_file["dataset_id"]
-            files_tmp[idx]["is_from_zip_file"] = True
-            files_tmp[idx]["containing_zip_file_name"] = zip_file["file_name"]
-            files_tmp[idx]["file_url"] = ""
-            files_tmp[idx]["file_md5"] = ""
-        files_in_zip_lst += files_tmp
+        for file_meta in files_tmp:
+            file_meta["dataset_repository_name"] = zip_file.dataset_repository_name
+            file_meta["dataset_id_in_repository"] = zip_file.dataset_id_in_repository
+            file_meta["dataset_url_in_repository"] = zip_file.dataset_url_in_repository
+            file_meta["containing_archive_file_name"] = zip_file.file_name
+            file_meta["file_url_in_repository"] = zip_file.file_url_in_repository
+            files_in_zip_lst.append(file_meta)
         logger.info(
             "Zenodo zip files scraped: "
-            f"{zip_counter}/{len(zip_files_df)} "
-            f"({zip_counter / len(zip_files_df):.0%})"
+            f"{zip_counter}/{len(zip_files)} "
+            f"({zip_counter / len(zip_files):.0%})"
         )
-    files_in_zip_df = pd.DataFrame(files_in_zip_lst)
-    return files_in_zip_df
+    return files_in_zip_lst
 
 
-def extract_records(
-    response_json, logger: "loguru.Logger" = loguru.logger
-) -> tuple[list, list]:
+def extract_metadata_from_json(
+    response_json: dict, logger: "loguru.Logger" = loguru.logger
+) -> tuple[list[dict], list[dict]]:
     """Extract information from the Zenodo records.
 
     Arguments
@@ -350,76 +300,70 @@ def extract_records(
 
     Returns
     -------
-    datasets: list
-        List of dictionnaries. Information on datasets.
-    files: list
-        List of dictionaries. Information on files.
+    datasets: list[dict]
+        List of datasets metadata.
+    files: list[dict]
+        List of files metadata.
     """
     datasets = []
     files = []
-    if response_json["hits"]["hits"]:
-        for hit in response_json["hits"]["hits"]:
-            # 'hit' is a Python dictionary.
-            if hit["metadata"]["access_right"] != "open":
-                continue
-            dataset_id = str(hit["id"])
-            logger.info(f"Extracting metadata for dataset id: {dataset_id}")
-            dataset_dict = {
-                "dataset_origin": "zenodo",
-                "dataset_id": dataset_id,
-                "doi": hit["doi"],
-                "date_creation": extract_date(hit["created"]),
-                "date_last_modified": extract_date(hit["updated"]),
-                "date_fetched": datetime.now().isoformat(timespec="seconds"),
-                "file_number": len(hit["files"]),
-                "download_number": int(hit["stats"]["downloads"]),
-                "view_number": int(hit["stats"]["views"]),
-                "license": extract_license(hit["metadata"]),
-                "dataset_url": hit["links"]["self_html"],
-                "title": clean_text(hit["metadata"]["title"]),
-                "author": clean_text(hit["metadata"]["creators"][0]["name"]),
-                "keywords": "none",
-                "description": clean_text(hit["metadata"].get("description", "")),
+    try:
+        _ = response_json["hits"]["hits"]
+    except KeyError:
+        logger.warning("Cannot extract hits from the response JSON.")
+        return datasets, files
+    for hit in response_json["hits"]["hits"]:
+        # 'hit' is a Python dictionary.
+        if hit.get("metadata", {}).get("access_right", "") != "open":
+            continue
+        dataset_id = str(hit["id"])
+        logger.info(f"Extracting metadata for dataset id: {dataset_id}")
+        dataset_dict = {
+            "dataset_repository_name": DatasetSourceName.ZENODO,
+            "dataset_id_in_repository": dataset_id,
+            "dataset_url_in_repository": hit.get("links", {}).get("self_html", ""),
+            "date_created": hit.get("created", None),
+            "date_last_updated": hit.get("modified", None),
+            "title": clean_text(hit.get("metadata", {}).get("title", "")),
+            "author_names": [
+                author.get("name")
+                for author in hit.get("metadata", {}).get("creators", [])
+                if author.get("name", None)
+            ],
+            "description": clean_text(hit.get("metadata", {}).get("description", "")),
+            "keywords": [
+                str(keyword) for keyword in hit.get("metadata", {}).get("keywords", [])
+            ],
+            "license": hit.get("metadata", {}).get("license", {}).get("id", None),
+            "doi": hit.get("doi", None),
+            "number_of_files": len(hit.get("files", [])),
+            "download_number": hit.get("stats", {}).get("downloads", None),
+            "view_number": hit.get("stats", {}).get("views", None),
+        }
+        datasets.append(dataset_dict)
+        logger.info(f"Dataset URL: {dataset_dict['dataset_url_in_repository']}")
+        for file_in in hit.get("files", []):
+            file_dict = {
+                "dataset_repository_name": dataset_dict["dataset_repository_name"],
+                "dataset_id_in_repository": dataset_dict["dataset_id_in_repository"],
+                "dataset_url_in_repository": dataset_dict["dataset_url_in_repository"],
+                "file_name": file_in.get("key", ""),
+                "file_url_in_repository": file_in.get("links", {}).get("self", ""),
+                # File size in bytes.
+                "file_size_in_bytes": file_in.get("size", None),
+                "file_md5": file_in.get("checksum", "").removeprefix("md5:"),
+                "containing_archive_file_name": None,
             }
-            if "keywords" in hit["metadata"]:
-                dataset_dict["keywords"] = ";".join(
-                    [str(keyword) for keyword in hit["metadata"]["keywords"]]
-                )
-            # Handle existing but empty keywords.
-            # For instance: https://zenodo.org/records/3741678
-            if dataset_dict["keywords"] == "":
-                dataset_dict["keywords"] = "none"
-            datasets.append(dataset_dict)
-            logger.info(f"Dataset URL: {dataset_dict['dataset_url']}")
-            for file_in in hit["files"]:
-                file_dict = {
-                    "dataset_origin": dataset_dict["dataset_origin"],
-                    "dataset_id": dataset_dict["dataset_id"],
-                    "dataset_url": dataset_dict["dataset_url"],
-                    "file_size": int(file_in["size"]),  # File size in bytes.
-                    "file_md5": file_in["checksum"].removeprefix("md5:"),
-                    "is_from_zip_file": False,
-                    "file_name": file_in["key"],
-                    "file_type": extract_file_extension(file_in["key"]),
-                    "file_url": file_in["links"]["self"],
-                    "containing_zip_file_name": "none",
-                }
-                # Some file types could be empty.
-                # See for instance file "lmp_mpi" in:
-                # https://zenodo.org/record/5797177
-                # https://zenodo.org/api/records/5797177
-                # Set these file types to "none".
-                if file_dict["file_type"] == "":
-                    file_dict["file_type"] = "none"
-                files.append(file_dict)
+            files.append(file_dict)
     return datasets, files
 
 
 def search_zenodo(
     query: str,
-    ctx: ContextManager,
+    scraper: ScraperContext,
     page: int = 1,
     number_of_results: int = 1,
+    logger: "loguru.Logger" = loguru.logger,
 ) -> dict | None:
     """Get total number of hits for a given query.
 
@@ -427,8 +371,14 @@ def search_zenodo(
     ----------
     query : str
         The search query string.
-    ctx : ContextManager
-        Context manager containing configuration and logger.
+    scraper: ScraperContext
+        Scraper context manager containing configuration.
+    page : int, optional
+        The page number to retrieve. Default is 1.
+    number_of_results : int, optional
+        Number of results per page. Default is 1.
+    logger : loguru.Logger, optional
+        Logger for logging messages.
 
     Returns
     -------
@@ -440,69 +390,46 @@ def search_zenodo(
         "size": number_of_results,
         "page": page,
         "status": "published",
-        "access_token": ctx.token,
+        "access_token": scraper.token,
     }
     response_json = None
     response = make_http_get_request_with_retries(
         url="https://zenodo.org/api/records",
         params=params,
         timeout=60,
-        logger=ctx.logger,
+        logger=logger,
         delay_before_request=2,
         max_attempts=5,
     )
     if response is None:
-        ctx.logger.warning("Failed to get response from the Zenodo API.")
-        ctx.logger.warning("Getting next file type...")
+        logger.warning("Failed to get response from the Zenodo API.")
+        logger.warning("Getting next file type...")
         return None
     # Try to decode JSON response.
     try:
         response_json = response.json()
     except (json.decoder.JSONDecodeError, ValueError) as exc:
-        ctx.logger.warning("Failed to decode JSON response from the Zenodo API.")
-        ctx.logger.warning(f"Error: {exc}")
+        logger.warning("Failed to decode JSON response from the Zenodo API.")
+        logger.warning(f"Error: {exc}")
         return None
     # Try to extract hits (= results).
     try:
         _ = response_json["hits"]
         _ = int(response_json["hits"]["total"])
     except (KeyError, ValueError):
-        ctx.logger.warning("Cannot extract hits for HTTP response.")
-        ctx.logger.debug("Response JSON")
-        ctx.logger.debug(response_json)
+        logger.warning("Cannot extract hits for HTTP response.")
+        logger.debug("Response JSON")
+        logger.debug(response_json)
         return None
     return response_json
-
-
-def merge_dataframes_remove_duplicates(
-    df1: pd.DataFrame, df2: pd.DataFrame, on_columns: list[str] | None = None
-) -> pd.DataFrame:
-    """Merge two dataframes and remove duplicates.
-
-    Parameters
-    ----------
-    df1 : pd.DataFrame
-        First dataframe.
-    df2 : pd.DataFrame
-        Second dataframe.
-    on_columns : list of str, optional
-        List of columns to consider for duplicates.
-        If None, all columns are considered.
-
-    Returns
-    -------
-    pd.DataFrame
-        Merged dataframe with duplicates removed.
-    """
-    df_concat = pd.concat([df1, df2], ignore_index=True)
-    return df_concat.drop_duplicates(subset=on_columns, keep="first")
 
 
 def search_all_datasets(
     file_types: list[dict],
     keywords: list[str],
-    ctx: ContextManager,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+    scraper: ScraperContext,
+    logger: "loguru.Logger" = loguru.logger,
+) -> tuple[list[dict], list[dict]]:
     """Search all datasets on Zenodo.
 
     Parameters
@@ -514,15 +441,17 @@ def search_all_datasets(
         - keywords: str, "keywords" or "none"
     keywords : list of str
         List of keywords to use in the search.
-    ctx : ContextManager
+    scraper: ScraperContext
         Context manager containing configuration and logger.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    datasets_df : pd.DataFrame
-        Dataframe with information on datasets.
-    files_df : pd.DataFrame
-        Dataframe with information on files.
+    datasets : list of dict
+        List with datasets metadata.
+    files : list of dict
+        List with files metadata.
     """
     # There is a hard limit of the number of hits
     # one can get from a single query.
@@ -532,69 +461,74 @@ def search_all_datasets(
     # Build query part with keywords. We want something like:
     # AND ("KEYWORD 1" OR "KEYWORD 2" OR "KEYWORD 3")
     query_keywords = ' AND ("' + '" OR "'.join(keywords) + '")'
-    # Create empty dataframes to store results.
-    datasets_df = pd.DataFrame()
-    files_df = pd.DataFrame()
-    ctx.logger.info("-" * 30)
+    # Create empty lists to store results.
+    datasets = []
+    files = []
+    logger.info("-" * 30)
     for file_type in file_types:
-        ctx.logger.info(f"Looking for filetype: {file_type['type']}")
-        datasets_count_old = datasets_df.shape[0]
+        logger.info(f"Looking for filetype: {file_type['type']}")
+        datasets_count_old = len(datasets)
         # Build query with file type and optional keywords.
         query = f"""resource_type.type:"dataset" AND filetype:"{file_type["type"]}" """
         if file_type["keywords"] == "keywords":
             query += query_keywords
-        ctx.logger.info("Query:")
-        ctx.logger.info(f"{query}")
+        logger.info("Query:")
+        logger.info(f"{query}")
         # First, get the total number of hits for a given query.
         # This is needed to compute the number of pages of results to get.
-        json_response = search_zenodo(query, ctx, page=1, number_of_results=1)
+        json_response = search_zenodo(
+            query, scraper, page=1, number_of_results=1, logger=logger
+        )
         if json_response is None or int(json_response["hits"]["total"]) == 0:
-            ctx.logger.error("Getting next file type...")
-            ctx.logger.info("-" * 30)
+            logger.error("Getting next file type...")
+            logger.info("-" * 30)
             continue
         total_hits = int(json_response["hits"]["total"])
-        ctx.logger.info(f"Total hits for this query: {total_hits}")
+        logger.info(f"Total hits for this query: {total_hits}")
         page_max = total_hits // max_hits_per_page + 1
+        if scraper.is_in_debug_mode:
+            logger.warning("Debug mode is ON")
+            logger.warning("Limiting the number of pages to 1 with 10 hits per page.")
+            page_max = 1
+            max_hits_per_page = 10
         # Then, slice the query by page.
         for page in range(1, page_max + 1):
-            ctx.logger.info(
+            logger.info(
                 f"Starting page {page}/{page_max} for filetype: {file_type['type']}"
             )
             json_response = search_zenodo(
-                query, ctx, page=page, number_of_results=max_hits_per_page
+                query,
+                scraper,
+                page=page,
+                number_of_results=max_hits_per_page,
+                logger=logger,
             )
             if json_response is None:
-                ctx.logger.warning("Failed to get response from the Zenodo API.")
-                ctx.logger.warning("Getting next page...")
+                logger.warning("Failed to get response from the Zenodo API.")
+                logger.warning("Getting next page...")
                 continue
-            datasets_tmp, files_tmp = extract_records(json_response, logger=ctx.logger)
-            # Merge dataframes
-            datasets_df = merge_dataframes_remove_duplicates(
-                datasets_df,
-                pd.DataFrame(datasets_tmp),
-                on_columns=["dataset_origin", "dataset_id"],
+            datasets_tmp, files_tmp = extract_metadata_from_json(
+                json_response, logger=logger
             )
-            files_df = merge_dataframes_remove_duplicates(
-                files_df,
-                pd.DataFrame(files_tmp),
-                on_columns=["dataset_id", "file_name"],
-            )
-            ctx.logger.success(
-                f"Found so far: {datasets_df.shape[0]:,} datasets "
-                f"and {len(files_df):,} files"
+            # Merge datasets and remove duplicates.
+            datasets = remove_duplicates_in_list_of_dicts(datasets + datasets_tmp)
+            # Merge files and remove duplicates.
+            files = remove_duplicates_in_list_of_dicts(files + files_tmp)
+            logger.success(
+                f"Found so far: {len(datasets):,} datasets and {len(files):,} files"
             )
             if page * max_hits_per_page >= max_hits_per_query:
-                ctx.logger.info("Max hits per query reached!")
+                logger.info("Max hits per query reached!")
                 break
-        ctx.logger.info(
+        logger.info(
             f"Number of datasets found: {len(datasets_tmp):,} "
-            f"({datasets_df.shape[0] - datasets_count_old} new)"
+            f"({len(datasets) - datasets_count_old} new)"
         )
-        ctx.logger.info(f"Number of files found: {len(files_tmp):,}")
-        ctx.logger.info("-" * 30)
-    ctx.logger.info(f"Total number of datasets found: {len(datasets_df):,}")
-    ctx.logger.info(f"Total number of files found: {len(files_df):,}")
-    return datasets_df, files_df
+        logger.info(f"Number of files found: {len(files_tmp):,}")
+        logger.info("-" * 30)
+    logger.info(f"Total number of datasets found: {len(datasets):,}")
+    logger.info(f"Total number of files found: {len(files):,}")
+    return datasets, files
 
 
 @click.command(
@@ -604,7 +538,7 @@ def search_all_datasets(
 @click.option(
     "--output-dir",
     "output_dir_path",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
     required=True,
     help="Output directory path to save results.",
 )
@@ -615,39 +549,44 @@ def search_all_datasets(
     required=True,
     help="Query parameters file (YAML format).",
 )
-def main(output_dir_path: Path, query_file_path: Path):
+@click.option(
+    "--debug",
+    "is_in_debug_mode",
+    is_flag=True,
+    default=False,
+    help="Enable debug mode.",
+)
+def main(
+    output_dir_path: Path, query_file_path: Path, *, is_in_debug_mode: bool = False
+) -> None:
     """Scrape Zenodo datasets and files."""
-    # Define data repository name.
-    repository_name = "zenodo"
-    # Keep track of script duration.
-    start_time = time.perf_counter()
-    # Create context manager.
-    output_path = output_dir_path / repository_name
-    output_path.mkdir(parents=True, exist_ok=True)
-    context = ContextManager(
-        logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
-        output_path=output_path,
-        query_file_name=query_file_path,
+    # Create scraper context.
+    scraper = ScraperContext(
+        data_source_name=DatasetSourceName.ZENODO,
+        output_dir_path=output_dir_path,
+        query_file_path=query_file_path,
+        is_in_debug_mode=is_in_debug_mode,
     )
+    logger = create_logger(logpath=scraper.log_file_path, level="INFO")
     # Log script name and doctring.
-    context.logger.info(__file__)
-    context.logger.info(__doc__)
+    logger.info(__file__)
+    logger.info(__doc__)
     # Read and verify Zenodo token.
     load_dotenv()
     zenodo_token = os.environ.get("ZENODO_TOKEN", "")
     if not zenodo_token:
-        context.logger.critical("No Zenodo token found.")
-        context.logger.critical("Aborting.")
+        logger.critical("No Zenodo token found.")
+        logger.critical("Aborting.")
         sys.exit(1)
     else:
-        context.logger.success("Found Zenodo token.")
-        context.token = zenodo_token
+        logger.success("Found Zenodo token.")
+        scraper.token = zenodo_token
     # Test connection to Zenodo API.
-    if is_zenodo_connection_working(context.token, logger=context.logger):
-        context.logger.success("Connection to Zenodo API successful.")
+    if is_zenodo_connection_working(scraper.token, logger=logger):
+        logger.success("Connection to Zenodo API successful.")
     else:
-        context.logger.critical("Connection to Zenodo API failed.")
-        context.logger.critical("Aborting.")
+        logger.critical("Connection to Zenodo API failed.")
+        logger.critical("Aborting.")
         sys.exit(1)
     # Get rate limit information.
     get_rate_limit_info(
@@ -656,43 +595,60 @@ def main(output_dir_path: Path, query_file_path: Path):
             "https://zenodo.org/records/4444751/preview/code.zip",
         ],
         zenodo_token,
-        logger=context.logger,
+        logger=logger,
     )
     # Read parameter file
     (file_types, keywords, excluded_files, excluded_paths) = read_query_file(
-        context.query_file_name,
-        logger=context.logger,
+        scraper.query_file_path,
+        logger=logger,
     )
-    # Verify output directory exists
-    verify_output_directory(context.output_path)
-
-    datasets_df, files_df = search_all_datasets(file_types, keywords, context)
-
+    datasets_metadata, files_metadata = search_all_datasets(
+        file_types, keywords, scraper, logger=logger
+    )
+    # Normalize datasets and files metadata.
+    datasets_normalized_metadata = normalize_datasets_metadata(
+        datasets_metadata, logger=logger
+    )
+    files_normalized_metadata = normalize_files_metadata(files_metadata, logger=logger)
     # Scrap zip files content.
-    context.logger.info("-" * 30)
-    zip_df = scrap_zip_content(files_df, logger=context.logger)
-    # We don't remove duplicates here because
-    # one zip file can contain several files with the same name
-    # but within different folders.
-    files_df = pd.concat([files_df, zip_df], ignore_index=True)
-    context.logger.info(f"Number of files found inside zip files: {len(zip_df)}")
-    context.logger.info(f"Total number of files found: {len(files_df)}")
-    files_df = remove_excluded_files(files_df, excluded_files, excluded_paths)
-    context.logger.info("-" * 30)
+    logger.info("-" * 30)
+    files_zip_metadata = scrap_zip_content(files_normalized_metadata, logger=logger)
+    logger.info(f"Number of files found inside zip files: {len(files_zip_metadata)}")
+    # Normalize files metadata from zip files.
+    zip_normalized_metadata = normalize_files_metadata(
+        files_zip_metadata, logger=logger
+    )
+    # Merge all metadata files.
+    files_normalized_metadata += zip_normalized_metadata
+    logger.info(f"Total number of files found: {len(files_normalized_metadata)}")
+    files_normalized_metadata = remove_excluded_files(
+        files_normalized_metadata, excluded_files, excluded_paths, logger=logger
+    )
+    logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files
     # that come from zip files.
-    datasets_df, files_df = find_remove_false_positive_datasets(
-        datasets_df, files_df, context
+    datasets_normalized_metadata, files_normalized_metadata = (
+        find_remove_false_positive_datasets(
+            datasets_normalized_metadata,
+            files_normalized_metadata,
+            scraper,
+            logger=logger,
+        )
     )
-
-    # Save dataframes to disk.
-    export_dataframe_to_parquet("zenodo", DataType.DATASETS, datasets_df, context)
-    export_dataframe_to_parquet("zenodo", DataType.FILES, files_df, context)
-
-    # Script duration.
-    elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraped Zenodo in: {timedelta(seconds=elapsed_time)}")
+    # Save metadata to parquet files.
+    scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
+        scraper.datasets_parquet_file_path,
+        datasets_normalized_metadata,
+        logger=logger,
+    )
+    scraper.number_of_files_scraped = export_list_of_models_to_parquet(
+        scraper.files_parquet_file_path,
+        files_normalized_metadata,
+        logger=logger,
+    )
+    # Print scraping statistics.
+    print_statistics(scraper, logger=logger)
 
 
 if __name__ == "__main__":

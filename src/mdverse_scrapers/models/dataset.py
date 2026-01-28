@@ -17,7 +17,7 @@ from .simulation import SimulationMetadata
 
 DOI = Annotated[
     str,
-    StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-.]+$"),
+    StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-./]+$"),
 ]
 
 
@@ -41,6 +41,7 @@ class DatasetCoreMetadata(BaseModel):
     )
     dataset_id_in_repository: str = Field(
         ...,
+        min_length=1,
         description="Identifier of the dataset in the source repository.",
     )
     dataset_url_in_repository: str = Field(
@@ -77,20 +78,6 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     dataset_url_in_project: str | None = Field(
         None,
         description="URL to access the dataset in the project.",
-    )
-
-    # ------------------------------------------------------------------
-    # Statistics metadata
-    # ------------------------------------------------------------------
-    download_number: int | None = Field(
-        None,
-        ge=0,
-        description="Total number of downloads for the dataset.",
-    )
-    view_number: int | None = Field(
-        None,
-        ge=0,
-        description="Total number of views for the dataset.",
     )
 
     # ------------------------------------------------------------------
@@ -141,6 +128,20 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
     external_links: list[str] | None = Field(
         None,
         description="External links to publications or other databases.",
+    )
+
+    # ------------------------------------------------------------------
+    # Statistics metadata
+    # ------------------------------------------------------------------
+    download_number: int | None = Field(
+        None,
+        ge=0,
+        description="Total number of downloads for the dataset.",
+    )
+    view_number: int | None = Field(
+        None,
+        ge=0,
+        description="Total number of views for the dataset.",
     )
 
     # ------------------------------------------------------------------

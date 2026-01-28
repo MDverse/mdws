@@ -1,8 +1,10 @@
 """Utils for Pydantic models."""
 
+from pathlib import Path
 from typing import Any
 
 import loguru
+import pandas as pd
 from pydantic import ValidationError
 
 from .dataset import DatasetMetadata
@@ -45,3 +47,129 @@ def validate_metadata_against_model(
             else:
                 logger.debug("Input is a complex structure. Skipping value display.")
         return None
+
+
+def normalize_datasets_metadata(
+    datasets_list: list[dict],
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[DatasetMetadata]:
+    """
+    Normalize dataset metadata with a Pydantic model.
+
+    Parameters
+    ----------
+    datasets_list : list[dict]
+        List of dataset metadata dictionaries.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    list[DatasetMetadata]
+        List of successfully validated `DatasetMetadata` objects.
+    """
+    datasets_metadata = []
+    for dataset in datasets_list:
+        dataset_id = dataset.get("dataset_id_in_repository")
+        logger.info(f"Normalizing metadata for dataset: {dataset_id}")
+        normalized_metadata = validate_metadata_against_model(
+            dataset, DatasetMetadata, logger=logger
+        )
+        if not normalized_metadata:
+            logger.error(
+                f"Metadata normalization failed for dataset "
+                f"{dataset_id} "
+                f"from {dataset.get('dataset_repository_name', 'Unknown')}"
+            )
+            continue
+        datasets_metadata.append(normalized_metadata)
+    logger.info(
+        "Normalized metadata for "
+        f"{len(datasets_metadata):,}/{len(datasets_list):,} "
+        f"({len(datasets_metadata) / len(datasets_list):.0%}) datasets."
+    )
+    return datasets_metadata
+
+
+def normalize_files_metadata(
+    files_list: list[dict],
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[FileMetadata]:
+    """
+    Normalize file metadata with a Pydantic model.
+
+    Parameters
+    ----------
+    files_list : list[dict]
+        List of file metadata dictionaries.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    list[FileMetadata]
+        List of successfully validated `FileMetadata` objects.
+    """
+    files_metadata = []
+    previous_dataset_id = ""
+    for file_meta in files_list:
+        dataset_id = file_meta.get("dataset_id_in_repository")
+        # Print info only when changing dataset.
+        if dataset_id != previous_dataset_id:
+            logger.info(f"Normalizing metadata for files in dataset: {dataset_id}")
+        normalized_metadata = validate_metadata_against_model(
+            file_meta, FileMetadata, logger=logger
+        )
+        if not normalized_metadata:
+            logger.error(
+                "Metadata normalization failed for file: "
+                f"{file_meta.get('file_name', 'Unknown')}"
+            )
+            logger.info(
+                f"In dataset: {dataset_id} from "
+                f"{file_meta.get('dataset_repository_name', 'Unknown')}"
+            )
+            continue
+        files_metadata.append(normalized_metadata)
+        # Print info only when changing dataset.
+        if dataset_id != previous_dataset_id:
+            previous_dataset_id = dataset_id
+            logger.info(
+                "Normalized metadata for "
+                f"{len(files_metadata):,}/{len(files_list):,} "
+                f"({len(files_metadata) / len(files_list):.0%}) files."
+            )
+    return files_metadata
+
+
+def export_list_of_models_to_parquet(
+    parquet_path: Path,
+    list_of_models: list[DatasetMetadata] | list[FileMetadata],
+    logger: "loguru.Logger" = loguru.logger,
+) -> int:
+    """Export list of Pydantic models to parquet file.
+
+    Parameters
+    ----------
+    parquet_path : Path
+        Path to the output parquet file.
+    list_of_models : list[DatasetMetadata] | list[FileMetadata]
+        List of Pydantic models to export.
+    logger : "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    int
+        Number of exported models.
+    """
+    try:
+        df = pd.DataFrame([model.model_dump() for model in list_of_models])
+        df.to_parquet(parquet_path, index=False)
+        logger.success(f"Exported {len(df):,} rows to:")
+        logger.success(parquet_path)
+        return len(df)
+    except (ValueError, TypeError, OSError) as e:
+        logger.error("Failed to export models to parquet.")
+        logger.error(e)
+        return 0

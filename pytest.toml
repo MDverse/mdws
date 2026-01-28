@@ -1,0 +1,5 @@
+[pytest]
+addopts = ["--strict-markers"]
+markers = [
+    "network: network tests that require internet access and could be slow",
+]

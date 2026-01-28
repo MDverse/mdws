@@ -68,9 +68,9 @@ The POST parameters look like this:
 }
 ```
 
-We search only for datasets by probiding the parameter `"item_type": 3`.
+We search only for datasets by providing the parameter `"item_type": 3`.
 
-Example datasets:
+Example of datasets related to molecular dynamics:
 
 - [Molecular dynamics of DSB in nucleosome](https://figshare.com/articles/dataset/M1_gro/5840706)
 - [a-Synuclein short MD simulations:homo-A53T](https://figshare.com/articles/dataset/a-Synuclein_short_MD_simulations_homo-A53T/7007552)
@@ -88,10 +88,10 @@ We search for all file types and keywords. Results are paginated by batch of 100
 
 Example dataset "[Molecular dynamics of DSB in nucleosome](https://figshare.com/articles/dataset/M1_gro/5840706)":
 
-- web view: <https://figshare.com/articles/dataset/M1_gro/5840706>
-- API view: <https://api.figshare.com/v2/articles/5840706>
+- [web view](https://figshare.com/articles/dataset/M1_gro/5840706)
+- [API view](https://api.figshare.com/v2/articles/5840706)
 
-All metadata related to a given dataset is provided, as well as all files metadata.
+All metadata related to a given dataset is provided, as well as all files metadata for this dataset.
 
 ### Zip files
 

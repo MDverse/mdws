@@ -1,32 +1,33 @@
 """Scrape molecular dynamics datasets and files from Figshare."""
-from arrow import get
 
 import json
 import os
 import sys
-import time
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
 import loguru
-import pandas as pd
 from dotenv import load_dotenv
+
+from mdverse_scrapers.models.file import FileMetadata
 
 from ..core.figshare_api import FigshareAPI
 from ..core.logger import create_logger
 from ..core.network import get_html_page_with_selenium
 from ..core.toolbox import (
-    ContextManager,
-    DataType,
     clean_text,
-    export_dataframe_to_parquet,
-    extract_date,
-    extract_file_extension,
     find_remove_false_positive_datasets,
     make_http_get_request_with_retries,
+    print_statistics,
     read_query_file,
     remove_excluded_files,
+)
+from ..models.enums import DatasetSourceName
+from ..models.scraper import ScraperContext
+from ..models.utils import (
+    export_list_of_models_to_parquet,
+    normalize_datasets_metadata,
+    normalize_files_metadata,
 )
 
 
@@ -63,7 +64,8 @@ def extract_files_from_json_response(
 
 
 def extract_files_from_zip_file(
-    file_id: str, logger: "loguru.Logger" = loguru.logger) -> list[str]:
+    file_id: str, logger: "loguru.Logger" = loguru.logger
+) -> list[str]:
     """Extract files from a zip file content.
 
     No endpoint is available in the Figshare API.
@@ -79,7 +81,7 @@ def extract_files_from_zip_file(
     file_id : str
         ID of the zip file to get content from.
     logger : "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -123,7 +125,7 @@ def get_stats_for_dataset(
     dataset_id: str
         Dataset id.
     logger: loguru.Logger
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -150,66 +152,60 @@ def get_stats_for_dataset(
     return stats
 
 
-def scrap_zip_files(
-    files_df: pd.DataFrame, logger: "loguru.Logger" = loguru.logger
-) -> pd.DataFrame:
+def scrap_zip_files_content(
+    all_files_metadata: list[FileMetadata], logger: "loguru.Logger" = loguru.logger
+) -> list[dict]:
     """Scrap information from files contained in zip archives.
 
-    Uncertain how many files can be fetched from the preview.
     Only get file name and file type.
     File size and MD5 checksum are not available.
 
     Arguments
     ---------
-    files_df: Pandas dataframe
-        Dataframe with information about files.
-    logger: loguru.Logger
-        Logger object.
+    all_files_metadata: list[FileMetadata]
+        List of files metadata.
+    logger: "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    zip_df: Pandas dataframe
-        Dataframe with information about files found in zip archive.
+    list[dict]
+        List of dictionaries with files metadata found in zip archive.
     """
-    files_in_zip_lst = []
-    zip_files_counter = 0
-    zip_files_df = files_df[files_df["file_type"] == "zip"]
-    logger.info(f"Number of zip files to scrap content from: {zip_files_df.shape[0]}")
-    for zip_files_counter, zip_idx in enumerate(zip_files_df.index, start=1):
-        zip_file = zip_files_df.loc[zip_idx]
-        file_id = zip_file["file_url"].split("/")[-1]
+    files_in_zip_metadata = []
+    # Select zip files only.
+    zip_files = [f_meta for f_meta in all_files_metadata if f_meta.file_type == "zip"]
+    logger.info(f"Number of zip files to scrap content from: {len(zip_files):,}")
+    for zip_files_counter, zip_file in enumerate(zip_files, start=1):
+        zip_file_id = zip_file.file_url_in_repository.split("/")[-1]
         logger.info("Extracting files from zip file:")
-        logger.info(zip_file["file_url"])
-        file_names = extract_files_from_zip_file(file_id, logger)
-        if file_names == []:
+        logger.info(zip_file.file_url_in_repository)
+        file_names = extract_files_from_zip_file(zip_file_id, logger)
+        if not file_names:
             logger.warning("No file found!")
             continue
         # Add other metadata.
         for name in file_names:
-            file_metadata = {}
-            file_metadata["dataset_origin"] = zip_file["dataset_origin"]
-            file_metadata["dataset_id"] = zip_file["dataset_id"]
-            file_metadata["dataset_url"] = zip_file["dataset_url"]
-            file_metadata["file_name"] = name
-            file_metadata["file_type"] = extract_file_extension(name)
-            file_metadata["file_size"] = None
-            file_metadata["file_md5"] = None
-            file_metadata["is_from_zip_file"] = True
-            file_metadata["containing_zip_file_name"] = zip_file["file_name"]
-            file_metadata["file_url"] = zip_file["file_url"]
-            files_in_zip_lst.append(file_metadata)
+            file_meta = {}
+            file_meta["dataset_repository_name"] = zip_file.dataset_repository_name
+            file_meta["dataset_id_in_repository"] = zip_file.dataset_id_in_repository
+            file_meta["dataset_url_in_repository"] = zip_file.dataset_url_in_repository
+            file_meta["file_name"] = name
+            file_meta["file_url_in_repository"] = zip_file.file_url_in_repository
+            file_meta["containing_archive_file_name"] = zip_file.file_name
+            files_in_zip_metadata.append(file_meta)
         logger.info(
-            f"{zip_files_counter} Figshare zip files processed "
-            f"({zip_files_counter}/{len(zip_files_df)}"
-            f":{zip_files_counter / len(zip_files_df):.0%})"
+            f"{zip_files_counter} zip files from Figshare processed "
+            f"({zip_files_counter:,}/{len(zip_files):,}"
+            f":{zip_files_counter / len(zip_files):.0%})"
         )
-    files_in_zip_df = pd.DataFrame(files_in_zip_lst)
     logger.success("Done extracting files from zip archives.")
-    return files_in_zip_df
+    return files_in_zip_metadata
 
 
 def extract_metadata_from_single_dataset_record(
     record_json: dict,
+    scraper: ScraperContext,
 ) -> tuple[dict, list[dict]]:
     """Extract information from a Figshare dataset/article record.
 
@@ -222,6 +218,8 @@ def extract_metadata_from_single_dataset_record(
     ---------
     record_json: dict
         JSON object obtained after a request on FigShare API.
+    scraper: ScraperContext
+        ScraperContext object.
 
     Returns
     -------
@@ -230,59 +228,56 @@ def extract_metadata_from_single_dataset_record(
     list
         List of files metadata.
     """
-    dataset_info = {}
-    files_info = []
-    if record_json["is_embargoed"]:
-        return dataset_info, files_info
-    dataset_id = str(record_json["id"])
+    dataset_metadata = {}
+    files_metadata = []
+    if record_json.get("is_embargoed"):
+        return dataset_metadata, files_metadata
+    dataset_id = str(record_json.get("id", ""))
     # Disable stats for now.
     # dataset_stats = get_stats_for_dataset(dataset_id)
-    dataset_stats = {"downloads": None, "views": None}
-    dataset_info = {
-        "dataset_origin": "figshare",
-        "dataset_id": dataset_id,
-        "doi": record_json["doi"],
-        "date_creation": extract_date(record_json["created_date"]),
-        "date_last_modified": extract_date(record_json["modified_date"]),
-        "date_fetched": datetime.now().isoformat(timespec="seconds"),
-        "file_number": len(record_json["files"]),
-        "download_number": dataset_stats["downloads"],
-        "view_number": dataset_stats["views"],
-        "license": record_json["license"]["name"],
-        "dataset_url": record_json["url_public_html"],
-        "title": clean_text(record_json["title"]),
-        "author": clean_text(record_json["authors"][0]["full_name"]),
-        "keywords": "",
-        "description": clean_text(record_json["description"]),
+    dataset_stats = {"download_number": None, "view_number": None}
+    dataset_metadata = {
+        "dataset_repository_name": scraper.data_source_name,
+        "dataset_id_in_repository": dataset_id,
+        "dataset_url_in_repository": record_json.get("url_public_html"),
+        "date_created": record_json.get("created_date"),
+        "date_last_updated": record_json.get("modified_date"),
+        "title": clean_text(record_json.get("title")),
+        "author_names": [
+            clean_text(author.get("full_name"))
+            for author in record_json.get("authors", [])
+        ],
+        "description": clean_text(record_json.get("description")),
+        "license": record_json.get("license", {}).get("name"),
+        "doi": record_json.get("doi"),
+        "download_number": dataset_stats["download_number"],
+        "view_number": dataset_stats["view_number"],
+        "number_of_files": len(record_json.get("files", [])),
     }
-    # Add keywords only if any.
-    if "tags" in record_json:
-        dataset_info["keywords"] = ";".join(
-            [clean_text(keyword) for keyword in record_json["tags"]]
-        )
-    for file_in in record_json["files"]:
-        if len(file_in["name"].split(".")) == 1:
-            filetype = "none"
-        else:
-            filetype = file_in["name"].split(".")[-1].lower()
-        file_dict = {
-            "dataset_origin": dataset_info["dataset_origin"],
-            "dataset_id": dataset_info["dataset_id"],
-            "dataset_url": dataset_info["dataset_url"],
-            "file_name": file_in["name"],
-            "file_type": filetype,
-            "file_size": file_in["size"],
-            "file_md5": file_in["computed_md5"],
-            "is_from_zip_file": False,
-            "containing_zip_file_name": None,
-            "file_url": file_in["download_url"],
+    # Add keywords.
+    dataset_metadata["keywords"] = [
+        clean_text(keyword) for keyword in record_json.get("keywords", [])
+    ]
+    for file_in in record_json.get("files", []):
+        file_meta = {
+            "dataset_repository_name": dataset_metadata["dataset_repository_name"],
+            "dataset_id_in_repository": dataset_metadata["dataset_id_in_repository"],
+            "dataset_url_in_repository": dataset_metadata["dataset_url_in_repository"],
+            "file_name": file_in.get("name"),
+            "file_url_in_repository": file_in.get("download_url"),
+            "file_size_in_bytes": file_in.get("size"),
+            "file_md5": file_in.get("computed_md5"),
+            "containing_archive_file_name": None,
         }
-        files_info.append(file_dict)
-    return dataset_info, files_info
+        files_metadata.append(file_meta)
+    return dataset_metadata, files_metadata
 
 
 def search_all_datasets(
-    api: FigshareAPI, ctx: ContextManager, max_hits_per_page: int = 100
+    api: FigshareAPI,
+    scraper: ScraperContext,
+    max_hits_per_page: int = 100,
+    logger: "loguru.Logger" = loguru.logger,
 ) -> list[str]:
     """Search all Figshare datasets.
 
@@ -295,10 +290,12 @@ def search_all_datasets(
     ----------
     api : FigshareAPI
         Figshare API object.
-    ctx : ContextManager
-        ContextManager object.
+    scraper : ScraperContext
+        ScraperContext object.
     max_hits_per_page : int
         Maximum number of hits per page.
+    logger : loguru.Logger
+        Logger for logging messages.
 
     Returns
     -------
@@ -306,14 +303,13 @@ def search_all_datasets(
         List of Figshare datasets ids.
     """
     # Read parameter file
-    file_types, keywords, _, _ = read_query_file(ctx.query_file_name, logger=ctx.logger)
+    file_types, keywords, _, _ = read_query_file(scraper.query_file_path, logger=logger)
     # We use paging to fetch all results.
-    # we query max_hits_per_page hits per page.
-
+    # We query max_hits_per_page hits per page.
     unique_datasets = []
-    ctx.logger.info("-" * 30)
+    logger.info("-" * 30)
     for file_type in file_types:
-        ctx.logger.info(f"Looking for filetype: {file_type['type']}")
+        logger.info(f"Looking for filetype: {file_type['type']}")
         base_query = f":extension: {file_type['type']}"
         target_keywords = [""]
         if file_type["keywords"] == "keywords":
@@ -328,11 +324,11 @@ def search_all_datasets(
                 )
             else:
                 query = base_query
-            ctx.logger.info("Search query:")
-            ctx.logger.info(query)
+            logger.info("Search query:")
+            logger.info(query)
             page = 1
             found_datasets_per_keyword = []
-            # Search endpoint:
+            # Search endpoint: /articles/search
             # https://docs.figshare.com/#articles_search
             # Iterate seach on pages.
             while True:
@@ -346,13 +342,13 @@ def search_all_datasets(
                 }
                 results = api.query(endpoint="/articles/search", data=data_query)
                 if results["status_code"] >= 400:
-                    ctx.logger.warning(
+                    logger.warning(
                         f"Failed to fetch page {page} "
                         f"for file extension {file_type['type']}"
                     )
-                    ctx.logger.warning(f"Status code: {results['status_code']}")
-                    ctx.logger.warning(f"Response headers: {results['headers']}")
-                    ctx.logger.warning(f"Response body: {results['response']}")
+                    logger.warning(f"Status code: {results['status_code']}")
+                    logger.warning(f"Response headers: {results['headers']}")
+                    logger.warning(f"Response body: {results['response']}")
                     break
                 response = results["response"]
                 if not response or len(response) == 0:
@@ -360,30 +356,34 @@ def search_all_datasets(
                 # Extract datasets ids.
                 found_datasets_per_keyword_per_page = [hit["id"] for hit in response]
                 found_datasets_per_keyword += found_datasets_per_keyword_per_page
-                ctx.logger.info(
+                logger.info(
                     f"Page {page} fetched "
                     f"({len(found_datasets_per_keyword_per_page)} datasets)."
                 )
                 page += 1
             found_datasets_per_filetype.update(found_datasets_per_keyword)
-        ctx.logger.success(
+        logger.success(
             f"Found {len(found_datasets_per_filetype)} datasets "
             f"for filetype: {file_type['type']}"
         )
-        # For debugging purpose, we want unique datasets only, ordered by file types.
+        # For debugging purpose, we want unique datasets only,
+        # ordered by file types query.
         # Instead of a set (sets are unordered),
         # we use a list and remove duplicates later.
         unique_datasets += list(found_datasets_per_filetype)
     # Get unique datasets.
     # This trick preserves the order datasets were found.
     unique_datasets = list(dict.fromkeys(unique_datasets))
-    ctx.logger.success(f"Found {len(unique_datasets)} unique datasets.")
+    logger.success(f"Found {len(unique_datasets)} unique datasets.")
     return unique_datasets
 
 
-def get_metadata_for_datasets(
-    api: FigshareAPI, found_datasets: list[str], ctx: ContextManager
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+def get_metadata_for_datasets_and_files(
+    api: FigshareAPI,
+    found_datasets: list[str],
+    scraper: ScraperContext,
+    logger: "loguru.Logger" = loguru.logger,
+) -> tuple[list[dict], list[dict]]:
     """Get metadata for all selected datasets.
 
     Parameters
@@ -392,13 +392,15 @@ def get_metadata_for_datasets(
         Figshare API object.
     found_datasets : list[str]
         List of Figshare dataset ids.
-    ctx : ContextManager
-        ContextManager object.
+    scraper : ScraperContext
+        ScraperContext object.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        Dataframes for:
+    tuple[list[dict], list[dict]]
+        Lists of dictionaries for:
         - datasets
         - files
     """
@@ -408,26 +410,26 @@ def get_metadata_for_datasets(
     # One dataset at a time.
     datasets_counter = 0
     for datasets_counter, dataset_id in enumerate(found_datasets, start=1):
-        ctx.logger.info(
+        logger.info(
             f"Fetching metadata for Figshare dataset id: {dataset_id} "
-            f"({datasets_counter}/{len(found_datasets)}"
+            f"({datasets_counter:,}/{len(found_datasets):,}"
             f":{datasets_counter / len(found_datasets):.0%})"
         )
         results = api.query(endpoint=f"/articles/{dataset_id}")
         if results["status_code"] >= 400 or results["response"] is None:
-            ctx.logger.warning("Failed to fetch dataset.")
+            logger.warning("Failed to fetch dataset.")
             continue
         resp_json_article = results["response"]
-        dataset_info, files_info = extract_metadata_from_single_dataset_record(
-            resp_json_article
+        dataset_metadata, files_metadata = extract_metadata_from_single_dataset_record(
+            resp_json_article, scraper
         )
-        ctx.logger.info("Done.")
-        datasets_lst.append(dataset_info)
-        files_lst += files_info
-    # Prepare dataframes for export.
-    datasets_df = pd.DataFrame(data=datasets_lst)
-    files_df = pd.DataFrame(data=files_lst)
-    return datasets_df, files_df
+        logger.info("Done.")
+        # Append non-empty metadata to datasets and files lists.
+        if dataset_metadata:
+            datasets_lst.append(dataset_metadata)
+        if files_metadata:
+            files_lst += files_metadata
+    return datasets_lst, files_lst
 
 
 @click.command(
@@ -437,7 +439,7 @@ def get_metadata_for_datasets(
 @click.option(
     "--output-dir",
     "output_dir_path",
-    type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=Path),
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
     required=True,
     help="Output directory path to save results.",
 )
@@ -448,70 +450,100 @@ def get_metadata_for_datasets(
     required=True,
     help="Query parameters file (YAML format).",
 )
-def main(output_dir_path: Path, query_file_path: Path) -> None:
+@click.option(
+    "--debug",
+    "is_in_debug_mode",
+    is_flag=True,
+    default=False,
+    help="Enable debug mode.",
+)
+def main(
+    output_dir_path: Path,
+    query_file_path: Path,
+    *,
+    is_in_debug_mode: bool = False,
+) -> None:
     """Scrape Figshare datasets and files."""
-    # Define data repository name.
-    repository_name = "figshare"
-    # Keep track of script duration.
-    start_time = time.perf_counter()
-    # Create context manager.
-    output_path = output_dir_path / repository_name
-    output_path.mkdir(parents=True, exist_ok=True)
-    context = ContextManager(
-        logger=create_logger(logpath=f"{output_path}/{repository_name}_scraping.log"),
-        output_path=output_path,
-        query_file_name=query_file_path,
+    # Create scraper context.
+    scraper = ScraperContext(
+        data_source_name=DatasetSourceName.FIGSHARE,
+        output_dir_path=output_dir_path,
+        query_file_path=query_file_path,
+        is_in_debug_mode=is_in_debug_mode,
     )
+    logger = create_logger(logpath=scraper.log_file_path, level="INFO")
     # Log script name and doctring.
-    context.logger.info(__file__)
-    context.logger.info(__doc__)
+    logger.info(__file__)
+    logger.info(__doc__)
     # Load API tokens.
     load_dotenv()
     # Create API object.
     api = FigshareAPI(
         token=os.getenv("FIGSHARE_TOKEN"),
-        logger=context.logger,
+        logger=logger,
     )
     # Test API token validity.
     if api.is_token_valid():
-        context.logger.success("Figshare token is valid!")
+        logger.success("Figshare token is valid!")
     else:
-        context.logger.error("Figshare token is invalid!")
-        context.logger.error("Exiting.")
+        logger.error("Figshare token is invalid!")
+        logger.error("Exiting.")
         sys.exit(1)
     # Search datasets.
-    found_datasets = search_all_datasets(api, context)
+    found_datasets = search_all_datasets(api, scraper, logger=logger)
+    if scraper.is_in_debug_mode:
+        # Limit number of datasets for debugging purpose.
+        found_datasets = found_datasets[:20] + found_datasets[-20:]
+        logger.warning("Debug mode is ON.")
+        logger.warning("Limiting number of datasets to 40.")
     # Extract information for all found datasets.
-    datasets_df, files_df = get_metadata_for_datasets(api, found_datasets, context)
-    context.logger.success(f"Total number of datasets found: {datasets_df.shape[0]}")
-    context.logger.success(f"Total number of files found: {files_df.shape[0]}")
-
-    # Add files inside zip archives.
-    zip_df = scrap_zip_files(files_df, context.logger)
-    context.logger.success(f"Number of files found inside zip files: {zip_df.shape[0]}")
-    files_df = pd.concat([files_df, zip_df], ignore_index=True)
-    context.logger.success(f"Total number of files found: {files_df.shape[0]}")
-
-    # Remove unwanted files based on exclusion lists.
-    context.logger.info("Removing unwanted files...")
-    _, _, exclude_files, exclude_paths = read_query_file(
-        query_file_path, context.logger
+    datasets_all, files_all = get_metadata_for_datasets_and_files(
+        api, found_datasets, scraper, logger=logger
     )
-    files_df = remove_excluded_files(files_df, exclude_files, exclude_paths)
-    context.logger.info("-" * 30)
+    logger.success(f"Total number of datasets found: {len(datasets_all)}")
+    logger.success(f"Total number of files found: {len(files_all)}")
+    # Normalize datasets and files metadata.
+    datasets_all_normalized = normalize_datasets_metadata(datasets_all, logger=logger)
+    files_all_normalized = normalize_files_metadata(files_all, logger=logger)
+    logger.success(f"Number of normalized datasets: {len(datasets_all_normalized)}")
+    logger.success(f"Number of normalized files: {len(files_all_normalized)}")
+    if (len(datasets_all_normalized) == 0) or (len(files_all_normalized) == 0):
+        logger.error("No dataset or file left after normalization. Exiting.")
+        sys.exit(1)
+    # Add files inside zip archives.
+    files_zip = scrap_zip_files_content(files_all_normalized, logger)
+    logger.success(f"Number of files found inside zip files: {len(files_zip)}")
+    # Normalize files metadata found inside zip archives.
+    files_zip_normalized = normalize_files_metadata(files_zip, logger=logger)
+    files_all_normalized += files_zip_normalized
+    logger.success(f"Total number of files found: {len(files_all_normalized)}")
+    # Remove unwanted files based on exclusion lists.
+    logger.info("Removing unwanted files...")
+    _, _, exclude_files, exclude_paths = read_query_file(
+        scraper.query_file_path, logger=logger
+    )
+    files_all_normalized = remove_excluded_files(
+        files_all_normalized, exclude_files, exclude_paths, logger=logger
+    )
+    logger.info("-" * 30)
 
     # Remove datasets that contain non-MD related files.
-    datasets_df, files_df = find_remove_false_positive_datasets(
-        datasets_df, files_df, context
+    datasets_all_normalized, files_all_normalized = find_remove_false_positive_datasets(
+        datasets_all_normalized, files_all_normalized, scraper, logger=logger
     )
-
-    # Save dataframes to disk.
-    export_dataframe_to_parquet("figshare", DataType.DATASETS, datasets_df, context)
-    export_dataframe_to_parquet("figshare", DataType.FILES, files_df, context)
-
-    # Script duration.
-    elapsed_time = int(time.perf_counter() - start_time)
-    context.logger.info(f"Scraped Figshare in: {timedelta(seconds=elapsed_time)}")
+    # Save metadata to parquet files.
+    scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
+        scraper.datasets_parquet_file_path,
+        datasets_all_normalized,
+        logger=logger,
+    )
+    scraper.number_of_files_scraped = export_list_of_models_to_parquet(
+        scraper.files_parquet_file_path,
+        files_all_normalized,
+        logger=logger,
+    )
+    # Print scraping statistics.
+    print_statistics(scraper, logger=logger)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,27 @@ name = "mdverse-scrapers"
 version = "0.1.0"
 description = "MDverse scrapers"
 readme = "README.md"
+license = "BSD-3-Clause"
+authors = [
+    { name = "Pierre Poulain", email = "pierre.poulain@cupnet.net" },
+    { name = "Essmay Touami", email = "essmay.touami@etu.u-paris.fr" },
+    { name = "Salahudin Sheikh", email = "sheikh@ibpc.fr"}
+]
+maintainers = [
+    { name = "Pierre Poulain", email = "pierre.poulain@cupnet.net" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Intended Audience :: Science/Research",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
 requires-python = ">=3.12"
 dependencies = [
     "beautifulsoup4>=4.13.3",
@@ -50,4 +71,5 @@ build-backend = "uv_build"
 scrape-zenodo = "mdverse_scrapers.scrapers.zenodo:main"
 scrape-figshare = "mdverse_scrapers.scrapers.figshare:main"
 scrape-nomad = "mdverse_scrapers.scrapers.nomad:main"
+scrape-atlas = "mdverse_scrapers.scrapers.atlas:main"
 scrape-gpcrmd = "mdverse_scrapers.scrapers.gpcrmd:main"

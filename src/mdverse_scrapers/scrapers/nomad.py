@@ -17,15 +17,19 @@ from ..core.logger import create_logger
 from ..core.network import (
     HttpMethod,
     create_httpx_client,
+    is_connection_to_server_working,
     make_http_request_with_retries,
 )
-from ..core.toolbox import export_list_of_models_to_parquet, print_statistics
+from ..core.toolbox import print_statistics
 from ..models.dataset import DatasetMetadata
 from ..models.enums import DatasetSourceName
-from ..models.file import FileMetadata
 from ..models.scraper import ScraperContext
 from ..models.simulation import Molecule, Software
-from ..models.utils import validate_metadata_against_model
+from ..models.utils import (
+    export_list_of_models_to_parquet,
+    normalize_datasets_metadata,
+    normalize_files_metadata,
+)
 
 BASE_NOMAD_URL = "http://nomad-lab.eu/prod/v1/api/v1"
 JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
@@ -37,41 +41,13 @@ JSON_PAYLOAD_NOMAD_REQUEST: dict[str, Any] = {
 }
 
 
-def is_nomad_connection_working(
-    client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
-) -> bool | None:
-    """Test connection to the NOMAD API.
-
-    Parameters
-    ----------
-    client : httpx.Client
-        The HTTPX client to use for making requests.
-    url : str
-        The URL endpoint.
-    logger: "loguru.Logger"
-        Logger object.
-
-    Returns
-    -------
-    bool
-        True if the connection is successful, False otherwise.
-    """
-    logger.debug("Testing connection to NOMAD API...")
-    response = make_http_request_with_retries(client, url, method=HttpMethod.GET)
-    if not response:
-        logger.error("Cannot connect to the NOMAD API.")
-        return False
-    if response and hasattr(response, "headers"):
-        logger.debug(response.headers)
-    return True
-
-
 def scrape_all_datasets(
     client: httpx.Client,
     query_entry_point: str,
     page_size: int = 50,
     json_payload: dict[str, Any] | None = None,
     logger: "loguru.Logger" = loguru.logger,
+    scraper: ScraperContext | None = None,
 ) -> list[dict]:
     """
     Scrape Molecular Dynamics-related datasets from the NOMAD API.
@@ -88,7 +64,7 @@ def scrape_all_datasets(
     page_size : int
         Number of entries to fetch per page.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -175,6 +151,9 @@ def scrape_all_datasets(
             f"({len(all_datasets):,}/{total_datasets:,}"
             f":{len(all_datasets) / total_datasets:.0%})"
         )
+        if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 120:
+            logger.warning("Debug mode is ON: stopping after 120 datasets.")
+            return all_datasets
     logger.success(f"Scraped {len(all_datasets):,} datasets in NOMAD.")
     return all_datasets
 
@@ -183,7 +162,7 @@ def scrape_files_for_all_datasets(
     client: httpx.Client,
     datasets: list[DatasetMetadata],
     logger: "loguru.Logger" = loguru.logger,
-) -> list[FileMetadata]:
+) -> list[dict]:
     """Scrape files metadata for all datasets in NOMAD.
 
     Parameters
@@ -193,12 +172,12 @@ def scrape_files_for_all_datasets(
     datasets : list[DatasetMetadata]
         List of datasets to scrape files metadata for.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
-    list[FileMetadata]
-        List of successfully validated `FileMetadata` objects.
+    list[dict]
+        List of files metadata dictionaries.
     """
     all_files_metadata = []
     for dataset_count, dataset in enumerate(datasets, start=1):
@@ -212,27 +191,13 @@ def scrape_files_for_all_datasets(
         if not files_metadata:
             continue
         # Extract relevant files metadata.
-        files_selected_metadata = extract_files_metadata(files_metadata, logger=logger)
+        logger.info(f"Getting files metadata for dataset: {dataset_id}")
+        files_metadata = extract_files_metadata(files_metadata, logger=logger)
+        all_files_metadata += files_metadata
         # Normalize files metadata with pydantic model (FileMetadata)
-        logger.info(f"Validating files metadata for dataset: {dataset_id}")
-        for file_metadata in files_selected_metadata:
-            normalized_metadata = validate_metadata_against_model(
-                file_metadata,
-                FileMetadata,
-                logger=logger,
-            )
-            if not normalized_metadata:
-                logger.error(
-                    f"Normalization failed for metadata of file "
-                    f"{file_metadata.get('file_name')} "
-                    f"in dataset {dataset_id}"
-                )
-                continue
-            all_files_metadata.append(normalized_metadata)
-        logger.info("Done.")
         logger.info(f"Total files found: {len(all_files_metadata):,}")
         logger.info(
-            "Extracted and validated files metadata for "
+            "Extracted files metadata for "
             f"{dataset_count:,}/{len(datasets):,} "
             f"({dataset_count / len(datasets):.0%}) datasets."
         )
@@ -259,7 +224,7 @@ def scrape_files_for_one_dataset(
     dataset_id : str
         The unique identifier of the dataset in NOMAD.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -293,7 +258,7 @@ def extract_software_and_version(
     entry_id : str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -316,7 +281,7 @@ def extract_software_and_version(
 
 def extract_molecules_and_total_atoms(
     dataset: dict, entry_id: str, logger: "loguru.Logger" = loguru.logger
-) -> tuple[int | None, list[Molecule]]:
+) -> tuple[list[Molecule], int | None]:
     """
     Extract molecules and total number of atoms from a dataset entry.
 
@@ -327,16 +292,16 @@ def extract_molecules_and_total_atoms(
     entry_id : str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
-    tuple[int | None, list[Molecule]]
-        total_atoms: Number of atoms for the "original" label, or None if not found.
+    tuple[list[Molecule], int | None]
         molecules: List of Molecule objects extracted from the topology.
+        total_atoms: Number of atoms for the "original" label, or None if not found.
     """
-    total_atoms = None
     molecules = []
+    total_atoms = None
 
     try:
         topologies = dataset.get("results", {}).get("material", {}).get("topology", [])
@@ -346,7 +311,7 @@ def extract_molecules_and_total_atoms(
                 if topology.get("label") == "original":
                     total_atoms = topology.get("n_atoms")
                     break
-            # Extract molecules
+            # Extract molecules.
             for topology in topologies:
                 if topology.get("structural_type") == "molecule":
                     molecules.append(  # noqa: PERF401
@@ -360,9 +325,10 @@ def extract_molecules_and_total_atoms(
             logger.warning(f"Topologies is not a list for entry {entry_id}.")
             logger.warning("Skipping molecules extraction.")
     except (ValueError, KeyError) as e:
-        logger.warning(f"Error parsing molecules for entry {entry_id}: {e}")
+        logger.warning(f"Error parsing molecules for entry: {entry_id}")
+        logger.warning(e)
 
-    return total_atoms, molecules
+    return molecules, total_atoms
 
 
 def extract_time_step(
@@ -380,7 +346,7 @@ def extract_time_step(
     entry_id : str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -418,7 +384,7 @@ def extract_datasets_metadata(
     datasets : list[dict]
         List of raw NOMAD datasets metadata.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -427,7 +393,7 @@ def extract_datasets_metadata(
     """
     datasets_metadata = []
     for dataset in datasets:
-        entry_id = dataset.get("entry_id")
+        entry_id = str(dataset.get("entry_id"))
         logger.info(f"Extracting relevant metadata for dataset: {entry_id}")
         entry_url = (
             f"https://nomad-lab.eu/prod/v1/gui/search/entries?entry_id={entry_id}"
@@ -449,7 +415,7 @@ def extract_datasets_metadata(
         # Software names with their versions.
         metadata["software"] = extract_software_and_version(dataset, entry_id, logger)
         # Molecules with their nb of atoms and number total of atoms.
-        total_atoms, molecules = extract_molecules_and_total_atoms(
+        molecules, total_atoms = extract_molecules_and_total_atoms(
             dataset, entry_id, logger
         )
         metadata["total_number_of_atoms"] = total_atoms
@@ -466,48 +432,6 @@ def extract_datasets_metadata(
     return datasets_metadata
 
 
-def normalize_datasets_metadata(
-    datasets: list[dict],
-    logger: "loguru.Logger" = loguru.logger,
-) -> list[DatasetMetadata]:
-    """
-    Normalize dataset metadata with a Pydantic model.
-
-    Parameters
-    ----------
-    datasets : list[dict]
-        List of dataset metadata dictionaries.
-    logger: "loguru.Logger"
-        Logger object.
-
-    Returns
-    -------
-    list[DatasetMetadata]
-        List of successfully validated `DatasetMetadata` objects.
-    """
-    datasets_metadata = []
-    for dataset in datasets:
-        logger.info(
-            f"Normalizing metadata for dataset: {dataset['dataset_id_in_repository']}"
-        )
-        normalized_metadata = validate_metadata_against_model(
-            dataset, DatasetMetadata, logger=logger
-        )
-        if not normalized_metadata:
-            logger.error(
-                f"Normalization failed for metadata of dataset "
-                f"{dataset['dataset_id_in_repository']}"
-            )
-            continue
-        datasets_metadata.append(normalized_metadata)
-    logger.info(
-        "Normalized metadata for "
-        f"{len(datasets_metadata)}/{len(datasets)} "
-        f"({len(datasets_metadata) / len(datasets):.0%}) datasets."
-    )
-    return datasets_metadata
-
-
 def extract_files_metadata(
     raw_metadata: dict,
     logger: "loguru.Logger" = loguru.logger,
@@ -520,7 +444,7 @@ def extract_files_metadata(
     raw_metadata: dict
         Raw files metadata.
     logger: "loguru.Logger"
-        Logger object.
+        Logger for logging messages.
 
     Returns
     -------
@@ -564,20 +488,35 @@ def extract_files_metadata(
     required=True,
     help="Output directory path to save results.",
 )
-def main(output_dir_path: Path) -> None:
+@click.option(
+    "--debug",
+    "is_in_debug_mode",
+    is_flag=True,
+    default=False,
+    help="Enable debug mode.",
+)
+def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
     """Scrape molecular dynamics datasets and files from NOMAD."""
     # Create scraper context.
     scraper = ScraperContext(
         data_source_name=DatasetSourceName.NOMAD,
         output_dir_path=output_dir_path,
+        is_in_debug_mode=is_in_debug_mode,
     )
-    logger = create_logger(logpath=scraper.log_file_path, level="INFO")
+    # Create logger.
+    level = "INFO"
+    if scraper.is_in_debug_mode:
+        level = "DEBUG"
+    logger = create_logger(logpath=scraper.log_file_path, level=level)
+    # Print scraper configuration.
     logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
-    logger.info("Starting Nomad data scraping...")
+    logger.info("Starting NOMAD data scraping...")
     # Create HTTPX client
     client = create_httpx_client()
     # Check connection to NOMAD API
-    if is_nomad_connection_working(client, f"{BASE_NOMAD_URL}/entries"):
+    if is_connection_to_server_working(
+        client, f"{BASE_NOMAD_URL}/entries", logger=logger
+    ):
         logger.success("Connection to NOMAD API successful!")
     else:
         logger.critical("Connection to NOMAD API failed.")
@@ -590,6 +529,7 @@ def main(output_dir_path: Path) -> None:
         query_entry_point="entries/query",
         json_payload=JSON_PAYLOAD_NOMAD_REQUEST,
         logger=logger,
+        scraper=scraper,
     )
     if not datasets_raw_metadata:
         logger.critical("No datasets found in NOMAD.")
@@ -599,7 +539,7 @@ def main(output_dir_path: Path) -> None:
     datasets_selected_metadata = extract_datasets_metadata(
         datasets_raw_metadata, logger=logger
     )
-    # Parse and validate NOMAD dataset metadata with a pydantic model (DatasetMetadata)
+    # Validate NOMAD datasets metadata with the DatasetMetadata Pydantic model.
     datasets_normalized_metadata = normalize_datasets_metadata(
         datasets_selected_metadata, logger=logger
     )
@@ -610,18 +550,18 @@ def main(output_dir_path: Path) -> None:
         logger=logger,
     )
     # Scrape NOMAD files metadata.
-    files_normalized_metadata = scrape_files_for_all_datasets(
+    files_metadata = scrape_files_for_all_datasets(
         client, datasets_normalized_metadata, logger=logger
     )
-
+    # Validate NOMAD files metadata with the FileMetadata Pydantic model.
+    files_normalized_metadata = normalize_files_metadata(files_metadata, logger=logger)
     # Save files metadata to parquet file.
     scraper.number_of_files_scraped = export_list_of_models_to_parquet(
         scraper.files_parquet_file_path,
         files_normalized_metadata,
         logger=logger,
     )
-
-    # Print script duration.
+    # Print scraping statistics.
     print_statistics(scraper, logger=logger)
 
 
