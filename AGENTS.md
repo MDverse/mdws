@@ -11,7 +11,7 @@ Code organization:
 - `tests` directory: tests handled by `pytest`
 - `docs` directory: documentation
 
-Stricly follow data models and structures.
+Strictly follow data models and structures.
 
 ## Code style
 
@@ -53,7 +53,7 @@ When reviewing code, focus on:
 ### Review style
 
 - Be specific and actionable in feedback
-- Alwaus explain the "why" behind recommendations
+- Always explain the "why" behind recommendations
 - Acknowledge good patterns when you see them
 - Ask clarifying questions when code intent is unclear
 
