@@ -2,6 +2,7 @@
 
 import json
 
+import httpx
 import pytest
 
 import mdverse_scrapers.core.network as network
@@ -70,6 +71,8 @@ def test_get_html_page_with_selenium_good_url():
         ],
     }
     content = network.get_html_page_with_selenium(url=url, tag="pre")
+    if not content:
+        pytest.fail("Failed to retrieve content from the URL.")
     assert json.loads(content) == expected_json
 
 
@@ -83,3 +86,25 @@ def test_get_html_page_with_selenium_bad_url(capsys) -> None:
     assert content is None
     captured = capsys.readouterr()
     assert "Timeout while retrieving page" in captured.out
+
+
+@pytest.mark.parametrize(
+    ("file_url", "expected_size"),
+    [
+        ("https://httpbin.org/bytes/1024", 1024),
+        ("https://httpbin.org/status/404", None),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/10192_prm_12.tar.gz", 148841),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/10205_dyn_13.pdb", 6984955),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/10201_trj_13.xtc", 799818836),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/non_existent_file.txt", None),
+    ],
+)
+@pytest.mark.network
+def test_retrieve_file_size_from_http_head_request(file_url, expected_size) -> None:
+    """Test the retrieve_file_size_from_http_head_request function."""
+    with httpx.Client() as client:
+        file_size = network.retrieve_file_size_from_http_head_request(
+            client=client,
+            url=file_url,
+        )
+    assert file_size == expected_size

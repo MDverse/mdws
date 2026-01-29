@@ -24,6 +24,11 @@ class Molecule(BaseModel):
     formula: str | None = Field(
         None, description="Chemical formula of the molecule, if known."
     )
+    number_of_molecules: int | None = Field(
+        None,
+        ge=0,
+        description="Number of molecules of this type in the simulation, if known.",
+    )
 
 
 class ForceFieldModel(BaseModel):
@@ -73,15 +78,13 @@ class SimulationMetadata(BaseModel):
     total_number_of_atoms: int | None = Field(
         None,
         ge=0,  # equal or greater than zero
-        description="Total number of atoms in the simulated system.",
+        description="Total number of atoms in the system.",
     )
     molecules: list[Molecule] | None = Field(
         None,
-        description=(
-            "List of molecules in the system with their number of atoms if known."
-        ),
+        description=("List of simulated molecules in the system."),
     )
-    forcefields: list[ForceFieldModel] | None = Field(
+    forcefields_models: list[ForceFieldModel] | None = Field(
         None,
         description="List of forcefields and models used.",
     )
