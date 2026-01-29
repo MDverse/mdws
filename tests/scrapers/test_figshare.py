@@ -1,8 +1,11 @@
 """Tests for the figshare scraper module."""
 
+import pytest
+
 import mdverse_scrapers.scrapers.figshare as figshare_scraper
 
 
+@pytest.mark.network
 def test_extract_files_from_zip_file():
     """Test the extract_files_from_zip_file function."""
     expected_file_names = [
