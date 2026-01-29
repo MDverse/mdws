@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pydantic import ByteSize, Field, computed_field, field_validator
+from pydantic import ByteSize, ConfigDict, Field, computed_field, field_validator
 
 from .dataset import DatasetCoreMetadata
 
@@ -17,6 +17,9 @@ class FileMetadata(DatasetCoreMetadata):
     This model inherits core provenance information from DatasetCoreMetadata
     and defines file-specific metadata such as file name, extension...
     """
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     # ------------------------------------------------------------------
     # Descriptive metadata

@@ -4,7 +4,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Self
 
-from pydantic import BaseModel, DirectoryPath, Field, FilePath, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    DirectoryPath,
+    Field,
+    FilePath,
+    model_validator,
+)
 
 from .enums import DatasetSourceName, DataType
 
@@ -14,6 +21,9 @@ class ScraperContext(BaseModel):
 
     Mandatory fields are `data_source_name` and `output_dir_path`.
     """
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     data_source_name: DatasetSourceName = Field(
         ...,

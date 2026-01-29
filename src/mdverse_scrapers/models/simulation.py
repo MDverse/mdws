@@ -3,7 +3,7 @@
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 DOI = Annotated[
     str,
@@ -13,6 +13,9 @@ DOI = Annotated[
 
 class Molecule(BaseModel):
     """Molecule in a simulation."""
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., description="Name of the molecule.")
     number_of_atoms: int | None = Field(
@@ -26,6 +29,9 @@ class Molecule(BaseModel):
 class ForceFieldModel(BaseModel):
     """Forcefield or Model used in a simulation."""
 
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
+
     name: str = Field(
         ...,
         description=(
@@ -37,6 +43,9 @@ class ForceFieldModel(BaseModel):
 
 class Software(BaseModel):
     """Simulation software or tool used in a simulation."""
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         ...,
@@ -53,6 +62,9 @@ class SimulationMetadata(BaseModel):
 
     No field is required in this model; all are optional.
     """
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     software: list[Software] | None = Field(
         None,
