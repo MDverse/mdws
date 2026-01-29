@@ -66,13 +66,11 @@ class SimulationMetadata(BaseModel):
     total_number_of_atoms: int | None = Field(
         None,
         ge=0,  # equal or greater than zero
-        description="Total number of atoms in the simulated system.",
+        description="Total number of atoms in the system.",
     )
     molecules: list[Molecule] | None = Field(
         None,
-        description=(
-            "List of molecules in the system with their number of atoms if known."
-        ),
+        description=("List of simulated molecules in the system."),
     )
     forcefields_models: list[ForceFieldModel] | None = Field(
         None,
