@@ -37,9 +37,9 @@ BASE_GPCRMD_URL = "https://www.gpcrmd.org/api/search_all"
 
 def scrape_all_datasets(
     client: httpx.Client,
-    query_entry_point: str,
+    url: str,
+    scraper: ScraperContext,
     logger: "loguru.Logger" = loguru.logger,
-    scraper: ScraperContext | None = None,
 ) -> list[dict]:
     """
     Scrape Molecular Dynamics-related datasets from the GPCRmd API.
@@ -51,8 +51,8 @@ def scrape_all_datasets(
     ----------
     client : httpx.Client
         The HTTPX client to use for making requests.
-    query_entry_point : str
-        The entry point of the API request.
+    url : str
+        The URL of the API request.
     logger: "loguru.Logger"
         Logger for logging messages.
     scraper: ScraperContext
@@ -68,7 +68,7 @@ def scrape_all_datasets(
 
     response = make_http_request_with_retries(
         client,
-        query_entry_point,
+        url,
         method=HttpMethod.GET,
         timeout=60,
         delay_before_request=0.2,
@@ -86,19 +86,19 @@ def scrape_all_datasets(
             logger.critical("Aborting.")
             sys.exit(1)
 
-    if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 120:
-        logger.warning("Debug mode is ON: stopping after 120 datasets.")
-        # Return only the first 120 datasets for testing purposes.
-        return all_datasets[:121]
+    if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 10:
+        logger.warning("Debug mode is ON: stopping after 10 datasets.")
+        # Return only the first 10 datasets for testing purposes.
+        return all_datasets[:10]
 
     logger.success(f"Scraped {len(all_datasets)} datasets in GPCRmd.")
     return all_datasets
 
 
-def fetch_all_datasets_page(
+def fetch_all_datasets_html_pages(
     client: httpx.Client, datasets: list[dict], logger: "loguru.Logger" = loguru.logger
 ) -> list[str | None]:
-    """Fetch an dataset page and return its HTML content.
+    """Fetch all datasets HTML pages.
 
     Parameters
     ----------
@@ -111,23 +111,21 @@ def fetch_all_datasets_page(
 
     Returns
     -------
-    str | None
-        The HTML content of the page if the request is successful, otherwise None.
+    list[str | None]
+        The HTML content of datasets pages.
     """
     logger.info("Fetching HTML content for all datasets from the GPCRmd repository")
-    datasets_html_page = []
-    total = len(datasets)
-    fetched_count = 0
+    datasets_html_pages = []
 
-    for dataset in datasets:
+    for dataset_counter, dataset in enumerate(datasets, start=1):
         # Get the URL of the current dataset
         dataset_id = str(dataset.get("dyn_id"))
-        logger.info(f"Dataset {dataset_id}:")
+        logger.info(f"Scraping dataset {dataset_id}:")
         url = dataset.get("url")
         html_content = None
         # If the dataset has a URL, attempt to fetch its HTML content
         if url:
-            html_header = make_http_request_with_retries(
+            response = make_http_request_with_retries(
                 client,
                 url,
                 method=HttpMethod.GET,
@@ -135,23 +133,19 @@ def fetch_all_datasets_page(
                 delay_before_request=0.2,
             )
             # If the request was successful
-            if html_header:
+            if response:
                 # Store the HTML text
-                html_content = html_header.text
-                fetched_count += 1
-                logger.info(
-                    f"Dataset {dataset_id} fetched successfully "
-                    f"(HTML length: {len(html_content)} characters)"
-                )
+                html_content = response.text
+                logger.success(f"Dataset {dataset_id} fetched successfully")
+                logger.debug(f"(HTML length: {len(html_content)} characters)")
             else:
                 logger.warning(f"Failed to fetch HTML page for dataset {dataset_id}")
-        datasets_html_page.append(html_content)
-    percentage = round(fetched_count / total * 100) if total else 0
-    logger.info(
-        f"Finished fetching dataset pages: {fetched_count}/{total} "
-        f"successful ({percentage})."
-    )
-    return datasets_html_page
+        datasets_html_pages.append(html_content)
+        logger.info(
+            f"Scraped {dataset_counter:,}/{len(datasets):,} "
+            f"({dataset_counter / len(datasets):.0%}) datasets"
+        )
+    return datasets_html_pages
 
 
 def _extract_molecules_from_lines(lines: list[str]) -> list[Molecule] | None:
@@ -318,7 +312,8 @@ def extract_files_metadata_from_html(
         file_name = Path(file_url).name
         file_type = Path(file_name).suffix.lstrip(".").lower()
 
-        # Fetch the file size using a HEAD request
+        # Fetch the file size using a HEAD request.
+        # We do not download the entire file.
         response = make_http_request_with_retries(
             client,
             file_url,
@@ -543,7 +538,7 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
     logger = create_logger(logpath=scraper.log_file_path, level=level)
     # Print scraper configuration.
     logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
-    logger.info("Starting GPCRmd data scraping...")
+    logger.info("Starting GPCRmd scraping...")
     # Create HTTPX client
     client = create_httpx_client()
     # Check connection to GPCRmd API
@@ -558,10 +553,10 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
 
     # Scrape GPCRmd datasets metadata.
     datasets_raw_metadata = scrape_all_datasets(
-        client,
-        query_entry_point=f"{BASE_GPCRMD_URL}/info/",
-        logger=logger,
+        client=client,
+        url=f"{BASE_GPCRMD_URL}/info/",
         scraper=scraper,
+        logger=logger,
     )
     if not datasets_raw_metadata:
         logger.critical("No datasets found in GPCRmd.")
@@ -569,7 +564,9 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
         sys.exit(1)
 
     # Fetch the dataset GUI page for all datasets
-    datasets_html_page = fetch_all_datasets_page(client, datasets_raw_metadata, logger)
+    datasets_html_page = fetch_all_datasets_html_pages(
+        client, datasets_raw_metadata, logger=logger
+    )
     # Select datasets and files metadata
     datasets_selected_metadata, files_metadata = extract_datasets_and_files_metadata(
         client, datasets_raw_metadata, datasets_html_page, logger=logger
