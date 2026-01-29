@@ -196,7 +196,7 @@ def _extract_molecules_from_lines(lines: list[str]) -> list[Molecule] | None:
             molecules.append(
                 Molecule(
                     name=name.strip(),
-                    number_of_atoms=int(count.strip()),
+                    number_of_molecules=int(count.strip()),
                 )
             )
 
@@ -256,11 +256,12 @@ def retrieve_metadata_from_html_dataset_page(
                     # So we remove the period
                     doi = doi[:-1]
                 return [f"https://doi.org/{doi}"]
-            else:
-                separator = f"{field_name}:"
-                if separator in line:
-                    # Return the text after the separator, stripped
-                    return [line.split(separator, 1)[1].strip()]
+
+            # General case.
+            separator = f"{field_name}:"
+            if separator in line:
+                # Return the text after the separator, stripped
+                return [line.split(separator, 1)[1].strip()]
 
     except (AttributeError, TypeError, ValueError) as exc:
         logger.warning(
@@ -399,8 +400,8 @@ def extract_datasets_and_files_metadata(
                 )
             ]
         metadata["software"] = software
-        # Forcefields and models names with their versions.
-        forcefields_and_models = None
+        # Forcefields and models.
+        forcefields_and_models = []
         if dataset.get("forcefield"):
             forcefields_and_models = [
                 ForceFieldModel(
@@ -408,8 +409,16 @@ def extract_datasets_and_files_metadata(
                     version=dataset.get("forcefield_version"),
                 )
             ]
-        metadata["forcefields"] = forcefields_and_models
-        # Molecule names with their number of atoms.
+        # Get solvent model from the HTML content of the dataset page.
+        solvent_model = retrieve_metadata_from_html_dataset_page(
+            html=html_content, field_name="Solvent type", dataset_id=dataset_id
+        )
+        if solvent_model:
+            forcefields_and_models.append(
+                ForceFieldModel(name=solvent_model[0], version=None)
+            )
+        metadata["forcefields_models"] = forcefields_and_models
+        # Molecule names with their number of molecules.
         metadata["molecules"] = retrieve_metadata_from_html_dataset_page(
             html=html_content, field_name="Number of molecules", dataset_id=dataset_id
         )
