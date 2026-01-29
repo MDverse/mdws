@@ -414,7 +414,7 @@ def extract_datasets_and_files_metadata(
 
     for dataset, html_content in zip(datasets, datasets_html_page, strict=True):
         dataset_id = str(dataset.get("dyn_id"))
-        logger.info(f"Extracting relevant metadata for dataset: {dataset_id}")
+        logger.info(f"Extracting metadata for dataset: {dataset_id}")
         dataset_source_name = DatasetSourceName.GPCRMD
         dataset_url = dataset.get("url")
         metadata = {
@@ -562,12 +562,14 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
         logger.critical("No datasets found in GPCRmd.")
         logger.critical("Aborting.")
         sys.exit(1)
-
-    # Fetch the dataset GUI page for all datasets
+    # Send the first dataset raw metadata to the debug log.
+    logger.debug("First dataset raw metadata:")
+    logger.debug(datasets_raw_metadata[0])
+    # Fetch the dataset HTML page for all datasets
     datasets_html_page = fetch_all_datasets_html_pages(
         client, datasets_raw_metadata, logger=logger
     )
-    # Select datasets and files metadata
+    # Extract datasets and files metadata
     datasets_selected_metadata, files_metadata = extract_datasets_and_files_metadata(
         client, datasets_raw_metadata, datasets_html_page, logger=logger
     )
