@@ -1,12 +1,10 @@
 """Common functions and utilities used in the project."""
 
 import argparse
-import pathlib
 import re
 import time
 import warnings
-from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -17,8 +15,8 @@ import yaml
 from bs4 import BeautifulSoup
 
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DataType
 from ..models.file import FileMetadata
+from ..models.scraper import ScraperContext
 
 warnings.filterwarnings(
     "ignore",
@@ -26,16 +24,6 @@ warnings.filterwarnings(
     category=UserWarning,
     module="bs4",
 )
-
-
-@dataclass(kw_only=True)
-class ContextManager:
-    """ContextManager dataclass."""
-
-    logger: "loguru.Logger" = loguru.logger
-    output_path: pathlib.Path = pathlib.Path("")
-    query_file_name: pathlib.Path = pathlib.Path("")
-    token: str = ""
 
 
 def make_http_get_request_with_retries(
@@ -164,14 +152,14 @@ def get_scraper_cli_arguments():
     return parser.parse_args()
 
 
-def read_query_file(query_file_path, logger: "loguru.Logger" = loguru.logger):
+def read_query_file(query_file_path: Path, logger: "loguru.Logger" = loguru.logger):
     """Read the query definition file.
 
     The query definition file is formatted in yaml.
 
     Parameters
     ----------
-    query_file_path : str
+    query_file_path : Path
         Path to the query definition file.
     logger : "loguru.Logger"
         Logger for logging messages.
@@ -201,54 +189,24 @@ def read_query_file(query_file_path, logger: "loguru.Logger" = loguru.logger):
     return file_types, keywords, exclusion_file_patterns, exclusion_path_patterns
 
 
-def verify_file_exists(filename):
-    """Verify file exists.
+def remove_duplicates_in_list_of_dicts(input_list: list[dict]) -> list[dict]:
+    """Remove duplicates in a list while preserving the original order.
 
     Parameters
     ----------
-    filename : str
-        Name of file to verify existence
+    input_list : list
+        List with possible duplicate entries.
 
-    Raises
-    ------
-    FileNotFoundError
-        If file does not exist or is not a file.
+    Returns
+    -------
+    list
+        List without duplicates.
     """
-    file_in = pathlib.Path(filename)
-    if not file_in.exists():
-        msg = f"File {filename} not found"
-        raise FileNotFoundError(msg)
-    if not file_in.is_file():
-        msg = f"{filename} is not a file"
-        raise FileNotFoundError(msg)
-
-
-def verify_output_directory(directory, logger: "loguru.Logger" = loguru.logger):
-    """Verify output directory exists.
-
-    Create it if necessary.
-
-    Parameters
-    ----------
-    directory : str
-        Path to directory to store results
-    logger : "loguru.Logger"
-        Logger for logging messages.
-
-    Raises
-    ------
-    FileNotFoundError
-        If directory path is an existing file.
-    """
-    directory_path = pathlib.Path(directory)
-    if directory_path.is_file():
-        msg = f"{directory} is an existing file."
-        raise FileNotFoundError(msg)
-    if directory_path.is_dir():
-        logger.info(f"Output directory {directory} already exists.")
-    else:
-        directory_path.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created output directory {directory}")
+    output_list = []
+    for dict_item in input_list:
+        if dict_item not in output_list:
+            output_list.append(dict_item)
+    return output_list
 
 
 def clean_text(string):
@@ -275,53 +233,12 @@ def clean_text(string):
     return text_decode
 
 
-def extract_file_extension(file_path: str) -> str:
-    """Extract file extension from file path.
-
-    Parameters
-    ----------
-    file_path : str
-        File path
-        Example: "/something/here/file.txt"
-
-    Returns
-    -------
-    str
-        File extension without a dot.
-        Example: "txt"
-    """
-    # Extract the file name for its path.
-    file_name = file_path.split("/")[-1]
-    file_type = "none"
-    if "." in file_name:
-        file_type = file_name.split(".")[-1].lower()
-    return file_type
-
-
-def extract_date(date_str):
-    """Extract and format date from a string.
-
-    Parameters
-    ----------
-    date_str : str
-        Date as a string in ISO 8601.
-        For example: 2020-07-29T19:22:57.752335+00:00
-
-    Returns
-    -------
-    str
-        Date as in string in YYYY-MM-DD format.
-        For example: 2020-07-29
-    """
-    date = datetime.fromisoformat(date_str)
-    return f"{date:%Y-%m-%d}"
-
-
 def remove_excluded_files(
-    files_df: pd.DataFrame,
+    files_metadata: list[FileMetadata],
     exclusion_file_patterns: list[str],
     exclusion_path_patterns: list[str],
-) -> pd.DataFrame:
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[FileMetadata]:
     """Remove excluded files.
 
     Excluded files are, for example:
@@ -330,45 +247,57 @@ def remove_excluded_files(
 
     Parameters
     ----------
-    files_df : Pandas dataframe
-        Pandas dataframe with files metadata.
-    exclusion_file_patterns : list
+    files_metadata : list[FileMetadata]
+        List of files metadata.
+    exclusion_file_patterns : list[str]
         Patterns for file exclusion.
-    exclusion_path_patterns : list
+    exclusion_path_patterns : list[str]
         Patterns for path exclusion.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    Pandas dataframe
-        Dataframe without excluded files and paths.
+    list[FileMetadata]
+        List of files metadata without excluded files and paths.
     """
-    df_tmp = files_df.copy(deep=True)
-    # For file names with path, extract file name only:
-    df_tmp["name"] = df_tmp["file_name"].apply(lambda x: x.split("/")[-1])
-
-    boolean_mask = pd.Series(data=False, index=files_df.index)
-    print("-" * 30)
-
-    for pattern in exclusion_path_patterns:
-        print(f"Selecting file paths containing: {pattern}")
-        selection = df_tmp["file_name"].str.contains(pat=pattern, regex=False)
-        print(f"Found {sum(selection)} files")
-        boolean_mask = boolean_mask | selection
-
-    for pattern in exclusion_file_patterns:
-        print(f"Selecting file names starting with: {pattern}")
-        selection = df_tmp["name"].str.startswith(pattern)
-        print(f"Found {sum(selection)} files")
-        boolean_mask = boolean_mask | selection
-
-    print(f"Removed {sum(boolean_mask)} excluded files")
-    print(f"Remaining files: {sum(~boolean_mask)}")
-    print("-" * 30)
-    return files_df[~boolean_mask]
+    excluded_files_count = {}
+    files_remaining = []
+    for file_meta in files_metadata:
+        is_excluded = False
+        # Search exclusion patterns in file path.
+        for pattern in exclusion_path_patterns:
+            if pattern in file_meta.file_name:
+                pattern_label = f"in path: {pattern}"
+                excluded_files_count[pattern_label] = (
+                    excluded_files_count.get(pattern_label, 0) + 1
+                )
+                is_excluded = True
+                break
+        # Don't check file name patterns if already excluded by path.
+        if is_excluded:
+            continue
+        # Search exclusion patterns in file name.
+        name = file_meta.file_name.split("/")[-1]
+        for pattern in exclusion_file_patterns:
+            if name.startswith(pattern):
+                pattern_label = f"starting with: {pattern}"
+                excluded_files_count[pattern_label] = (
+                    excluded_files_count.get(pattern_label, 0) + 1
+                )
+                is_excluded = True
+                break
+        if not is_excluded:
+            files_remaining.append(file_meta)
+    logger.info(f"Removed {len(files_metadata) - len(files_remaining)} excluded files")
+    for pattern_label, count in excluded_files_count.items():
+        logger.info(f"- {count} files excluded for pattern -> {pattern_label}")
+    logger.info(f"Remaining files: {len(files_remaining)}")
+    return files_remaining
 
 
 def find_false_positive_datasets(
-    files_df: pd.DataFrame,
+    files_metadata: list[FileMetadata],
     md_file_types: list[str],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[str]:
@@ -379,21 +308,22 @@ def find_false_positive_datasets(
 
     Parameters
     ----------
-    files_df : pd.DataFrame
-        Dataframe which contains all files metadata from a given repo.
-    md_file_types: list
-        List containing molecular dynamics file types.
+    files_metadata : list[FileMetadata]
+        List of files metadata.
+    md_file_types: list[str]
+        List of molecular dynamics file types.
     logger : "loguru.Logger"
         Logger for logging messages.
 
     Returns
     -------
-    list
+    list[str]
         List of false positive dataset ids.
     """
     # Get total number of files and unique file types per dataset.
+    files_df = pd.DataFrame([file_meta.model_dump() for file_meta in files_metadata])
     unique_file_types_per_dataset = (
-        files_df.groupby("dataset_id")["file_type"]
+        files_df.groupby("dataset_id_in_repository")["file_type"]
         .agg(["count", "unique"])
         .rename(columns={"count": "total_files", "unique": "unique_file_types"})
         .sort_values(by="total_files", ascending=False)
@@ -404,9 +334,9 @@ def find_false_positive_datasets(
             unique_file_types_per_dataset.loc[dataset_id, "unique_file_types"]
         )
         number_of_files = unique_file_types_per_dataset.loc[dataset_id, "total_files"]
-        dataset_url = files_df.query(f"dataset_id == '{dataset_id}'").iloc[0][
-            "dataset_url"
-        ]
+        dataset_url = files_df.query(
+            f"dataset_id_in_repository == '{dataset_id}'"
+        ).iloc[0]["dataset_url_in_repository"]
         # For a given dataset, if there is no MD file types in the entire set
         # of the dataset file types, then we probably have a false-positive dataset,
         # i.e. a dataset that does not contain any MD data.
@@ -418,142 +348,93 @@ def find_false_positive_datasets(
             logger.info(f"Dataset will be removed with its {number_of_files} files.")
             logger.info("List of the first file types:")
             logger.info(" ".join(dataset_file_types[:20]))
-            logger.info("---")
+            logger.info("-" * 30)
             false_positive_datasets.append(dataset_id)
     logger.info(
-        f"In total, {len(false_positive_datasets):,} false positive datasets "
-        "will be removed."
+        f"In total, {len(false_positive_datasets):,} "
+        "false positive datasets will be removed."
     )
-    logger.info("---")
+    logger.info("-" * 30)
     return false_positive_datasets
 
 
 def remove_false_positive_datasets(
-    df_to_clean: pd.DataFrame,
+    metadata: list[DatasetMetadata] | list[FileMetadata],
     dataset_ids_to_remove: list[str],
     logger: "loguru.Logger" = loguru.logger,
-) -> pd.DataFrame:
-    """Remove false positive datasets from file.
+) -> list[DatasetMetadata] | list[FileMetadata]:
+    """Remove false positive datasets from datasets or files metadata.
 
     Parameters
     ----------
-    df_to_clean : pd.DataFrame
-        Dataframe to clean.
-    dataset_ids_to_remove : list
+    metadata : list[DatasetMetadata] | list[FileMetadata]
+        List of metadata to clean (datasets or files).
+    dataset_ids_to_remove : list[str]
         List of dataset ids to remove.
     logger : "loguru.Logger"
         Logger for logging messages.
 
     Returns
     -------
-    pd.DataFrame
-        Cleaned dataframe.
+    list[DatasetMetadata] | list[FileMetadata]
+        Cleaned metadata.
     """
-    records_count_old = len(df_to_clean)
-    # We keep rows NOT associated to false-positive dataset ids
-    df_clean = df_to_clean[~df_to_clean["dataset_id"].isin(dataset_ids_to_remove)]
-    records_count_clean = len(df_clean)
-    logger.info(
-        f"Removing {records_count_old - records_count_clean:,} lines "
-        f"({records_count_old:,} -> {records_count_clean:,}) in dataframe."
-    )
-    return df_clean
+    metadata_clean = [
+        meta
+        for meta in metadata
+        if meta.dataset_id_in_repository not in dataset_ids_to_remove
+    ]
+    logger.info(f"Removed: {len(metadata) - len(metadata_clean):,}")
+    logger.info(f"Remaining: {len(metadata_clean):,}")
+    return metadata_clean
 
 
 def find_remove_false_positive_datasets(
-    datasets_df: pd.DataFrame,
-    files_df: pd.DataFrame,
-    ctx: ContextManager,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+    datasets_metadata: list[DatasetMetadata],
+    files_metadata: list[FileMetadata],
+    scraper: ScraperContext,
+    logger: "loguru.Logger" = loguru.logger,
+) -> tuple[list[DatasetMetadata], list[FileMetadata]]:
     """Find and remove false-positive datasets.
 
     False-positive datasets do not contain MD-related files.
 
     Parameters
     ----------
-    datasets_df : pd.DataFrame
-        Dataframe with information about datasets.
-    files_df : pd.DataFrame
-        Dataframe with information about files.
-    ctx : toolbox.ContextManager
-        ContextManager object.
+    datasets_metadata : list[DatasetMetadata]
+        List of datasets metadata.
+    files_metadata : list[FileMetadata]
+        List of files metadata.
+    scraper : ScraperContext
+        ScraperContext object.
+    logger : "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    tuple[pd.DataFrame, pd.DataFrame]
-        Cleaned dataframes for:
-        - datasets
-        - files
+    tuple[list[DatasetMetadata], list[FileMetadata]]
+        Cleaned lists of metadata for datasets and files.
     """
     # Read parameter file.
-    file_types, _, _, _ = read_query_file(ctx.query_file_name)
+    file_types, _, _, _ = read_query_file(scraper.query_file_path, logger=logger)
     # List file types from the query parameter file.
     file_types_lst = [file_type["type"] for file_type in file_types]
     # Zip is not a MD-specific file type.
     file_types_lst.remove("zip")
     # Find false-positive datasets.
     false_positive_datasets = find_false_positive_datasets(
-        files_df, file_types_lst, logger=ctx.logger
+        files_metadata, file_types_lst, logger=logger
     )
     # Remove false-positive datasets from all dataframes.
-    ctx.logger.info("Removing false-positive datasets in the datasets dataframe...")
-    datasets_df = remove_false_positive_datasets(
-        datasets_df, false_positive_datasets, logger=ctx.logger
+    logger.info("Removing false-positive datasets in datasets...")
+    datasets_metadata = remove_false_positive_datasets(
+        datasets_metadata, false_positive_datasets, logger=logger
     )
-    ctx.logger.info("Removing false-positive datasets in the files dataframe...")
-    files_df = remove_false_positive_datasets(
-        files_df, false_positive_datasets, logger=ctx.logger
+    logger.info("Removing false-positive datasets in files...")
+    files_metadata = remove_false_positive_datasets(
+        files_metadata, false_positive_datasets, logger=logger
     )
-    return datasets_df, files_df
-
-
-def export_dataframe_to_parquet(
-    repository_name: str, suffix: DataType, df: pd.DataFrame, ctx: ContextManager
-) -> None:
-    """Export dataframes to parquet file.
-
-    Parameters
-    ----------
-    repository_name : str
-        Name of the data repository.
-    suffix : DataType
-        Suffix for the parquet file name.
-    df : pd.DataFrame
-        Dataframe to export.
-    ctx : ContextManager
-        ContextManager object.
-    """
-    parquet_name = ctx.output_path / f"{repository_name}_{suffix}.parquet"
-    df.to_parquet(parquet_name, index=False)
-    ctx.logger.success(f"Dataframe with {len(df):,} rows exported to:")
-    ctx.logger.success(parquet_name)
-
-
-def export_list_of_models_to_parquet(
-    parquet_path: Path,
-    list_of_models: list[DatasetMetadata] | list[FileMetadata],
-    logger: "loguru.Logger" = loguru.logger,
-) -> None:
-    """Export list of Pydantic models to parquet file.
-
-    Parameters
-    ----------
-    parquet_path : Path
-        Path to the output parquet file.
-    list_of_models : list[DatasetMetadata] | list[FileMetadata]
-        List of Pydantic models to export.
-    logger : "loguru.Logger"
-        Logger for logging messages.
-    """
-    logger.info(f"Exporting {len(list_of_models):,} models to parquet.")
-    try:
-        df = pd.DataFrame([model.model_dump() for model in list_of_models])
-        df.to_parquet(parquet_path, index=False)
-        logger.success(f"Exported {len(df):,} rows to:")
-        logger.success(parquet_path)
-    except (ValueError, TypeError, OSError) as e:
-        logger.error("Failed to export models to parquet.")
-        logger.error(e)
+    return datasets_metadata, files_metadata
 
 
 def validate_http_url(v: str) -> str:
@@ -630,29 +511,77 @@ def format_date(date: datetime | str) -> str:
     raise TypeError(msg)
 
 
-def ensure_dir(ctx, param, value: Path) -> Path:
-    """
-    Create the directory if it does not already exist.
+def convert_file_size_to_human_readable(size_in_bytes: float) -> str:
+    """Convert file size in bytes to a human-readable format.
 
-    Callback for Click options to ensure the provided path
-    is a valid directory. Behaves like `mkdir -p`.
+    We use multiples of 1000 (not 1024) for conversion.
+    If file size is 123.456 bytes, the function returns '123.46 KB'.
 
     Parameters
     ----------
-    ctx : click.Context
-        The Click context for the current command invocation.
-        (Required by Click callbacks but unused in this function.)
-    param : click.Parameter
-        The Click parameter associated with this callback.
-        (Required by Click callbacks but unused in this function.)
-    value : Path
-        The directory path provided by the user, already converted
-        into a `pathlib.Path` object by Click.
+    size_in_bytes : float
+        File size in bytes.
 
     Returns
     -------
-    Path
-        The same path, after ensuring the directory exists.
+    str
+        File size in a human-readable format (e.g., '10.52 MB').
     """
-    value.mkdir(parents=True, exist_ok=True)
-    return value
+    size = size_in_bytes
+    if size < 0:
+        return "Negative size!"
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < 1000.0:
+            return f"{size:.2f} {unit}"
+        size /= 1000.0
+    return "File too big!"
+
+
+def print_statistics(
+    scraper: ScraperContext, logger: "loguru.Logger" = loguru.logger
+) -> None:
+    """Print scraping statistics.
+
+    Parameters
+    ----------
+    scraper : ScraperContext
+        Context of the scraper.
+    logger: "loguru.Logger"
+        Logger for logging messages.
+    """
+    logger.info("-" * 30)
+    # Print statistics for datasets.
+    logger.success(
+        f"Number of datasets scraped: {scraper.number_of_datasets_scraped:,}"
+    )
+    if not scraper.datasets_parquet_file_path.is_file():
+        logger.error("Datasets parquet file not found!")
+        logger.error(f"{scraper.datasets_parquet_file_path} is missing.")
+    else:
+        datasets_parquet_size = convert_file_size_to_human_readable(
+            scraper.datasets_parquet_file_path.stat().st_size
+        )
+        logger.info(
+            f"Saved in: {scraper.datasets_parquet_file_path} ({datasets_parquet_size})"
+        )
+    # Print statistics for files.
+    logger.success(f"Number of files scraped: {scraper.number_of_files_scraped:,}")
+    if not scraper.files_parquet_file_path.is_file():
+        logger.error("Files parquet file not found!")
+        logger.error(f"{scraper.files_parquet_file_path} is missing.")
+    else:
+        files_parquet_size = convert_file_size_to_human_readable(
+            scraper.files_parquet_file_path.stat().st_size
+        )
+        logger.info(
+            f"Saved in: {scraper.files_parquet_file_path} ({files_parquet_size})"
+        )
+    # Print elapsed time.
+    elapsed_time = int((datetime.now() - scraper.start_time).total_seconds())
+    logger.success(
+        f"Scraped {scraper.data_source_name} in: {timedelta(seconds=elapsed_time)} 🎉"
+    )
+    # Print where log file is saved.
+    logger.info(f"Saved log file in: {scraper.log_file_path}")
+    if scraper.is_in_debug_mode:
+        logger.warning("---Debug mode was ON---")

@@ -1,100 +1,80 @@
-"""Pydantic data models used to validate scraped molecular dynamics files.
+"""Pydantic data models used to validate scraped molecular dynamics files."""
 
-This module defines strongly-typed Pydantic schemas that serve as a unified
-data contract for MD files from  datasets collected from heterogeneous sources such as
-Zenodo, Figshare, OSF, NOMAD, ATLAS, GPCRmd, and other domain-specific archives.
+from pathlib import Path
 
-The models are designed to:
-- Normalize metadata coming from different APIs and HTML structures
-- Enforce consistent typing and field presence across sources
-- Validate critical fields such as dates, URLs, and identifiers
-- Provide a common representation that downstream tools can rely on
-  regardless of the original data provider
+from pydantic import ByteSize, Field, computed_field, field_validator
 
-These schemas are intended to be used as the final validation layer of
-automated scraping pipelines, ensuring that extracted data is complete,
-consistent, and ready for storage, indexing, or further analysis.
-"""
-
-from datetime import datetime
-
-from pydantic import BaseModel, Field, computed_field, field_validator
-
-from .enums import DatasetRepositoryName
+from .dataset import DatasetCoreMetadata
 
 
 # =====================================================================
-# Base file class
+# File-level metadata
 # =====================================================================
-class FileMetadata(BaseModel):
+class FileMetadata(DatasetCoreMetadata):
     """
-    Base Pydantic model for scraped molecular dynamics files.
+    Pydantic model describing a single file belonging to a dataset.
 
-    This class defines the common metadata schema shared by all supported
-    repositories (e.g. Zenodo, Figshare, OSF, NOMAD, ATLAS, GPCRmd).
-
-    Source-specific file models must inherit from this class and may
-    extend it with additional fields or stricter validation rules.
+    This model inherits core provenance information from DatasetCoreMetadata
+    and defines file-specific metadata such as file name, extension...
     """
-
-    # ------------------------------------------------------------------
-    # Core provenance
-    # ------------------------------------------------------------------
-    dataset_repository_name: DatasetRepositoryName = Field(
-        ...,
-        description=(
-            "Name of the source repository. "
-            "Allowed values: ZENODO, FIGSHARE, OSF, NOMAD, ATLAS, GPCRMD."
-        ),
-    )
-    dataset_id_in_repository: str = Field(
-        ...,
-        description="Unique identifier of the dataset in the source repository.",
-    )
-    file_url_in_repository: str = Field(
-        ...,
-        description="Direct URL to access the file.",
-    )
 
     # ------------------------------------------------------------------
     # Descriptive metadata
     # ------------------------------------------------------------------
-    file_name: str = Field(..., description="Name of the file in the dataset.")
-    file_type: str = Field(
-        ..., description="File extension (automatically deduced from name)."
+    file_name: str = Field(
+        ...,
+        description="File name.",
     )
-    file_size_in_bytes: int | None = Field(None, description="File size in bytes.")
+    file_url_in_repository: str = Field(
+        ...,
+        description="URL to access the file in the repository.",
+    )
+    file_size_in_bytes: ByteSize | None = Field(None, description="File size in bytes.")
     file_md5: str | None = Field(None, description="MD5 checksum.")
-    date_last_fetched: str = Field(
-        ..., description="Date when the file was last fetched."
-    )
     containing_archive_file_name: str | None = Field(
         None,
-        description="Archive file name this file was extracted from, if applicable.",
+        description=(
+            "Name of the archive file the current file "
+            "was extracted from, if applicable."
+        ),
     )
 
     # ------------------------------------------------------------------
     # Validators
     # ------------------------------------------------------------------
-    @field_validator("date_last_fetched", mode="before")
-    def format_dates(cls, v: datetime | str) -> str:  # noqa: N805
-        """Convert datetime objects or ISO strings to '%Y-%m-%dT%H:%M:%S' format.
+    @field_validator("file_size_in_bytes", mode="before")
+    @classmethod
+    def normalize_byte_string(cls, value: int | str | None) -> int | str | None:
+        """
+        Normalize the unit "Bytes" with "B" to make it acceptable for ByteSize.
 
-        Parameters
-        ----------
-        cls : type[BaseDataset]
-            The Pydantic model class being validated.
-        v : str
-            The input value of the 'date' field to validate.
+        Documentation: https://docs.pydantic.dev/latest/api/types/#pydantic.types.ByteSize
 
         Returns
         -------
-        str:
-            The date in '%Y-%m-%dT%H:%M:%S' format.
+        int | str | None
+            The normalized "Bytes" file size as "B", or None if input is None.
         """
-        if isinstance(v, datetime):
-            return v.strftime("%Y-%m-%dT%H:%M:%S")
-        return datetime.fromisoformat(v).strftime("%Y-%m-%dT%H:%M:%S")
+        if value is None:
+            return None
+        if isinstance(value, str) and "bytes" in value.lower():
+            value = value.lower().replace("bytes", "B").strip()
+        return value
+
+    @computed_field
+    @property
+    def file_type(self) -> str:
+        """Compute the file type from the file name.
+
+        Returns
+        -------
+            str : The file extension computed from the file name.
+        """
+        extension = Path(self.file_name).suffix
+        if extension.startswith("."):
+            return extension[1:]
+        else:
+            return extension
 
     @computed_field
     @property
@@ -107,13 +87,8 @@ class FileMetadata(BaseModel):
             str | None : The size formatted with an appropriate unit
             (B, KB, MB, GB, or TB), rounded to two decimals.
         """
-        size = self.file_size_in_bytes
-        units = ["B", "KB", "MB", "GB", "TB"]
-        idx = 0
-        if size:
-            while size >= 1024 and idx < len(units) - 1:
-                size /= 1024
-                idx += 1
-            return f"{size:.2f} {units[idx]}"
-        else:
+        if self.file_size_in_bytes is None:
             return None
+
+        size = self.file_size_in_bytes
+        return size.human_readable(decimal=True, separator=" ")
