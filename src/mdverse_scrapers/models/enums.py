@@ -21,3 +21,16 @@ class DatasetSourceName(StrEnum):
     GPCRMD = "gpcrmd"
     NMRLIPIDS = "nmrlipids"
     MDDB = "mddb"
+    MDPOSIT_INRIA_NODE = "mdposit_inria_node"
+    MDPOSIT_MMB_NODE = "mdposit_mmb_node"
+
+
+class MoleculeType(StrEnum):
+    """Common molecular types found in molecular dynamics simulations."""
+
+    PROTEIN = "protein"
+    NUCLEIC_ACID = "nucleic_acid"
+    ION = "ion"
+    LIPID = "lipid"
+    CARBOHYDRATE = "carbohydrate"
+    SOLVENT = "solvent"

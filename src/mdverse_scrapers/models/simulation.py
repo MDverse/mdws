@@ -5,6 +5,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from .enums import MoleculeType
+
 DOI = Annotated[
     str,
     StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-.]+$"),
@@ -15,6 +17,12 @@ class Molecule(BaseModel):
     """Molecule in a simulation."""
 
     name: str = Field(..., description="Name of the molecule.")
+    type: MoleculeType | None = Field(
+        None,
+        description="Type of the molecule."
+        "Allowed values in the MoleculeType enum. "
+        "Examples: PROTEIN, ION, LIPID...",
+    )
     number_of_atoms: int | None = Field(
         None, ge=0, description="Number of atoms in the molecule, if known."
     )
