@@ -6,7 +6,6 @@ https://www.gpcrmd.org/dynadb/search/
 
 import json
 import sys
-from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -274,7 +273,7 @@ def extract_files_metadata_from_html(
     client: httpx.Client,
     html_content: str,
     logger: "loguru.Logger" = loguru.logger,
-) -> list[tuple[str, str, int, str]]:
+) -> list[tuple[str, int, str]]:
     """
     Extract relevant metadata from raw GPCRmd files metadata.
 
@@ -289,7 +288,7 @@ def extract_files_metadata_from_html(
 
     Returns
     -------
-    list[tuple[str, str, int, str]]
+    list[tuple[str, int, str]]
         Tuples of (file_name, file_type, int, file_url).
         Empty if none found.
     """
@@ -297,20 +296,23 @@ def extract_files_metadata_from_html(
     files_metadata = []
     soup = BeautifulSoup(html_content, "html.parser")
 
-    # Find all <a> tags with href containing the files path
+    # Find all <a> tags with href containing the files path.
+    # Example of files found for dataset 2316:
+    # Dataset URL: https://www.gpcrmd.org/dynadb/dynamics/id/2316/
+    # /dynadb/files/Dynamics/dyn2667/tmp_dyn_0_2667.pdb
+    # /dynadb/files/Dynamics/dyn2667/25399_dyn_2316.psf
+    # /dynadb/files/Dynamics/dyn2667/25400_trj_2316.dcd
+    # /dynadb/files/Dynamics/dyn2667/25401_trj_2316.dcd
+    # /dynadb/files/Dynamics/dyn2667/25402_trj_2316.dcd
+    # /dynadb/files/Dynamics/dyn2667/25403_prm_2316.prmtop
+    # /dynadb/files/Dynamics/dyn2667/25404_prt_2316.tgz
     for link in soup.find_all("a", href=True):
         href_value = link.get("href", "").strip()
-        if not href_value or "/dynadb/files/Dynamics/" not in href_value:
+        if "/dynadb/files/Dynamics/" not in href_value:
             continue
 
         file_url = f"https://www.gpcrmd.org/{href_value}"
-        # Example of file urls:
-        # From dataset ID:  2316 (https://www.gpcrmd.org/dynadb/dynamics/id/2316/)
-        # 1. https://www.gpcrmd.org/dynadb/files/Dynamics/dyn2667/tmp_dyn_0_2667.pdb
-        # 2. https://www.gpcrmd.org/dynadb/files/Dynamics/dyn2667/25400_trj_2316.dcd
-
         file_name = Path(file_url).name
-        file_type = Path(file_name).suffix.lstrip(".").lower()
 
         # Fetch the file size using a HEAD request.
         # We do not download the entire file.
@@ -326,8 +328,7 @@ def extract_files_metadata_from_html(
         else:
             file_size = None
             logger.warning(f"Could not retrieve file size for '{file_name}'")
-
-        files_metadata.append((file_name, file_type, file_size, file_url))
+        files_metadata.append((file_name, file_size, file_url))
 
     return files_metadata
 
@@ -335,11 +336,11 @@ def extract_files_metadata_from_html(
 def scrape_files_for_one_dataset(
     client: httpx.Client,
     html_content: str | None,
-    core_metadata: dict[str],
+    core_metadata: dict[str, Any],
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict] | None:
     """
-    Scrape files metadata for a given GPCRmd dataset.
+    Scrape files metadata for a given dataset.
 
     Parameters
     ----------
@@ -347,8 +348,8 @@ def scrape_files_for_one_dataset(
         The HTTPX client to use for making requests.
     html_content: str | None
         Html content of the dataset web page.
-    core_metadata : dict[str]
-        List of dataset metadata dictionaries.
+    core_metadata : dict[str, Any]
+        Dictionary of dataset core metadata.
     logger: "loguru.Logger"
         Logger for logging messages.
 
@@ -358,7 +359,7 @@ def scrape_files_for_one_dataset(
         File metadata dictionary for the dataset.
     """
     logger.info(
-        f"Scraping files for dataset ID:{core_metadata['dataset_id_in_repository']}"
+        f"Scraping files for dataset: {core_metadata['dataset_id_in_repository']}"
     )
     files_metadata = []
     # Extract metadata from dataset url page if available.
@@ -366,13 +367,12 @@ def scrape_files_for_one_dataset(
         logger.error("Failed to fetch files metadata.")
         return None
 
-    for file_name, file_type, file_size, file_url in extract_files_metadata_from_html(
-        client, html_content, logger
+    for file_name, file_size, file_url in extract_files_metadata_from_html(
+        client, html_content, logger=logger
     ):
         file_metadata = {
             **core_metadata,
             "file_name": file_name,
-            "file_type": file_type,
             "file_size_in_bytes": file_size,
             "file_url_in_repository": file_url,
         }
@@ -417,10 +417,13 @@ def extract_datasets_and_files_metadata(
         logger.info(f"Extracting metadata for dataset: {dataset_id}")
         dataset_source_name = DatasetSourceName.GPCRMD
         dataset_url = dataset.get("url")
-        metadata = {
+        core_metadata = {
             "dataset_repository_name": dataset_source_name,
             "dataset_id_in_repository": dataset_id,
             "dataset_url_in_repository": dataset_url,
+        }
+        metadata = {
+            **core_metadata,
             "title": dataset.get("modelname"),
             "date_created": dataset.get("creation_timestamp"),
             "total_number_of_atoms": dataset.get("atom_num"),
@@ -490,9 +493,8 @@ def extract_datasets_and_files_metadata(
         # dataset_repository_name
         # dataset_id_in_repository
         # dataset_url_in_repository
-        dataset_metadata_core = dict(islice(metadata.items(), 3))
         files_metadata_for_this_dataset = scrape_files_for_one_dataset(
-            client, html_content, dataset_metadata_core, logger
+            client, html_content, core_metadata, logger=logger
         )
         files_metadata.extend(files_metadata_for_this_dataset)
         # Number of files.
