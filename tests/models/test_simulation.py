@@ -59,12 +59,17 @@ def test_structured_fields_creation():
     """Test that software, molecules, and forcefields can be created."""
     metadata = SimulationMetadata(
         software=[Software(name="GROMACS", version="2023.1")],
-        molecules=[Molecule(name="H2O", number_of_atoms=3, formula="H2O")],
-        forcefields=[ForceFieldModel(name="AMBER", version="ff14SB")],
+        molecules=[
+            Molecule(
+                name="H2O", number_of_atoms=3, formula="H2O", number_of_molecules=100
+            )
+        ],
+        forcefields_models=[ForceFieldModel(name="AMBER", version="ff14SB")],
     )
     assert metadata.software[0].name == "GROMACS"
     assert metadata.molecules[0].number_of_atoms == 3
-    assert metadata.forcefields[0].version == "ff14SB"
+    assert metadata.molecules[0].number_of_molecules == 100
+    assert metadata.forcefields_models[0].version == "ff14SB"
 
 
 # -------------------------------------------------------------------
