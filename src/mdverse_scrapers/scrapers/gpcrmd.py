@@ -20,6 +20,7 @@ from ..core.network import (
     create_httpx_client,
     is_connection_to_server_working,
     make_http_request_with_retries,
+    retrieve_file_size_from_http_head_request,
 )
 from ..core.toolbox import print_statistics
 from ..models.enums import DatasetSourceName
@@ -273,7 +274,7 @@ def extract_files_metadata_from_html(
     client: httpx.Client,
     html_content: str,
     logger: "loguru.Logger" = loguru.logger,
-) -> list[tuple[str, int, str]]:
+) -> list[dict[str, str | int | None]]:
     """
     Extract relevant metadata from raw GPCRmd files metadata.
 
@@ -288,8 +289,8 @@ def extract_files_metadata_from_html(
 
     Returns
     -------
-    list[tuple[str, int, str]]
-        Tuples of (file_name, file_type, int, file_url).
+    list[dict[str, str | int | None]]
+        List of dictionaries containing file metadata.
         Empty if none found.
     """
     logger.info("Extracting files metadata...")
@@ -307,28 +308,20 @@ def extract_files_metadata_from_html(
     # /dynadb/files/Dynamics/dyn2667/25403_prm_2316.prmtop
     # /dynadb/files/Dynamics/dyn2667/25404_prt_2316.tgz
     for link in soup.find_all("a", href=True):
+        metadata = {}
         href_value = link.get("href", "").strip()
         if "/dynadb/files/Dynamics/" not in href_value:
             continue
 
-        file_url = f"https://www.gpcrmd.org/{href_value}"
-        file_name = Path(file_url).name
+        metadata["file_url_in_repository"] = f"https://www.gpcrmd.org/{href_value}"
+        metadata["file_name"] = Path(metadata["file_url_in_repository"]).name
 
         # Fetch the file size using a HEAD request.
         # We do not download the entire file.
-        response = make_http_request_with_retries(
-            client,
-            file_url,
-            method=HttpMethod.HEAD,
-            timeout=60,
-            delay_before_request=0.2,
+        metadata["file_size_in_bytes"] = retrieve_file_size_from_http_head_request(
+            client, metadata["file_url_in_repository"], logger=logger
         )
-        if response and response.headers:
-            file_size = int(response.headers.get("Content-Length", 0))
-        else:
-            file_size = None
-            logger.warning(f"Could not retrieve file size for '{file_name}'")
-        files_metadata.append((file_name, file_size, file_url))
+        files_metadata.append(metadata)
 
     return files_metadata
 
@@ -367,14 +360,12 @@ def scrape_files_for_one_dataset(
         logger.error("Failed to fetch files metadata.")
         return None
 
-    for file_name, file_size, file_url in extract_files_metadata_from_html(
+    for metadata in extract_files_metadata_from_html(
         client, html_content, logger=logger
     ):
         file_metadata = {
             **core_metadata,
-            "file_name": file_name,
-            "file_size_in_bytes": file_size,
-            "file_url_in_repository": file_url,
+            **metadata,
         }
         files_metadata.append(file_metadata)
 

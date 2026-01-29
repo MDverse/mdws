@@ -191,6 +191,44 @@ def make_http_request_with_retries(
     return None
 
 
+def retrieve_file_size_from_http_head_request(
+    client: httpx.Client, url: str, logger: "loguru.Logger" = loguru.logger
+) -> int | None:
+    """Retrieve file size from HTTP HEAD request.
+
+    Parameters
+    ----------
+    client : httpx.Client
+        The HTTPX client to use for making requests.
+    url : str
+        The URL of the file.
+    logger : "loguru.Logger"
+        Logger for logging messages.
+
+    Returns
+    -------
+    int | None
+        File size in bytes if available, None otherwise.
+    """
+    logger.info("Retrieving file size from HTTP HEAD request to URL:")
+    logger.info(url)
+    response = make_http_request_with_retries(
+        client,
+        url,
+        method=HttpMethod.HEAD,
+        timeout=30,
+        delay_before_request=0.2,
+        logger=logger,
+    )
+    size = None
+    if response and response.headers:
+        size = int(response.headers.get("Content-Length", 0))
+        logger.info(f"File size: {size:,} bytes")
+    else:
+        logger.warning("Could not retrieve file size.")
+    return size
+
+
 def parse_response_headers(headers_bytes: bytes) -> dict[str, str]:
     """Parse HTTP response header from bytes to a dictionary.
 

@@ -2,6 +2,7 @@
 
 import json
 
+import httpx
 import pytest
 
 import mdverse_scrapers.core.network as network
@@ -83,3 +84,20 @@ def test_get_html_page_with_selenium_bad_url(capsys) -> None:
     assert content is None
     captured = capsys.readouterr()
     assert "Timeout while retrieving page" in captured.out
+
+
+@pytest.mark.parametrize(
+    ("file_url", "expected_size"),
+    [
+        ("https://httpbin.org/bytes/1024", 1024),
+    ],
+)
+@pytest.mark.network
+def test_retrieve_file_size_from_http_head_request(file_url, expected_size) -> None:
+    """Test the retrieve_file_size_from_http_head_request function."""
+    with httpx.Client() as client:
+        file_size = network.retrieve_file_size_from_http_head_request(
+            client=client,
+            url=file_url,
+        )
+    assert file_size == expected_size
