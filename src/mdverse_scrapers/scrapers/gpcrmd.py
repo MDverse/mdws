@@ -445,7 +445,7 @@ def extract_datasets_and_files_metadata(
                     version=dataset.get("forcefield_version"),
                 )
             ]
-        metadata["forcefields_and_models"] = forcefields_and_models
+        metadata["forcefields"] = forcefields_and_models
         # Molecule names with their number of atoms.
         metadata["molecules"] = retrieve_metadata_from_html_dataset_page(
             html=html_content, field_name="Number of molecules", dataset_id=dataset_id
