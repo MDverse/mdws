@@ -210,8 +210,7 @@ def retrieve_file_size_from_http_head_request(
     int | None
         File size in bytes if available, None otherwise.
     """
-    logger.info("Retrieving file size from HTTP HEAD request to URL:")
-    logger.info(url)
+    logger.info("Retrieving file size from HTTP HEAD request")
     response = make_http_request_with_retries(
         client,
         url,

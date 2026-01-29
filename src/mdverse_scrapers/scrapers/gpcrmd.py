@@ -270,68 +270,12 @@ def retrieve_metadata_from_html_dataset_page(
     return None
 
 
-def extract_files_metadata_from_html(
-    client: httpx.Client,
-    html_content: str,
-    logger: "loguru.Logger" = loguru.logger,
-) -> list[dict[str, str | int | None]]:
-    """
-    Extract relevant metadata from raw GPCRmd files metadata.
-
-    Parameters
-    ----------
-    client : httpx.Client
-        The HTTPX client to use for making requests.
-    html_content : str
-        HTML content of the dataset page.
-    logger: "loguru.Logger"
-        Logger for logging messages.
-
-    Returns
-    -------
-    list[dict[str, str | int | None]]
-        List of dictionaries containing file metadata.
-        Empty if none found.
-    """
-    logger.info("Extracting files metadata...")
-    files_metadata = []
-    soup = BeautifulSoup(html_content, "html.parser")
-
-    # Find all <a> tags with href containing the files path.
-    # Example of files found for dataset 2316:
-    # Dataset URL: https://www.gpcrmd.org/dynadb/dynamics/id/2316/
-    # /dynadb/files/Dynamics/dyn2667/tmp_dyn_0_2667.pdb
-    # /dynadb/files/Dynamics/dyn2667/25399_dyn_2316.psf
-    # /dynadb/files/Dynamics/dyn2667/25400_trj_2316.dcd
-    # /dynadb/files/Dynamics/dyn2667/25401_trj_2316.dcd
-    # /dynadb/files/Dynamics/dyn2667/25402_trj_2316.dcd
-    # /dynadb/files/Dynamics/dyn2667/25403_prm_2316.prmtop
-    # /dynadb/files/Dynamics/dyn2667/25404_prt_2316.tgz
-    for link in soup.find_all("a", href=True):
-        metadata = {}
-        href_value = link.get("href", "").strip()
-        if "/dynadb/files/Dynamics/" not in href_value:
-            continue
-
-        metadata["file_url_in_repository"] = f"https://www.gpcrmd.org/{href_value}"
-        metadata["file_name"] = Path(metadata["file_url_in_repository"]).name
-
-        # Fetch the file size using a HEAD request.
-        # We do not download the entire file.
-        metadata["file_size_in_bytes"] = retrieve_file_size_from_http_head_request(
-            client, metadata["file_url_in_repository"], logger=logger
-        )
-        files_metadata.append(metadata)
-
-    return files_metadata
-
-
-def scrape_files_for_one_dataset(
+def scrape_files_metadata_for_one_dataset(
     client: httpx.Client,
     html_content: str | None,
     core_metadata: dict[str, Any],
     logger: "loguru.Logger" = loguru.logger,
-) -> list[dict] | None:
+) -> list[dict]:
     """
     Scrape files metadata for a given dataset.
 
@@ -348,26 +292,45 @@ def scrape_files_for_one_dataset(
 
     Returns
     -------
-    dict | None
-        File metadata dictionary for the dataset.
+    list[dict]
+        List of files metadata dictionaries.
     """
     logger.info(
-        f"Scraping files for dataset: {core_metadata['dataset_id_in_repository']}"
+        "Scraping files metadata for dataset: "
+        f"{core_metadata['dataset_id_in_repository']}"
     )
     files_metadata = []
     # Extract metadata from dataset url page if available.
     if not html_content:
         logger.error("Failed to fetch files metadata.")
-        return None
+        return files_metadata
 
-    for metadata in extract_files_metadata_from_html(
-        client, html_content, logger=logger
-    ):
-        file_metadata = {
-            **core_metadata,
-            **metadata,
-        }
-        files_metadata.append(file_metadata)
+    # Find all <a> tags with href containing the files path.
+    # Example of files found for dataset 2316:
+    # Dataset URL: https://www.gpcrmd.org/dynadb/dynamics/id/2316/
+    # /dynadb/files/Dynamics/dyn2667/tmp_dyn_0_2667.pdb
+    # /dynadb/files/Dynamics/dyn2667/25399_dyn_2316.psf
+    # /dynadb/files/Dynamics/dyn2667/25400_trj_2316.dcd
+    # /dynadb/files/Dynamics/dyn2667/25401_trj_2316.dcd
+    # /dynadb/files/Dynamics/dyn2667/25402_trj_2316.dcd
+    # /dynadb/files/Dynamics/dyn2667/25403_prm_2316.prmtop
+    # /dynadb/files/Dynamics/dyn2667/25404_prt_2316.tgz
+    soup = BeautifulSoup(html_content, "html.parser")
+    for link in soup.find_all("a", href=True):
+        href_value = link.get("href", "").strip()
+        if "/dynadb/files/Dynamics/" not in href_value:
+            continue
+        # Add core metadata.
+        metadata = core_metadata.copy()
+        # Add URL and file name.
+        metadata["file_url_in_repository"] = f"https://www.gpcrmd.org/{href_value}"
+        metadata["file_name"] = Path(metadata["file_url_in_repository"]).name
+        # Fetch the file size using a HEAD request.
+        # We do not download the entire file.
+        metadata["file_size_in_bytes"] = retrieve_file_size_from_http_head_request(
+            client, metadata["file_url_in_repository"], logger=logger
+        )
+        files_metadata.append(metadata)
 
     logger.info(f"Total files found: {len(files_metadata):,}")
     return files_metadata
@@ -479,19 +442,21 @@ def extract_datasets_and_files_metadata(
         metadata["external_links"] = retrieve_metadata_from_html_dataset_page(
             html=html_content, field_name="doi", dataset_id=dataset_id
         )
-        # We retrieve the files metadata from the html content of the dataset page.
-        # Get the dataset core metadata:
-        # dataset_repository_name
-        # dataset_id_in_repository
-        # dataset_url_in_repository
-        files_metadata_for_this_dataset = scrape_files_for_one_dataset(
+        # Retrieve the files metadata from the html content of the dataset page.
+        files_metadata_for_this_dataset = scrape_files_metadata_for_one_dataset(
             client, html_content, core_metadata, logger=logger
         )
         files_metadata.extend(files_metadata_for_this_dataset)
         # Number of files.
-        metadata["number_of_files"] = len(files_metadata_for_this_dataset)
-        # Adding full metadatas of the dataset
+        if files_metadata_for_this_dataset:
+            metadata["number_of_files"] = len(files_metadata_for_this_dataset)
+        # Adding full metadata for the dataset.
         datasets_metadata.append(metadata)
+        logger.info(
+            f"Scraped metadata for {len(datasets_metadata):,}/{len(datasets):,} "
+            f"({len(datasets_metadata) / len(datasets):.0%}) datasets "
+            f"({len(files_metadata):,} files)"
+        )
 
     logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")
     logger.info(f"Extracted metadata for {len(files_metadata)} files.")

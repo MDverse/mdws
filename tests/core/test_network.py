@@ -71,6 +71,8 @@ def test_get_html_page_with_selenium_good_url():
         ],
     }
     content = network.get_html_page_with_selenium(url=url, tag="pre")
+    if not content:
+        pytest.fail("Failed to retrieve content from the URL.")
     assert json.loads(content) == expected_json
 
 
