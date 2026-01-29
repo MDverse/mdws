@@ -65,7 +65,7 @@ def scrape_all_datasets(
     """
     logger.info("Scraping molecular dynamics datasets from GPCRmd.")
     logger.info("Requesting all datasets in a single fetch...")
-
+    all_datasets = []
     response = make_http_request_with_retries(
         client,
         url,
