@@ -90,6 +90,11 @@ def test_get_html_page_with_selenium_bad_url(capsys) -> None:
     ("file_url", "expected_size"),
     [
         ("https://httpbin.org/bytes/1024", 1024),
+        ("https://httpbin.org/status/404", None),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/10192_prm_12.tar.gz", 148841),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/10205_dyn_13.pdb", 6984955),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/10201_trj_13.xtc", 799818836),
+        ("https://www.gpcrmd.org//dynadb/files/Dynamics/non_existent_file.txt", None),
     ],
 )
 @pytest.mark.network
