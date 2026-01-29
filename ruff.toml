@@ -41,6 +41,7 @@ extend-select = [
 ignore = [
     "COM812", # Redundant with ruff formatter. See: https://docs.astral.sh/ruff/rules/missing-trailing-comma/
     "G004", # f-strings are allowed with the loguru module. See https://docs.astral.sh/ruff/rules/logging-f-string/
+    "PERF401", # list.extend suggestion is not applicable when appending model instances.
 ]
 
 # Force numpy-style for docstrings
