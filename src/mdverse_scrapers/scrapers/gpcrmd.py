@@ -433,15 +433,15 @@ def extract_datasets_and_files_metadata(
         metadata["simulation_timesteps_in_fs"] = [timestep]
         # Extract simulation metadata from the API if available.
         # Software names with their versions.
-        softwares = None
+        software = None
         if dataset.get("mysoftware"):
-            softwares = [
+            software = [
                 Software(
                     name=dataset["mysoftware"],
                     version=dataset.get("software_version"),
                 )
             ]
-        metadata["softwares"] = softwares
+        metadata["software"] = software
         # Forcefields and models names with their versions.
         forcefields_and_models = None
         if dataset.get("forcefield"):
