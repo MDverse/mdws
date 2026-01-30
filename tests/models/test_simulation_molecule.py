@@ -43,27 +43,39 @@ def test_invalid_number_of_molecules():
 
 
 # -------------------------------------------------------------------
-# Test external identifiers
+# Test ExternalIdentifier
 # -------------------------------------------------------------------
 @pytest.mark.parametrize(
-    ("database_name", "identifier", "expected_identifier"),
+    ("database_name", "identifier", "expected_identifier", "url"),
     [
-        (ExternalDatabaseName.PDB, "1K79", "1K79"),
-        (ExternalDatabaseName.PDB, 1234, "1234"),
-        (ExternalDatabaseName.UNIPROT, "P06213", "P06213"),
-        (ExternalDatabaseName.UNIPROT, 123456, "123456"),
+        (
+            ExternalDatabaseName.PDB,
+            "1K79",
+            "1K79",
+            "https://www.rcsb.org/structure/1K79",
+        ),
+        (ExternalDatabaseName.PDB, 1234, "1234", None),
+        (
+            ExternalDatabaseName.UNIPROT,
+            "P06213",
+            "P06213",
+            "https://www.uniprot.org/uniprotkb/P06213/entry",
+        ),
+        (ExternalDatabaseName.UNIPROT, 123456, "123456", None),
     ],
 )
-def test_external_identifiers_and_type_coercion(
-    database_name, identifier, expected_identifier
+def test_external_identifier_creation(
+    database_name, identifier, expected_identifier, url
 ):
-    """Test external identifiers and type coercion."""
-    # Valid external identifier
+    """Test creation of ExternalIdentifier instances."""
     external_identifier = ExternalIdentifier(
-        database_name=database_name, identifier=identifier
+        database_name=database_name,
+        identifier=identifier,
+        url=url,
     )
     assert external_identifier.database_name == database_name
     assert external_identifier.identifier == expected_identifier
+    assert external_identifier.url == url
 
 
 def test_invalid_database_name_in_external_identifiers():

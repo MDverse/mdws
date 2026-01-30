@@ -33,6 +33,9 @@ class ExternalIdentifier(BaseModel):
         min_length=1,
         description="Identifier in the external database.",
     )
+    url: str | None = Field(
+        None, min_length=1, description="Direct URL to the identifier into the database"
+    )
 
 
 class Molecule(BaseModel):
