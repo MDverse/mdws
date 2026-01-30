@@ -412,9 +412,10 @@ def extract_datasets_and_files_metadata(
         # Extract other metadata from dataset url page if available.
         if html_content is None:
             logger.warning(
-                "Cannot parse additional metadata from HTML page for dataset"
-                f" {dataset_id} ({dataset_url})"
+                "Cannot parse additional metadata from HTML page for dataset:"
+                f" {dataset_id}"
             )
+            logger.warning(dataset_url)
             logger.warning("Skipping this step.")
             datasets_metadata.append(metadata)
             continue
