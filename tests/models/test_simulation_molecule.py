@@ -17,11 +17,13 @@ def test_invalid_fields():
     """Test with a non-existing field."""
     with pytest.raises(ValidationError):
         Molecule(
-            dummy_number=1000  # type: ignore
+            name="water",
+            dummy_number=1000,  # type: ignore
         )
     with pytest.raises(ValidationError):
         Molecule(
-            dummy_str="dummy_value"  # type: ignore
+            name="water",
+            dummy_str="dummy_value",  # type: ignore
         )
 
 
