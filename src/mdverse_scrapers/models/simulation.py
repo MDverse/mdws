@@ -30,6 +30,7 @@ class ExternalIdentifier(BaseModel):
     )
     identifier: str = Field(
         ...,
+        min_length=1,
         description="Identifier in the external database.",
     )
 
