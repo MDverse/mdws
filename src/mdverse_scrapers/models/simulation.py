@@ -5,10 +5,33 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
+from .enums import ExternalDatabaseName
+
 DOI = Annotated[
     str,
     StringConstraints(pattern=r"^10\.\d{4,9}/[\w\-.]+$"),
 ]
+
+
+class ExternalIdentifier(BaseModel):
+    """External database identifier."""
+
+    # Ensure scraped metadata matches the expected schema exactly
+    # and numbers are coerced to strings when needed.
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
+
+    database_name: ExternalDatabaseName = Field(
+        ...,
+        description=(
+            "Name of the external database. "
+            "Allowed values are defined in ExternalDatabaseName enum. "
+            "Examples: PDB, UNIPROT..."
+        ),
+    )
+    identifier: str = Field(
+        ...,
+        description="Identifier in the external database.",
+    )
 
 
 class Molecule(BaseModel):
@@ -19,15 +42,20 @@ class Molecule(BaseModel):
 
     name: str = Field(..., description="Name of the molecule.")
     number_of_atoms: int | None = Field(
-        None, ge=0, description="Number of atoms in the molecule, if known."
+        None, ge=0, description="Number of atoms in the molecule."
     )
-    formula: str | None = Field(
-        None, description="Chemical formula of the molecule, if known."
+    formula: str | None = Field(None, description="Chemical formula of the molecule.")
+    sequence: str | None = Field(
+        None, description="Sequence of the molecule for protein and nucleic acid."
     )
     number_of_molecules: int | None = Field(
         None,
         ge=0,
-        description="Number of molecules of this type in the simulation, if known.",
+        description="Number of molecules of this type in the simulation.",
+    )
+    external_identifiers: list[ExternalIdentifier] | None = Field(
+        None,
+        description=("List of external database identifiers for this molecule."),
     )
 
 

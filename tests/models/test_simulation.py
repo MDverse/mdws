@@ -3,7 +3,9 @@
 import pytest
 from pydantic import ValidationError
 
+from mdverse_scrapers.models.enums import ExternalDatabaseName
 from mdverse_scrapers.models.simulation import (
+    ExternalIdentifier,
     ForceFieldModel,
     Molecule,
     SimulationMetadata,
@@ -61,7 +63,16 @@ def test_structured_fields_creation():
         software=[Software(name="GROMACS", version="2023.1")],
         molecules=[
             Molecule(
-                name="H2O", number_of_atoms=3, formula="H2O", number_of_molecules=100
+                name="H2O",
+                number_of_atoms=3,
+                formula="H2O",
+                number_of_molecules=100,
+                sequence="PEPTIDE",
+                external_identifiers=[
+                    ExternalIdentifier(
+                        database_name=ExternalDatabaseName.PDB, identifier="1ABC"
+                    )
+                ],
             )
         ],
         forcefields_models=[ForceFieldModel(name="AMBER", version="ff14SB")],
@@ -70,17 +81,21 @@ def test_structured_fields_creation():
     assert metadata.molecules[0].number_of_atoms == 3
     assert metadata.molecules[0].number_of_molecules == 100
     assert metadata.forcefields_models[0].version == "ff14SB"
+    assert metadata.molecules[0].sequence == "PEPTIDE"
+    assert (
+        metadata.molecules[0].external_identifiers[0].database_name
+        == ExternalDatabaseName.PDB
+    )
+    assert metadata.molecules[0].external_identifiers[0].identifier == "1ABC"
 
 
 # -------------------------------------------------------------------
-# Test invalid values in structured fields
+# Test invalid fields
 # -------------------------------------------------------------------
-def test_invalid_molecule_number_of_atoms():
-    """Test that molecule number_of_atoms cannot be negative."""
+def test_invalid_fields():
+    """Test with a non-existing fields."""
     with pytest.raises(ValidationError):
-        SimulationMetadata(
-            molecules=[Molecule(name="H2O", number_of_atoms=-1, formula="H2O")]
-        )
+        SimulationMetadata(total_number_of_something=1000)
 
 
 # -------------------------
