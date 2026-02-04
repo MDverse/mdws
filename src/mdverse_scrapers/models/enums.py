@@ -20,3 +20,10 @@ class DatasetSourceName(StrEnum):
     ATLAS = "atlas"
     GPCRMD = "gpcrmd"
     NMRLIPIDS = "nmrlipids"
+
+
+class ExternalDatabaseName(StrEnum):
+    """External database names."""
+
+    PDB = "pdb"
+    UNIPROT = "uniprot"
