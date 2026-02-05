@@ -36,10 +36,10 @@ def test_invalid_number_of_atoms():
         Molecule(name="H2O", number_of_atoms=-10, formula="H2O")
 
 
-def test_invalid_number_of_molecules():
-    """Test that number_of_molecules cannot be negative."""
+def test_invalid_number_of_this_molecule_type_in_system():
+    """Test that number_of_this_molecule_type_in_system cannot be negative."""
     with pytest.raises(ValidationError):
-        Molecule(name="H2O", number_of_molecules=-10, formula="H2O")
+        Molecule(name="H2O", number_of_this_molecule_type_in_system=-10, formula="H2O")
 
 
 # -------------------------------------------------------------------
