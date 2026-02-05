@@ -5,6 +5,7 @@ from typing import Annotated
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     StringConstraints,
     field_validator,
@@ -30,6 +31,9 @@ class DatasetCoreMetadata(BaseModel):
 
     This model captures essential information about the source repository
     """
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     dataset_repository_name: DatasetSourceName = Field(
         ...,
@@ -59,6 +63,9 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
 
     This model extends DatasetCoreMetadata with dataset-specific metadata.
     """
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     # ------------------------------------------------------------------
     # Project metadata

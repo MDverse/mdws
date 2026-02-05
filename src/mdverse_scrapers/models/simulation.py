@@ -3,7 +3,9 @@
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+
+from .enums import ExternalDatabaseName
 
 from .enums import MoleculeType
 
@@ -13,8 +15,36 @@ DOI = Annotated[
 ]
 
 
+class ExternalIdentifier(BaseModel):
+    """External database identifier."""
+
+    # Ensure scraped metadata matches the expected schema exactly
+    # and numbers are coerced to strings when needed.
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
+
+    database_name: ExternalDatabaseName = Field(
+        ...,
+        description=(
+            "Name of the external database. "
+            "Allowed values are defined in ExternalDatabaseName enum. "
+            "Examples: PDB, UNIPROT..."
+        ),
+    )
+    identifier: str = Field(
+        ...,
+        min_length=1,
+        description="Identifier in the external database.",
+    )
+    url: str | None = Field(
+        None, min_length=1, description="Direct URL to the identifier into the database"
+    )
+
+
 class Molecule(BaseModel):
     """Molecule in a simulation."""
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(..., description="Name of the molecule.")
     type: MoleculeType | None = Field(
@@ -24,15 +54,28 @@ class Molecule(BaseModel):
         "Examples: PROTEIN, ION, LIPID...",
     )
     number_of_atoms: int | None = Field(
-        None, ge=0, description="Number of atoms in the molecule, if known."
+        None, ge=0, description="Number of atoms in the molecule."
     )
-    formula: str | None = Field(
-        None, description="Chemical formula of the molecule, if known."
+    formula: str | None = Field(None, description="Chemical formula of the molecule.")
+    sequence: str | None = Field(
+        None, description="Sequence of the molecule for protein and nucleic acid."
+    )
+    number_of_molecules: int | None = Field(
+        None,
+        ge=0,
+        description="Number of molecules of this type in the simulation.",
+    )
+    external_identifiers: list[ExternalIdentifier] | None = Field(
+        None,
+        description=("List of external database identifiers for this molecule."),
     )
 
 
 class ForceFieldModel(BaseModel):
     """Forcefield or Model used in a simulation."""
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         ...,
@@ -45,6 +88,9 @@ class ForceFieldModel(BaseModel):
 
 class Software(BaseModel):
     """Simulation software or tool used in a simulation."""
+
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(
         ...,
@@ -62,6 +108,9 @@ class SimulationMetadata(BaseModel):
     No field is required in this model; all are optional.
     """
 
+    # Ensure scraped metadata matches the expected schema exactly.
+    model_config = ConfigDict(extra="forbid")
+
     software: list[Software] | None = Field(
         None,
         description="List of molecular dynamics tool or software.",
@@ -69,15 +118,13 @@ class SimulationMetadata(BaseModel):
     total_number_of_atoms: int | None = Field(
         None,
         ge=0,  # equal or greater than zero
-        description="Total number of atoms in the simulated system.",
+        description="Total number of atoms in the system.",
     )
     molecules: list[Molecule] | None = Field(
         None,
-        description=(
-            "List of molecules in the system with their number of atoms if known."
-        ),
+        description=("List of simulated molecules in the system."),
     )
-    forcefields: list[ForceFieldModel] | None = Field(
+    forcefields_models: list[ForceFieldModel] | None = Field(
         None,
         description="List of forcefields and models used.",
     )
