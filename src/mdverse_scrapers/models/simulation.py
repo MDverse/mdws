@@ -3,11 +3,16 @@
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
-from .enums import ExternalDatabaseName
-
-from .enums import MoleculeType
+from .enums import ExternalDatabaseName, MoleculeType
 
 DOI = Annotated[
     str,
@@ -39,6 +44,30 @@ class ExternalIdentifier(BaseModel):
         None, min_length=1, description="Direct URL to the identifier into the database"
     )
 
+    @model_validator(mode="after")
+    def compute_url(self) -> "ExternalIdentifier":
+        """Compute the URL for the external identifier.
+
+        Parameters
+        ----------
+        self: ExternalIdentifier
+            The model instance being validated, with all fields already validated.
+
+        Returns
+        -------
+        ExternalIdentifier
+            The model instance with the URL field computed if it was not provided.
+        """
+        if self.url is not None:
+            return self
+
+        if self.database_name == ExternalDatabaseName.PDB:
+            self.url = f"https://www.rcsb.org/structure/{self.identifier}"
+        elif self.database_name == ExternalDatabaseName.UNIPROT:
+            self.url = f"https://www.uniprot.org/uniprotkb/{self.identifier}"
+
+        return self
+
 
 class Molecule(BaseModel):
     """Molecule in a simulation."""
@@ -53,17 +82,17 @@ class Molecule(BaseModel):
         "Allowed values in the MoleculeType enum. "
         "Examples: PROTEIN, ION, LIPID...",
     )
+    number_of_this_molecule_type_in_system: int | None = Field(
+        None,
+        ge=0,
+        description="Number of molecules of this type in the simulation.",
+    )
     number_of_atoms: int | None = Field(
         None, ge=0, description="Number of atoms in the molecule."
     )
     formula: str | None = Field(None, description="Chemical formula of the molecule.")
     sequence: str | None = Field(
         None, description="Sequence of the molecule for protein and nucleic acid."
-    )
-    number_of_molecules: int | None = Field(
-        None,
-        ge=0,
-        description="Number of molecules of this type in the simulation.",
     )
     external_identifiers: list[ExternalIdentifier] | None = Field(
         None,
@@ -111,7 +140,7 @@ class SimulationMetadata(BaseModel):
     # Ensure scraped metadata matches the expected schema exactly.
     model_config = ConfigDict(extra="forbid")
 
-    software: list[Software] | None = Field(
+    softwares: list[Software] | None = Field(
         None,
         description="List of molecular dynamics tool or software.",
     )
