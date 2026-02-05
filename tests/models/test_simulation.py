@@ -107,21 +107,3 @@ def test_invalid_simulation_value_type():
         SimulationMetadata(
             simulation_timesteps_in_fs=["invalid-value"],  # because not a float
         )
-
-
-# --------------------------------------
-# Test compute URL in ExternalIdentifier
-# --------------------------------------
-def test_compute_url_in_external_identifier():
-    """Test that the compute_url method generates the correct URL."""
-    identifier = ExternalIdentifier(
-        database_name=ExternalDatabaseName.PDB,
-        identifier="1ABC",
-    )
-    assert identifier.url == "https://www.rcsb.org/structure/1ABC"
-
-    identifier = ExternalIdentifier(
-        database_name=ExternalDatabaseName.UNIPROT,
-        identifier="P12345",
-    )
-    assert identifier.url == "https://www.uniprot.org/uniprotkb/P12345"

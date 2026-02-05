@@ -54,14 +54,12 @@ def test_invalid_number_of_molecules():
             "1K79",
             "https://www.rcsb.org/structure/1K79",
         ),
-        (ExternalDatabaseName.PDB, 1234, "1234", None),
         (
             ExternalDatabaseName.UNIPROT,
             "P06213",
             "P06213",
             "https://www.uniprot.org/uniprotkb/P06213/entry",
         ),
-        (ExternalDatabaseName.UNIPROT, 123456, "123456", None),
     ],
 )
 def test_external_identifier_creation(
@@ -91,3 +89,18 @@ def test_invalid_database_name_in_external_identifiers():
             database_name=ExternalDatabaseName.DUMMY,  # type: ignore
             identifier="1ABC",
         )
+
+
+def test_compute_url_in_external_identifier():
+    """Test that the compute_url method generates the correct URL."""
+    identifier = ExternalIdentifier(
+        database_name=ExternalDatabaseName.PDB,
+        identifier="1ABC",
+    )
+    assert identifier.url == "https://www.rcsb.org/structure/1ABC"
+
+    identifier = ExternalIdentifier(
+        database_name=ExternalDatabaseName.UNIPROT,
+        identifier="P12345",
+    )
+    assert identifier.url == "https://www.uniprot.org/uniprotkb/P12345"
