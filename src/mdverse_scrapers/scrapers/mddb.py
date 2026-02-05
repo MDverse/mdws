@@ -26,9 +26,9 @@ from ..core.network import (
 )
 from ..core.toolbox import print_statistics
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetSourceName, MoleculeType
+from ..models.enums import DatasetSourceName, ExternalDatabaseName, MoleculeType
 from ..models.scraper import ScraperContext
-from ..models.simulation import ForceFieldModel, Molecule, Software
+from ..models.simulation import ExternalIdentifier, ForceFieldModel, Molecule, Software
 from ..models.utils import (
     export_list_of_models_to_parquet,
     normalize_datasets_metadata,
@@ -206,57 +206,297 @@ def extract_forcefield_or_model_and_version(
         return None
 
 
-def extract_molecules(
-    dataset_metadata: dict, dataset_id: str, logger: "loguru.Logger" = loguru.logger
-) -> list[Molecule] | None:
+def fetch_uniprot_protein_name(
+    client,
+    uniprot_id: str,
+    logger: "loguru.Logger",
+) -> str | None:
     """
-    Extract molecule names and types from the nested dataset dictionary.
+    Retrieve protein name from UniProt API.
 
     Parameters
     ----------
-    dataset_metadata: dict
-        The dataset dictionnary from which to extract molecules information.
+    client
+        HTTP client used to perform the request.
+    uniprot_id: str
+        UniProt accession identifier.
+    logger: loguru.Logger
+        Logger instance.
+
+    Returns
+    -------
+    str | None
+        Protein full name if available, None otherwise.
+    """
+    logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
+    try:
+        response = make_http_request_with_retries(
+            client,
+            f"https://rest.uniprot.org/uniprotkb/{uniprot_id}",
+            method=HttpMethod.GET,
+            timeout=30,
+            delay_before_request=0.1,
+        )
+        data: dict = response.json()
+        protein_name = (
+            data.get("proteinDescription", {})
+            .get("recommendedName", {})
+            .get("fullName", {})
+            .get("value")
+        )
+        if protein_name:
+            logger.success(
+                f"Retrieved protein name for UniProt ID {uniprot_id}: {protein_name}"
+            )
+            return protein_name
+        return f"Protein {uniprot_id}"  # Fallback to a generic name if not found
+
+    except (AttributeError, TypeError) as exc:
+        logger.warning(f"Invalid UniProt response for {uniprot_id}: {exc}")
+        return None
+
+
+def extract_proteins(
+    pdb_ids: list[ExternalIdentifier],
+    references: list[str],
+    prot_seqs: list[str],
+    prot_atoms: int,
+    prot_count: int,
+    client: "httpx.Client",
+    dataset_id: str,
+    logger: "loguru.Logger",
+) -> list[Molecule]:
+    """Extract proteins from dataset metadata.
+
+    Parameters
+    ----------
+    pdb_ids: list[ExternalIdentifier]
+        List of PDB identifiers to associate with the proteins.
+    references: list[str]
+        List of reference identifiers (e.g., UniProt accessions)
+        to associate with the proteins.
+    prot_seqs: list[str]
+        List of protein sequences.
+    prot_atoms: int
+        Total number of atoms in the protein.
+    prot_count: int
+        Total number of protein molecules in the system.
+    client: httpx.Client
+        The HTTP client used for making requests.
     dataset_id: str
-        Identifier of the dataset, used for logging.
-    logger: "loguru.Logger"
+        The ID of the dataset being processed, used for logging.
+    logger: loguru.Logger
         Logger for logging messages.
 
     Returns
     -------
-    list[Molecule] | None
-        A list of molecules instances with `name` and `type` fields,
-        None otherwise.
+    list[Molecule]
+        A list of extracted proteins.
     """
     molecules = []
-    try:
-        prot_seqs = dataset_metadata.get("PROTSEQ") or []
-        nucl_seqs = dataset_metadata.get("NUCLSEQ") or []
-        ligands = dataset_metadata.get("LIGANDS") or []
+    for i, seq in enumerate(prot_seqs):
+        try:
+            external_ids = list(pdb_ids)
+            uniprot_id = references[i] if i < len(references) else None
+            if uniprot_id:
+                external_ids.append(
+                    ExternalIdentifier(
+                        database_name=ExternalDatabaseName.UNIPROT,
+                        identifier=uniprot_id,
+                    )
+                )
+            prot_name = (
+                fetch_uniprot_protein_name(client, uniprot_id, logger)
+                if uniprot_id
+                else f"Protein {i + 1}"
+            )
+            molecules.append(
+                Molecule(
+                    name=prot_name,
+                    type=MoleculeType.PROTEIN,
+                    sequence=seq,
+                    number_of_atoms=prot_atoms if len(prot_seqs) == 1 else None,
+                    number_of_this_molecule_type_in_system=prot_count,
+                    external_identifiers=external_ids,
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                f"Skipping protein {i + 1} in dataset {dataset_id} due to {type(exc).__name__}: {exc}"
+            )
+    return molecules
 
-        for seq in prot_seqs:
-            molecules.append(Molecule(name=seq, type=MoleculeType.PROTEIN))
 
-        for seq in nucl_seqs:
-            molecules.append(Molecule(name=seq, type=MoleculeType.NUCLEIC_ACID))
+def extract_nucleic_acids(
+    pdb_ids: list[ExternalIdentifier],
+    nucl_seqs: list[str],
+    nucl_atoms: list[int],
+    dataset_id: str,
+    logger: "loguru.Logger",
+) -> list[Molecule]:
+    """Extract nucleic acids from dataset metadata.
 
-        for ligand in ligands:
-            molecules.append(Molecule(name=ligand))
+    Parameters
+    ----------
+    pdb_ids: list[ExternalIdentifier]
+        List of PDB identifiers to associate with the nucleic acids.
+    nucl_seqs: list[str]
+        List of nucleic acid sequences.
+    nucl_atoms: list[int]
+        List of atom counts for the nucleic acids.
+    dataset_id: str
+        The ID of the dataset being processed, used for logging.
+    logger: loguru.Logger
+        Logger for logging messages.
 
-        if not molecules:
-            logger.warning(f"No molecules found in dataset {dataset_id}.")
-            return None
-        return molecules
+    Returns
+    -------
+    list[Molecule]
+        A list of extracted nucleic acids.
+    """
+    molecules = []
+    for i, seq in enumerate(nucl_seqs):
+        try:
+            molecules.append(
+                Molecule(
+                    name=f"Nucleic Acid {i + 1}",
+                    type=MoleculeType.NUCLEIC_ACID,
+                    sequence=seq,
+                    number_of_atoms=nucl_atoms if len(nucl_seqs) == 1 else None,
+                    external_identifiers=pdb_ids,
+                )
+            )
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                f"Skipping nucleic acid {i + 1} in dataset {dataset_id} "
+                f"due to {type(exc).__name__}: {exc}"
+            )
+    return molecules
 
-    except (ValueError, KeyError) as e:
-        logger.warning(f"Error parsing molecules info for dataset {dataset_id}: {e}")
+
+def extract_small_molecules(
+    dataset_metadata: dict,
+    dataset_id: str,
+    logger: "loguru.Logger",
+) -> list[Molecule]:
+    """Extract small molecules (lipids, solvents, ions) from dataset metadata.
+
+    Parameters
+    ----------
+    dataset_metadata: dict
+        The dataset metadata containing information about the molecules.
+    dataset_id: str
+        The ID of the dataset being processed, used for logging.
+    logger: loguru.Logger
+        Logger for logging messages.
+
+    Returns
+    -------
+    list[Molecule]
+        A list of extracted small molecules.
+    """
+    molecules = []
+    species_type_map = {
+        "DPPC": MoleculeType.LIPID,
+        "SOL": MoleculeType.SOLVENT,
+        "NA": MoleculeType.ION,
+        "CL": MoleculeType.ION,
+    }
+    for species, mol_type in species_type_map.items():
+        try:
+            count = dataset_metadata.get(species, 0)
+            if isinstance(count, int) and count > 0:
+                molecules.append(
+                    Molecule(
+                        name=species,
+                        type=mol_type,
+                        number_of_this_molecule_type_in_system=count,
+                    )
+                )
+        except (TypeError, ValueError) as exc:
+            logger.warning(
+                f"Skipping small molecule {species} in dataset {dataset_id} "
+                f"due to {type(exc).__name__}: {exc}"
+            )
+    return molecules
+
+
+def extract_molecules(
+    dataset_metadata: dict,
+    dataset_id: str,
+    client: "httpx.Client",
+    logger: "loguru.Logger" = loguru.logger,
+) -> list[Molecule] | None:
+    """Coordinator function to extract all molecule types from dataset metadata.
+
+    Parameters
+    ----------
+    dataset_metadata: dict
+        The dataset metadata containing information about the molecules.
+    dataset_id: str
+        The ID of the dataset being processed.
+    client: httpx.Client
+        The HTTP client used for making requests.
+    logger: loguru.Logger
+        The logger used for logging messages.
+
+    Returns
+    -------
+    list[Molecule] | None
+        A list of extracted molecules or None if no molecules were found.
+    """
+    molecules: list[Molecule] = []
+
+    # Normalize common fields
+    pdbs = dataset_metadata.get("PDBIDS") or []
+    references = dataset_metadata.get("REFERENCES") or []
+    prot_seqs = dataset_metadata.get("PROTSEQ") or []
+    prot_atoms = dataset_metadata.get("PROTATS") or []
+    prot_count = dataset_metadata.get("PROT", 0)
+    nucl_seqs = dataset_metadata.get("NUCLSEQ") or []
+    nucl_atoms = (dataset_metadata.get("DNAATS") or []) + (
+        dataset_metadata.get("RNAATS") or []
+    )
+
+    # Pre-create PDB identifiers
+    pdb_ids = [
+        ExternalIdentifier(database_name=ExternalDatabaseName.PDB, identifier=pdb_id)
+        for pdb_id in pdbs
+    ]
+
+    # Extract proteins first
+    molecules.extend(
+        extract_proteins(
+            pdb_ids,
+            references,
+            prot_seqs,
+            prot_atoms,
+            prot_count,
+            client,
+            dataset_id,
+            logger,
+        )
+    )
+    # Then extract nucleic acids
+    molecules.extend(
+        extract_nucleic_acids(pdb_ids, nucl_seqs, nucl_atoms, dataset_id, logger)
+    )
+    # Finally extract small molecules like lipids, solvents and ions.
+    molecules.extend(extract_small_molecules(dataset_metadata, dataset_id, logger))
+
+    if not molecules:
+        logger.warning(f"No molecules found in dataset {dataset_id}.")
         return None
+
+    return molecules
 
 
 def extract_datasets_metadata(
     datasets: list[dict[str, Any]],
     node_name: DatasetSourceName,
+    client: "httpx.Client",
     logger: "loguru.Logger" = loguru.logger,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Extract relevant metadata from raw MDposit datasets metadata.
 
@@ -271,7 +511,7 @@ def extract_datasets_metadata(
 
     Returns
     -------
-    list[dict]
+    list[dict[str, Any]]
         List of dataset metadata dictionaries.
     """
     datasets_metadata = []
@@ -312,15 +552,17 @@ def extract_datasets_metadata(
         }
         # Extract simulation metadata if available.
         # Software names with their versions.
-        metadata["software"] = extract_software_and_version(
+        metadata["softwares"] = extract_software_and_version(
             dataset_metadata, dataset_id, logger
         )
         # Forcefield and model names with their versions.
-        metadata["forcefields"] = extract_forcefield_or_model_and_version(
+        metadata["forcefields_models"] = extract_forcefield_or_model_and_version(
             dataset_metadata, dataset_id, logger
         )
         # Molecules with their nb of atoms and number total of atoms.
-        metadata["molecules"] = extract_molecules(dataset_metadata, dataset_id, logger)
+        metadata["molecules"] = extract_molecules(
+            dataset_metadata, dataset_id, client, logger
+        )
         # Time step in fs.
         time_step = dataset_metadata.get("TIMESTEP")
         metadata["simulation_timesteps_in_fs"] = [time_step] if time_step else None
@@ -454,7 +696,6 @@ def extract_files_metadata(
     for mdposit_file in raw_metadata:
         dataset_id = dataset.dataset_id_in_repository
         file_name = Path(mdposit_file.get("filename"))
-        file_type = file_name.suffix.lstrip(".")
         node_base_url_for_file = node_base_url.replace("/v1", "")
         file_path_url = (
             f"{node_base_url_for_file}/current/projects/{dataset_id}/files/{file_name}"
@@ -465,7 +706,6 @@ def extract_files_metadata(
             "dataset_id_in_repository": dataset_id,
             "dataset_url_in_repository": dataset.dataset_url_in_repository,
             "file_name": str(file_name),
-            "file_type": file_type,
             "file_size_in_bytes": mdposit_file.get("length", None),
             "file_md5": mdposit_file.get("md5", None),
             "file_url_in_repository": file_path_url,
@@ -537,7 +777,7 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
 
         # Select datasets metadata
         datasets_selected_metadata = extract_datasets_metadata(
-            datasets_raw_metadata, data_source_name, logger=logger
+            datasets_raw_metadata, data_source_name, client, logger=logger
         )
         # Validate datasets metadata with the DatasetMetadata Pydantic model.
         datasets_normalized_metadata = normalize_datasets_metadata(
