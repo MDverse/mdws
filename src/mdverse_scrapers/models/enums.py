@@ -20,6 +20,9 @@ class DatasetSourceName(StrEnum):
     ATLAS = "atlas"
     GPCRMD = "gpcrmd"
     NMRLIPIDS = "nmrlipids"
+    MDDB = "mddb"
+    MDPOSIT_INRIA_NODE = "mdposit_inria_node"
+    MDPOSIT_MMB_NODE = "mdposit_mmb_node"
 
 
 class ExternalDatabaseName(StrEnum):
@@ -27,9 +30,6 @@ class ExternalDatabaseName(StrEnum):
 
     PDB = "pdb"
     UNIPROT = "uniprot"
-    MDDB = "mddb"
-    MDPOSIT_INRIA_NODE = "mdposit_inria_node"
-    MDPOSIT_MMB_NODE = "mdposit_mmb_node"
 
 
 class MoleculeType(StrEnum):
