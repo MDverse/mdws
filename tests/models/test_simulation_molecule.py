@@ -36,10 +36,10 @@ def test_invalid_number_of_atoms():
         Molecule(name="H2O", number_of_atoms=-10, formula="H2O")
 
 
-def test_invalid_number_of_this_molecule_type_in_system():
-    """Test that number_of_this_molecule_type_in_system cannot be negative."""
+def test_invalid_number_of_molecules():
+    """Test that number_of_molecules cannot be negative."""
     with pytest.raises(ValidationError):
-        Molecule(name="H2O", number_of_this_molecule_type_in_system=-10, formula="H2O")
+        Molecule(name="H2O", number_of_molecules=-10, formula="H2O")
 
 
 # -------------------------------------------------------------------
@@ -89,6 +89,27 @@ def test_invalid_database_name_in_external_identifiers():
             database_name=ExternalDatabaseName.DUMMY,  # type: ignore
             identifier="1ABC",
         )
+
+
+@pytest.mark.parametrize(
+    ("database_name", "identifier", "expected_identifier"),
+    [
+        (ExternalDatabaseName.PDB, 1234, "1234"),
+        (ExternalDatabaseName.UNIPROT, 123456, "123456"),
+    ],
+)
+def test_external_identifier_coerces_int_to_str(
+    database_name,
+    identifier,
+    expected_identifier,
+):
+    """Test that integer identifiers are coerced to strings."""
+    ext_id = ExternalIdentifier(
+        database_name=database_name,
+        identifier=identifier,
+    )
+
+    assert ext_id.identifier == expected_identifier
 
 
 def test_compute_url_in_external_identifier():

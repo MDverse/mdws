@@ -66,7 +66,7 @@ def test_structured_fields_creation():
                 name="H2O",
                 number_of_atoms=3,
                 formula="H2O",
-                number_of_this_molecule_type_in_system=100,
+                number_of_molecules=100,
                 sequence="PEPTIDE",
                 external_identifiers=[
                     ExternalIdentifier(
@@ -79,7 +79,7 @@ def test_structured_fields_creation():
     )
     assert metadata.softwares[0].name == "GROMACS"
     assert metadata.molecules[0].number_of_atoms == 3
-    assert metadata.molecules[0].number_of_this_molecule_type_in_system == 100
+    assert metadata.molecules[0].number_of_molecules == 100
     assert metadata.forcefields_models[0].version == "ff14SB"
     assert metadata.molecules[0].sequence == "PEPTIDE"
     assert (
