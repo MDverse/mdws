@@ -510,7 +510,7 @@ def extract_datasets_metadata(
     datasets_metadata = []
     for dataset in datasets:
         # Get the dataset id
-        dataset_id = dataset.get("accession")
+        dataset_id = str(dataset.get("accession"))
         logger.info(f"Extracting relevant metadata for dataset: {dataset_id}")
         # Create the dataset url depending on the node
         if node_name is DatasetSourceName.MDPOSIT_MMB_NODE:
@@ -545,7 +545,7 @@ def extract_datasets_metadata(
         }
         # Extract simulation metadata if available.
         # Software names with their versions.
-        metadata["softwares"] = extract_software_and_version(
+        metadata["software"] = extract_software_and_version(
             dataset_metadata, dataset_id, logger
         )
         # Forcefield and model names with their versions.

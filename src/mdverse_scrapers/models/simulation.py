@@ -140,7 +140,7 @@ class SimulationMetadata(BaseModel):
     # Ensure scraped metadata matches the expected schema exactly.
     model_config = ConfigDict(extra="forbid")
 
-    softwares: list[Software] | None = Field(
+    software: list[Software] | None = Field(
         None,
         description="List of molecular dynamics tool or software.",
     )

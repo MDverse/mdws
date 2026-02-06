@@ -60,7 +60,7 @@ def test_temperature_normalization(test_temp, expected_temp_in_kelvin):
 def test_structured_fields_creation():
     """Test that software, molecules, and forcefields can be created."""
     metadata = SimulationMetadata(
-        softwares=[Software(name="GROMACS", version="2023.1")],
+        software=[Software(name="GROMACS", version="2023.1")],
         molecules=[
             Molecule(
                 name="H2O",
@@ -77,7 +77,7 @@ def test_structured_fields_creation():
         ],
         forcefields_models=[ForceFieldModel(name="AMBER", version="ff14SB")],
     )
-    assert metadata.softwares[0].name == "GROMACS"
+    assert metadata.software[0].name == "GROMACS"
     assert metadata.molecules[0].number_of_atoms == 3
     assert metadata.molecules[0].number_of_molecules == 100
     assert metadata.forcefields_models[0].version == "ff14SB"
