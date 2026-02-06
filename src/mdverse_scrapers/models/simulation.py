@@ -82,7 +82,7 @@ class Molecule(BaseModel):
         "Allowed values in the MoleculeType enum. "
         "Examples: PROTEIN, ION, LIPID...",
     )
-    number_of_this_molecule_type_in_system: int | None = Field(
+    number_of_molecules: int | None = Field(
         None,
         ge=0,
         description="Number of molecules of this type in the simulation.",
