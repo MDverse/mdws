@@ -8,7 +8,6 @@ two nodes:
 - MDPOSIT INRIA node https://dynarepo.inria.fr/#/
 """
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
@@ -82,56 +81,57 @@ def scrape_all_datasets(
 
     # Start by requesting the first page to get total number of datasets.
     logger.info("Requesting first page to get total number of datasets...")
-    page = 0  # start with first page
+    params = {"limit": 10, "page": 1}
+    response = make_http_request_with_retries(
+        client,
+        query_entry_point,
+        method=HttpMethod.GET,
+        params=params,
+        timeout=60,
+        delay_before_request=0.2,
+    )
+    if not response:
+        logger.error("Failed to fetch data from MDposit API.")
+        return all_datasets
+    total_datasets = int(response.json().get("filteredCount", 0))
+    logger.success(f"Found a total of {total_datasets:,} datasets in {node_name}.")
+    # Compute total number of pages to scrape based on total datasets and page size.
+    page_total = total_datasets // page_size
+    if total_datasets % page_size != 0:
+        page_total += 1
 
-    while True:
+    for page in range(1, page_total + 1):
+        params = {"limit": page_size, "page": page}
         response = make_http_request_with_retries(
             client,
-            f"{query_entry_point}?limit={page_size}&page={page}",
+            query_entry_point,
             method=HttpMethod.GET,
+            params=params,
             timeout=60,
             delay_before_request=0.2,
         )
-
         if not response:
             logger.error("Failed to fetch data from MDposit API.")
             logger.error("Jumping to next iteration.")
-            page += 1
             continue
 
-        try:
-            response_json = response.json()
-            datasets = response_json.get("projects", [])
-            total_datasets = response_json.get("filteredCount")
+        response_json = response.json()
+        datasets = response_json.get("projects", [])
+        all_datasets.extend(datasets)
 
-            if page == 0 and total_datasets is not None:
-                logger.info(f"Found a total of {total_datasets:,} datasets in MDposit.")
+        logger.info(f"Scraped page {page}/{page_total} with {len(datasets)} datasets.")
+        if total_datasets:
+            logger.info(
+                f"Scraped {len(all_datasets)} datasets "
+                f"({len(all_datasets):,}/{total_datasets:,} "
+                f":{len(all_datasets) / total_datasets:.0%})"
+            )
+        logger.debug("First dataset metadata on this page:")
+        logger.debug(datasets[0] if datasets else "No datasets on this page")
 
-            if not datasets:
-                logger.info("No more datasets returned by API. Stopping pagination.")
-                break
-
-            all_datasets.extend(datasets)
-
-            logger.info(f"Scraped page {page} with {len(datasets)} datasets.")
-            if total_datasets:
-                logger.info(
-                    f"Scraped {len(all_datasets)} datasets "
-                    f"({len(all_datasets):,}/{total_datasets:,} "
-                    f"{len(all_datasets) / total_datasets:.0%})"
-                )
-            logger.debug("First dataset metadata on this page:")
-            logger.debug(datasets[0] if datasets else "No datasets on this page")
-
-            if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 120:
-                logger.warning("Debug mode is ON: stopping after 120 datasets.")
-                return all_datasets
-
-        except (json.decoder.JSONDecodeError, ValueError) as exc:
-            logger.error(f"Error while parsing MDposit response: {exc}")
-            logger.error("Jumping to next iteration.")
-
-        page += 1  # increment page for next iteration
+        if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 100:
+            logger.warning("Debug mode is ON: stopping after 100 datasets.")
+            return all_datasets
 
     logger.success(f"Scraped {len(all_datasets):,} datasets in MDposit.")
     return all_datasets
@@ -207,53 +207,56 @@ def extract_forcefield_or_model_and_version(
 
 
 def fetch_uniprot_protein_name(
-    client,
+    client: httpx.Client,
     uniprot_id: str,
-    logger: "loguru.Logger",
-) -> str | None:
+    logger: "loguru.Logger" = loguru.logger,
+) -> str:
     """
     Retrieve protein name from UniProt API.
 
     Parameters
     ----------
-    client
+    client: httpx.Client
         HTTP client used to perform the request.
     uniprot_id: str
         UniProt accession identifier.
-    logger: loguru.Logger
-        Logger instance.
+    logger: "loguru.Logger"
+        Logger for logging messages.
 
     Returns
     -------
-    str | None
+    str
         Protein full name if available, None otherwise.
     """
     logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
-    try:
-        response = make_http_request_with_retries(
-            client,
-            f"https://rest.uniprot.org/uniprotkb/{uniprot_id}",
-            method=HttpMethod.GET,
-            timeout=30,
-            delay_before_request=0.1,
+    if uniprot_id == "noref":
+        logger.warning("UniProt ID is 'noref', cannot fetch protein name.")
+        return "Unknow protein"
+    # Defaut value for protein name:
+    default_protein_name = f"Protein {uniprot_id}"
+    response = make_http_request_with_retries(
+        client,
+        f"https://rest.uniprot.org/uniprotkb/{uniprot_id}",
+        method=HttpMethod.GET,
+        timeout=30,
+        delay_before_request=0.1,
+    )
+    if not response:
+        logger.error(f"Failed to fetch data from UniProt API for ID {uniprot_id}.")
+        return default_protein_name
+    protein_name = (
+        response.json()
+        .get("proteinDescription", {})
+        .get("recommendedName", {})
+        .get("fullName", {})
+        .get("value")
+    )
+    if protein_name:
+        logger.success(
+            f"Retrieved protein name for UniProt ID {uniprot_id}: {protein_name}"
         )
-        data: dict = response.json()
-        protein_name = (
-            data.get("proteinDescription", {})
-            .get("recommendedName", {})
-            .get("fullName", {})
-            .get("value")
-        )
-        if protein_name:
-            logger.success(
-                f"Retrieved protein name for UniProt ID {uniprot_id}: {protein_name}"
-            )
-            return protein_name
-        return f"Protein {uniprot_id}"  # Fallback to a generic name if not found
-
-    except (AttributeError, TypeError) as exc:
-        logger.warning(f"Invalid UniProt response for {uniprot_id}: {exc}")
-        return None
+        return protein_name
+    return default_protein_name
 
 
 def extract_proteins(
@@ -261,9 +264,9 @@ def extract_proteins(
     references: list[str],
     prot_seqs: list[str],
     prot_atoms: int | None,
-    client: "httpx.Client",
+    client: httpx.Client,
     dataset_id: str,
-    logger: "loguru.Logger",
+    logger: "loguru.Logger" = loguru.logger,
 ) -> list[Molecule]:
     """Extract proteins from dataset metadata.
 
@@ -291,10 +294,11 @@ def extract_proteins(
         A list of extracted proteins.
     """
     molecules = []
-    for i, seq in enumerate(prot_seqs):
+    for counter, seq in enumerate(prot_seqs):
+        external_ids = list(pdb_ids)
+        prot_name = f"Protein {counter + 1}"
         try:
-            external_ids = list(pdb_ids)
-            uniprot_id = references[i] if i < len(references) else None
+            uniprot_id = references[counter] if counter < len(references) else None
             if uniprot_id:
                 external_ids.append(
                     ExternalIdentifier(
@@ -302,25 +306,23 @@ def extract_proteins(
                         identifier=uniprot_id,
                     )
                 )
-            prot_name = (
-                fetch_uniprot_protein_name(client, uniprot_id, logger)
-                if uniprot_id
-                else f"Protein {i + 1}"
-            )
-            molecules.append(
-                Molecule(
-                    name=prot_name,
-                    type=MoleculeType.PROTEIN,
-                    sequence=seq,
-                    number_of_atoms=prot_atoms if len(prot_seqs) == 1 else None,
-                    external_identifiers=external_ids,
+                prot_name = fetch_uniprot_protein_name(
+                    client, uniprot_id, logger=logger
                 )
-            )
         except (TypeError, ValueError) as exc:
             logger.warning(
-                f"Skipping protein {i + 1} in dataset {dataset_id} due to "
+                f"Skipping protein {counter + 1} in dataset {dataset_id} due to "
                 f"{type(exc).__name__}: {exc}"
             )
+        molecules.append(
+            Molecule(
+                name=prot_name,
+                type=MoleculeType.PROTEIN,
+                sequence=seq,
+                number_of_atoms=prot_atoms if len(prot_seqs) == 1 else None,
+                external_identifiers=external_ids,
+            )
+        )
     return molecules
 
 
@@ -421,7 +423,7 @@ def extract_small_molecules(
 def extract_molecules(
     dataset_metadata: dict,
     dataset_id: str,
-    client: "httpx.Client",
+    client: httpx.Client,
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[Molecule] | None:
     """Coordinator function to extract all molecule types from dataset metadata.
@@ -435,7 +437,7 @@ def extract_molecules(
     client: httpx.Client
         The HTTP client used for making requests.
     logger: loguru.Logger
-        The logger used for logging messages.
+        Logger for logging messages.
 
     Returns
     -------
@@ -467,7 +469,7 @@ def extract_molecules(
             prot_atoms,
             client,
             dataset_id,
-            logger,
+            logger=logger,
         )
     )
     # Then extract nucleic acids
@@ -511,7 +513,7 @@ def extract_datasets_metadata(
     for dataset in datasets:
         # Get the dataset id
         dataset_id = str(dataset.get("accession"))
-        logger.info(f"Extracting relevant metadata for dataset: {dataset_id}")
+        logger.info(f"Extracting metadata for dataset: {dataset_id}")
         # Create the dataset url depending on the node
         if node_name is DatasetSourceName.MDPOSIT_MMB_NODE:
             dataset_url = f"https://mmb-dev.mddbr.eu/#/id/{dataset_id}/overview"
@@ -565,7 +567,11 @@ def extract_datasets_metadata(
             [temperature] if temperature else None
         )
         datasets_metadata.append(metadata)
-    logger.info(f"Extracted metadata for {len(datasets_metadata)} datasets.")
+        logger.info(
+            f"Scraped metadata for {len(datasets_metadata)} datasets "
+            f"({len(datasets_metadata):,}/{len(datasets):,}"
+            f":{len(datasets_metadata) / len(datasets):.0%})"
+        )
     return datasets_metadata
 
 
@@ -782,6 +788,9 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
             datasets_normalized_metadata,
             logger=logger,
         )
+        # Output first dataset metadata for debugging purposes.
+        logger.debug("First dataset metadata:")
+        logger.debug(datasets_normalized_metadata[0])
         # Scrape MDDB files metadata.
         files_metadata = scrape_files_for_all_datasets(
             client,
@@ -799,6 +808,9 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
             files_normalized_metadata,
             logger=logger,
         )
+        # Output first file metadata for debugging purposes.
+        logger.debug("First file metadata:")
+        logger.debug(files_normalized_metadata[0])
         # Print scraping statistics.
         print_statistics(scraper, logger=logger)
 
