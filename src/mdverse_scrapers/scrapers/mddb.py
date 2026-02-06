@@ -146,7 +146,7 @@ def extract_software_and_version(
     Parameters
     ----------
     dataset_metadata: dict
-        The dataset dictionnary from which to extract molecules information.
+        The dataset dictionary from which to extract molecules information.
     dataset_id: str
         Identifier of the dataset, used for logging.
     logger: "loguru.Logger"
@@ -177,7 +177,7 @@ def extract_forcefield_or_model_and_version(
     Parameters
     ----------
     dataset_metadata: dict
-        The dataset dictionnary from which to extract molecules information.
+        The dataset dictionary from which to extract molecules information.
     dataset_id: str
         Identifier of the dataset entry, used for logging.
     logger: "loguru.Logger"
@@ -194,7 +194,7 @@ def extract_forcefield_or_model_and_version(
         # Adding
         ffm_names.extend(dataset_metadata.get("FF") or [])
         # Adding the water model.
-        # Exemple: TIP3P.
+        # Example: TIP3P.
         water_model = dataset_metadata.get("WAT")
         if water_model:
             ffm_names.append(water_model)
@@ -260,8 +260,7 @@ def extract_proteins(
     pdb_ids: list[ExternalIdentifier],
     references: list[str],
     prot_seqs: list[str],
-    prot_atoms: int,
-    prot_count: int,
+    prot_atoms: int | None,
     client: "httpx.Client",
     dataset_id: str,
     logger: "loguru.Logger",
@@ -277,10 +276,8 @@ def extract_proteins(
         to associate with the proteins.
     prot_seqs: list[str]
         List of protein sequences.
-    prot_atoms: int
+    prot_atoms: int | None
         Total number of atoms in the protein.
-    prot_count: int
-        Total number of protein molecules in the system.
     client: httpx.Client
         The HTTP client used for making requests.
     dataset_id: str
@@ -316,13 +313,13 @@ def extract_proteins(
                     type=MoleculeType.PROTEIN,
                     sequence=seq,
                     number_of_atoms=prot_atoms if len(prot_seqs) == 1 else None,
-                    number_of_this_molecule_type_in_system=prot_count,
                     external_identifiers=external_ids,
                 )
             )
         except (TypeError, ValueError) as exc:
             logger.warning(
-                f"Skipping protein {i + 1} in dataset {dataset_id} due to {type(exc).__name__}: {exc}"
+                f"Skipping protein {i + 1} in dataset {dataset_id} due to "
+                f"{type(exc).__name__}: {exc}"
             )
     return molecules
 
@@ -330,7 +327,7 @@ def extract_proteins(
 def extract_nucleic_acids(
     pdb_ids: list[ExternalIdentifier],
     nucl_seqs: list[str],
-    nucl_atoms: list[int],
+    nucl_atoms: int | None,
     dataset_id: str,
     logger: "loguru.Logger",
 ) -> list[Molecule]:
@@ -342,8 +339,8 @@ def extract_nucleic_acids(
         List of PDB identifiers to associate with the nucleic acids.
     nucl_seqs: list[str]
         List of nucleic acid sequences.
-    nucl_atoms: list[int]
-        List of atom counts for the nucleic acids.
+    nucl_atoms: int
+        Total number of atoms in the nucleic acids.
     dataset_id: str
         The ID of the dataset being processed, used for logging.
     logger: loguru.Logger
@@ -410,7 +407,7 @@ def extract_small_molecules(
                     Molecule(
                         name=species,
                         type=mol_type,
-                        number_of_this_molecule_type_in_system=count,
+                        number_of_molecules=count,
                     )
                 )
         except (TypeError, ValueError) as exc:
@@ -451,12 +448,9 @@ def extract_molecules(
     pdbs = dataset_metadata.get("PDBIDS") or []
     references = dataset_metadata.get("REFERENCES") or []
     prot_seqs = dataset_metadata.get("PROTSEQ") or []
-    prot_atoms = dataset_metadata.get("PROTATS") or []
-    prot_count = dataset_metadata.get("PROT", 0)
+    prot_atoms = dataset_metadata.get("PROTATS")
     nucl_seqs = dataset_metadata.get("NUCLSEQ") or []
-    nucl_atoms = (dataset_metadata.get("DNAATS") or []) + (
-        dataset_metadata.get("RNAATS") or []
-    )
+    nucl_atoms = dataset_metadata.get("DNAATS", 0) + (dataset_metadata.get("RNAATS", 0))
 
     # Pre-create PDB identifiers
     pdb_ids = [
@@ -471,7 +465,6 @@ def extract_molecules(
             references,
             prot_seqs,
             prot_atoms,
-            prot_count,
             client,
             dataset_id,
             logger,
@@ -789,14 +782,14 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
             datasets_normalized_metadata,
             logger=logger,
         )
-        # Scrape NOMAD files metadata.
+        # Scrape MDDB files metadata.
         files_metadata = scrape_files_for_all_datasets(
             client,
             datasets_normalized_metadata,
             base_url,
             logger=logger,
         )
-        # Validate NOMAD files metadata with the FileMetadata Pydantic model.
+        # Validate MDDB files metadata with the FileMetadata Pydantic model.
         files_normalized_metadata = normalize_files_metadata(
             files_metadata, logger=logger
         )
