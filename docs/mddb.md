@@ -25,10 +25,10 @@ No account / token is needed to access the MDposit API.
 
 ### Datasets
 
-In MDposit, a dataset (a simulation and its related files) is called an "[project](https://mmb.mddbr.eu/api/rest/docs/#/projects/get_projects_summary)" and a project can contains multiple replicas, each identified by `project_id`.`replica_id`.
+In MDposit, a dataset (a simulation and its related files) is called an "[project](https://mmb.mddbr.eu/api/rest/docs/#/projects/get_projects_summary)" and a project can contain multiple replicas, each identified by `project_id`.`replica_id`.
 
 
-For exemple, the project [A026F](https://mmb.mddbr.eu/#/id/A026F/overview) contains four replicas:
+For example, the project [A026F](https://mmb.mddbr.eu/#/id/A026F/overview) contains four replicas:
   - `A026F.1`: https://mmb.mddbr.eu/#/id/A026F.1/overview
   - `A026F.2`: https://mmb.mddbr.eu/#/id/A026F.2/overview
   - `A026F.3`: https://mmb.mddbr.eu/#/id/A026F.3/overview
