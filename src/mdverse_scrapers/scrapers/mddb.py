@@ -606,14 +606,14 @@ def extract_datasets_metadata(
             )
         elif (
             (node_name_full == DatasetSourceName.MDPOSIT_INRIA_NODE)
-            or (node_name_full == "inr")  # For compatibility with error in database
+            or (node_name == "inr")  # For compatibility with error in database
         ):
             dataset_repository_name = DatasetSourceName.MDPOSIT_INRIA_NODE
             dataset_id_in_repository = str(dataset.get("local"))
             dataset_url_in_repository = (
                 f"https://dynarepo.inria.fr/#/id/{dataset_id_in_repository}/overview"
             )
-            if node_name_full == "inr":
+            if node_name == "inr":
                 logger.warning(
                     f"Dataset {dataset_id} is associated with node 'inr', "
                     "which seems to be an error in the database"
@@ -718,6 +718,7 @@ def scrape_files_for_all_datasets(
     """
     all_files_metadata = []
     for dataset_count, dataset in enumerate(datasets_metadata, start=1):
+        logger.info("-" * 50)
         dataset_id = dataset.dataset_id_in_project
         for replica_id, replica_name in enumerate(
             datasets_replicas.get(dataset_id, []), start=1
@@ -752,8 +753,8 @@ def scrape_files_for_all_datasets(
             )
             all_files_metadata += files_metadata
             # Normalize files metadata with pydantic model (FileMetadata)
-            logger.info(f"Total files found: {len(all_files_metadata):,}")
-        logger.info(
+            logger.success(f"Total number of files found: {len(all_files_metadata):,}")
+        logger.success(
             "Extracted files metadata for "
             f"{dataset_count:,}/{len(datasets_metadata):,} "
             f"({dataset_count / len(datasets_metadata):.0%}) datasets"
