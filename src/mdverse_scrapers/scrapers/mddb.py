@@ -132,6 +132,9 @@ def extract_software_and_version(
     """
     Extract software names and versions from the nested dataset dictionary.
 
+    Example of dataset with no software:
+    https://mdposit.mddbr.eu/api/rest/v1/projects/MD-A001R9
+
     Parameters
     ----------
     dataset_metadata: dict
@@ -146,12 +149,12 @@ def extract_software_and_version(
     list[Software] | None
         A list of Software instances with `name` and `version` fields, None otherwise.
     """
-    name = dataset_metadata.get("PROGRAM", "").strip()
+    name = dataset_metadata.get("PROGRAM")
     version = dataset_metadata.get("VERSION")
     if not name:
         logger.warning(f"No software found for dataset {dataset_id}.")
         return None
-    return [Software(name=name, version=version)]
+    return [Software(name=name.strip(), version=version)]
 
 
 def extract_forcefield_or_model_and_version(
@@ -481,6 +484,8 @@ def extract_molecules(
         )
         pdb_identifiers.append(external)
     # Add UniProt identifiers and protein sequence.
+    # Example with no PDBIDS, no PROTSEQ and no REFERENCES:
+    # https://mdposit.mddbr.eu/api/rest/v1/projects/MD-A001M3
     proteins = extract_proteins(
         pdb_identifiers,
         dataset_metadata.get("REFERENCES", []),
@@ -491,7 +496,8 @@ def extract_molecules(
     )
     if proteins:
         molecules.extend(proteins)
-    # Add nucleic acids
+    # Add nucleic acids.
+    # See for instance: https://mdposit.mddbr.eu/api/rest/v1/projects/MD-A001M3
     nucleic_acids = extract_nucleic_acids(
         pdb_identifiers, dataset_metadata.get("NUCLSEQ", []), dataset_id, logger=logger
     )
