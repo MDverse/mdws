@@ -196,7 +196,7 @@ def extract_forcefield_or_model_and_version(
             f"in dataset {dataset_id}."
         )
     else:
-        logger.warning(f"No forcefield or model found for dataset {dataset_id}.")
+        logger.warning(f"No forcefield or model found for dataset {dataset_id}")
         return None
     return forcefields_and_models
 
@@ -571,7 +571,7 @@ def extract_datasets_metadata(
         # Extract node name.
         node_name = dataset.get("node", "")
         node_name_full = f"mdposit_{dataset.get('node', '')}_node"
-        # Create the dataset url depending on the node
+        # Create the dataset url depending on the node.
         dataset_repository_name = DatasetSourceName.UNKNOWN
         dataset_id_in_repository = ""
         dataset_url_in_repository = ""
@@ -579,14 +579,25 @@ def extract_datasets_metadata(
             dataset_repository_name = DatasetSourceName.MDPOSIT_MMB_NODE
             dataset_id_in_repository = str(dataset.get("local"))
             dataset_url_in_repository = (
-                f"https://mmb.mddbr.eu/#/id/{dataset_id}/overview"
+                f"https://mmb.mddbr.eu/#/id/{dataset_id_in_repository}/overview"
             )
-        elif node_name_full == DatasetSourceName.MDPOSIT_INRIA_NODE:
+        elif (
+            (node_name_full == DatasetSourceName.MDPOSIT_INRIA_NODE)
+            or (node_name_full == "inr")  # For compatibility with error in database
+        ):
             dataset_repository_name = DatasetSourceName.MDPOSIT_INRIA_NODE
             dataset_id_in_repository = str(dataset.get("local"))
             dataset_url_in_repository = (
-                f"https://dynarepo.inria.fr/#/id/{dataset_id}/overview"
+                f"https://dynarepo.inria.fr/#/id/{dataset_id_in_repository}/overview"
             )
+            if node_name_full == "inr":
+                logger.warning(
+                    f"Dataset {dataset_id} is associated with node 'inr', "
+                    "which seems to be an error in the database"
+                )
+                logger.warning(
+                    f"Using node name '{DatasetSourceName.MDPOSIT_INRIA_NODE}'"
+                )
         else:
             logger.error(f"Unknown MDDB node '{node_name}' for dataset {dataset_id}")
             logger.error("Skipping dataset")
