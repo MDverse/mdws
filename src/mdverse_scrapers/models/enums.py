@@ -13,6 +13,7 @@ class DataType(StrEnum):
 class DatasetSourceName(StrEnum):
     """Molecular dynamics sources: data repositories and projects."""
 
+    UNKNOWN = "unknown"
     ZENODO = "zenodo"
     FIGSHARE = "figshare"
     OSF = "osf"
