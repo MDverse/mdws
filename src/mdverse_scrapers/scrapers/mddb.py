@@ -111,8 +111,8 @@ def scrape_all_datasets(
         logger.info(f"Scraped page {page}/{page_total} with {len(datasets)} datasets.")
         if total_datasets:
             logger.info(
-                f"Scraped {len(all_datasets)} datasets "
-                f"({len(all_datasets):,}/{total_datasets:,} "
+                f"Scraped {len(all_datasets):,} datasets "
+                f"({len(all_datasets):,}/{total_datasets:,}"
                 f":{len(all_datasets) / total_datasets:.0%})"
             )
         logger.debug("First dataset metadata on this page:")
@@ -189,6 +189,15 @@ def extract_forcefield_or_model_and_version(
     water_model = dataset_metadata.get("WAT", "")
     if water_model:
         forcefields_and_models.append(ForceFieldModel(name=water_model.strip()))
+    # Print summary of extracted forcefields and models.
+    if forcefields_and_models:
+        logger.info(
+            f"Found {len(forcefields_and_models)} forcefield(s) or model(s) "
+            f"in dataset {dataset_id}."
+        )
+    else:
+        logger.warning(f"No forcefield or model found for dataset {dataset_id}.")
+        return None
     return forcefields_and_models
 
 
@@ -448,6 +457,17 @@ def extract_small_molecules(
                     number_of_molecules=count,
                 )
             )
+    # Get InChIKey for small molecules if available.
+    inchikeys = dataset_metadata.get("INCHIKEYs")
+    if inchikeys and isinstance(inchikeys, list):
+        for inchikey in inchikeys:
+            molecules.append(
+                Molecule(
+                    name="Small molecule",
+                    type=MoleculeType.SMALL_MOLECULE,
+                    inchikey=inchikey,
+                )
+            )
     return molecules
 
 
@@ -495,6 +515,7 @@ def extract_molecules(
         logger=logger,
     )
     if proteins:
+        logger.info(f"Found {len(proteins)} protein(s)")
         molecules.extend(proteins)
     # Add nucleic acids.
     # See for instance: https://mdposit.mddbr.eu/api/rest/v1/projects/MD-A001M3
@@ -502,13 +523,22 @@ def extract_molecules(
         pdb_identifiers, dataset_metadata.get("NUCLSEQ", []), dataset_id, logger=logger
     )
     if nucleic_acids:
+        logger.info(f"Found {len(nucleic_acids)} nucleic acid(s)")
         molecules.extend(nucleic_acids)
     # Finally extract small molecules like lipids, solvents and ions.
-    small_molecules = extract_small_molecules(dataset_metadata, dataset_id, logger)
+    small_molecules = extract_small_molecules(
+        dataset_metadata, dataset_id, logger=logger
+    )
     if small_molecules:
+        logger.info(f"Found {len(small_molecules)} small molecule(s)")
         molecules.extend(small_molecules)
-    if not molecules:
-        logger.warning(f"No molecules found in dataset {dataset_id}.")
+    # Print summary of extracted molecules.
+    if molecules:
+        logger.info(
+            f"Found a total of {len(molecules)} molecule(s) in dataset {dataset_id}"
+        )
+    else:
+        logger.warning(f"No molecules found in dataset {dataset_id}")
         return None
     return molecules
 
@@ -558,8 +588,8 @@ def extract_datasets_metadata(
                 f"https://dynarepo.inria.fr/#/id/{dataset_id}/overview"
             )
         else:
-            logger.error(f"Unknown MDDB node '{node_name}' for dataset {dataset_id}.")
-            logger.error("Skipping dataset.")
+            logger.error(f"Unknown MDDB node '{node_name}' for dataset {dataset_id}")
+            logger.error("Skipping dataset")
             continue
 
         dataset_metadata = dataset.get("metadata", {})
@@ -604,16 +634,20 @@ def extract_datasets_metadata(
         # Time step in fs.
         time_step = dataset_metadata.get("TIMESTEP")
         metadata["simulation_timesteps_in_fs"] = [time_step] if time_step else None
-        # Temperatures in kelvin
+        # Temperatures in kelvin.
         temperature = dataset_metadata.get("TEMP")
-        metadata["simulation_temperatures_in_kelvin"] = (
-            [temperature] if temperature else None
-        )
+        if temperature and isinstance(temperature, (int, float)):
+            metadata["simulation_temperatures_in_kelvin"] = [temperature]
+            logger.debug(
+                f"Found simulation temperature: {temperature} K in dataset {dataset_id}"
+            )
+        else:
+            logger.warning(f"No simulation temperature found in dataset {dataset_id}")
         datasets_metadata.append(metadata)
         logger.info(
-            f"Extracted metadata for {len(datasets_metadata)} datasets "
-            f"({len(datasets_metadata):,}/{len(datasets):,}"
-            f":{len(datasets_metadata) / len(datasets):.0%})"
+            "Extracted metadata for "
+            f"{len(datasets_metadata):,}/{len(datasets):,} datasets "
+            f"({len(datasets_metadata) / len(datasets):.0%})"
         )
     return datasets_metadata
 
@@ -683,7 +717,7 @@ def scrape_files_for_all_datasets(
     """
     all_files_metadata = []
     for dataset_count, dataset in enumerate(datasets, start=1):
-        dataset_id = dataset.dataset_id_in_repository
+        dataset_id = dataset.dataset_id_in_project
         raw_files_metadata = scrape_files_for_one_dataset(
             client,
             url=f"{node_base_url}/projects/{dataset_id}/filenotes",

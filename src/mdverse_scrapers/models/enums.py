@@ -42,3 +42,4 @@ class MoleculeType(StrEnum):
     LIPID = "lipid"
     CARBOHYDRATE = "carbohydrate"
     SOLVENT = "solvent"
+    SMALL_MOLECULE = "small_molecule"

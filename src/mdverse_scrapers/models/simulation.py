@@ -94,6 +94,7 @@ class Molecule(BaseModel):
     sequence: str | None = Field(
         None, description="Sequence of the molecule for protein and nucleic acid."
     )
+    inchikey: str | None = Field(None, description="InChIKey of the molecule.")
     external_identifiers: list[ExternalIdentifier] | None = Field(
         None,
         description=("List of external database identifiers for this molecule."),
