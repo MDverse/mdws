@@ -177,9 +177,11 @@ def extract_forcefield_or_model_and_version(
     """
     forcefields_and_models = []
     # Add forcefield names.
-    for forcefield in dataset_metadata.get("FF", []):
-        if isinstance(forcefield, str):
-            forcefields_and_models.append(ForceFieldModel(name=forcefield.strip()))
+    forcefields = dataset_metadata.get("FF")
+    if forcefields:
+        for forcefield in forcefields:
+            if isinstance(forcefield, str):
+                forcefields_and_models.append(ForceFieldModel(name=forcefield.strip()))
     # Add water model.
     water_model = dataset_metadata.get("WAT", "")
     if water_model:
