@@ -103,8 +103,9 @@ class Molecule(BaseModel):
 class ForceFieldModel(BaseModel):
     """Forcefield or Model used in a simulation."""
 
-    # Ensure scraped metadata matches the expected schema exactly.
-    model_config = ConfigDict(extra="forbid")
+    # Ensure scraped metadata matches the expected schema exactly
+    # and version is coerced to string when needed.
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
     name: str = Field(
         ...,
@@ -118,8 +119,9 @@ class ForceFieldModel(BaseModel):
 class Software(BaseModel):
     """Simulation software or tool used in a simulation."""
 
-    # Ensure scraped metadata matches the expected schema exactly.
-    model_config = ConfigDict(extra="forbid")
+    # Ensure scraped metadata matches the expected schema exactly
+    # and version is coerced to string when needed.
+    model_config = ConfigDict(extra="forbid", coerce_numbers_to_str=True)
 
     name: str = Field(
         ...,
