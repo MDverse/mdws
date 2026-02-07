@@ -7,7 +7,7 @@ and the MDposit platform.
 
 import sys
 from pathlib import Path
-from typing import Any
+from urllib.parse import urlparse
 
 import click
 import httpx
@@ -184,10 +184,12 @@ def extract_forcefield_or_model_and_version(
         for forcefield in forcefields:
             if isinstance(forcefield, str):
                 forcefields_and_models.append(ForceFieldModel(name=forcefield.strip()))
+                logger.debug(f"Found forcefield/model: {forcefield.strip()}")
     # Add water model.
     water_model = dataset_metadata.get("WAT", "")
     if water_model:
         forcefields_and_models.append(ForceFieldModel(name=water_model.strip()))
+        logger.debug(f"Found water model: {water_model.strip()}")
     # Print summary of extracted forcefields and models.
     if forcefields_and_models:
         logger.info(f"Found {len(forcefields_and_models)} forcefield(s) or model(s)")
@@ -560,30 +562,33 @@ def extract_molecules(
 
 
 def extract_datasets_metadata(
-    datasets: list[dict[str, Any]],
+    datasets: list[dict],
     client: httpx.Client,
     logger: "loguru.Logger" = loguru.logger,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict], dict]:
     """
     Extract relevant metadata from raw MDposit datasets metadata.
 
     Parameters
     ----------
-    datasets: List[Dict[str, Any]]
+    datasets: list[dict]
         List of raw MDposit datasets metadata.
     logger: "loguru.Logger"
         Logger for logging messages.
 
     Returns
     -------
-    list[dict[str, Any]]
+    list[dict]
         List of dataset metadata dictionaries.
+    dict
+        Dictionnary for replicas by dataset.
     """
     datasets_metadata = []
+    replicas = {}
     for dataset in datasets:
         # Get the dataset id
         dataset_id = str(dataset.get("accession"))
-        logger.info("-" * 30)
+        logger.info("-" * 50)
         logger.info(f"Extracting metadata for dataset: {dataset_id}")
         logger.debug(f"https://mdposit.mddbr.eu/api/rest/v1/projects/{dataset_id}")
         # Extract node name.
@@ -621,10 +626,10 @@ def extract_datasets_metadata(
             logger.error("Skipping dataset")
             continue
 
-        dataset_metadata = dataset.get("metadata", {})
-        citations = dataset_metadata.get("CITATION")
+        simulation_metadata = dataset.get("metadata", {})
+        citations = simulation_metadata.get("CITATION")
         external_links = [citations] if citations else None
-        authors = dataset_metadata.get("AUTHORS")
+        authors = simulation_metadata.get("AUTHORS")
         author_names = None
         if isinstance(authors, list):
             author_names = authors
@@ -638,91 +643,56 @@ def extract_datasets_metadata(
             "dataset_id_in_project": dataset_id,
             "dataset_url_in_project": f"https://mdposit.mddbr.eu/#/id/{dataset_id}/overview",
             "external_links": external_links,
-            "title": dataset_metadata.get("NAME"),
+            "title": simulation_metadata.get("NAME"),
             "date_created": dataset.get("creationDate"),
             "date_last_updated": dataset.get("updateDate"),
             "number_of_files": len(dataset.get("files", [])),
             "author_names": author_names,
-            "license": dataset_metadata.get("LICENSE"),
-            "description": dataset_metadata.get("DESCRIPTION"),
-            "total_number_of_atoms": dataset_metadata.get("mdAtoms"),
+            "license": simulation_metadata.get("LICENSE"),
+            "description": simulation_metadata.get("DESCRIPTION"),
+            "total_number_of_atoms": simulation_metadata.get("mdAtoms"),
         }
         # Extract simulation metadata if available.
         # Software names with their versions.
         metadata["software"] = extract_software_and_version(
-            dataset_metadata, dataset_id, logger=logger
+            simulation_metadata, dataset_id, logger=logger
         )
         # Forcefield and model names with their versions.
         metadata["forcefields_models"] = extract_forcefield_or_model_and_version(
-            dataset_metadata, dataset_id, logger=logger
+            simulation_metadata, dataset_id, logger=logger
         )
         # Molecules with their nb of atoms and number total of atoms.
         metadata["molecules"] = extract_molecules(
-            dataset_metadata, dataset_id, client, logger=logger
+            simulation_metadata, dataset_id, client, logger=logger
         )
         # Time step in fs.
-        time_step = dataset_metadata.get("TIMESTEP")
+        time_step = simulation_metadata.get("TIMESTEP")
         metadata["simulation_timesteps_in_fs"] = [time_step] if time_step else None
         # Temperatures in kelvin.
-        temperature = dataset_metadata.get("TEMP")
+        temperature = simulation_metadata.get("TEMP")
         if temperature and isinstance(temperature, (int, float)):
             metadata["simulation_temperatures_in_kelvin"] = [temperature]
-            logger.debug(
-                f"Found simulation temperature: {temperature} K in dataset {dataset_id}"
-            )
+            logger.debug(f"Found simulation temperature: {temperature} K")
         else:
-            logger.warning(f"No simulation temperature found in dataset {dataset_id}")
+            logger.warning("No simulation temperature found")
+        # Extract replicas.
+        replica_list = dataset.get("mds")
+        if replica_list:
+            replicas[dataset_id] = replica_list
+        # Append extracted metadata.
         datasets_metadata.append(metadata)
         logger.info(
             "Extracted metadata for "
             f"{len(datasets_metadata):,}/{len(datasets):,} datasets "
             f"({len(datasets_metadata) / len(datasets):.0%})"
         )
-    return datasets_metadata
-
-
-def scrape_files_for_one_dataset(
-    client: httpx.Client,
-    url: str,
-    dataset_id: str,
-    logger: "loguru.Logger" = loguru.logger,
-) -> list[dict] | None:
-    """
-    Scrape files metadata for MDposit.
-
-    Parameters
-    ----------
-    client: httpx.Client
-        The HTTPX client to use for making requests.
-    url: str
-        The URL endpoint.
-    dataset_id: str
-        The unique identifier of the dataset in MDposit.
-    logger: "loguru.Logger"
-        Logger for logging messages.
-
-    Returns
-    -------
-    list[dict] | None
-        File metadata dictionary for the dataset.
-    """
-    logger.info(f"Scraping files for dataset ID: {dataset_id}")
-    response = make_http_request_with_retries(
-        client,
-        url,
-        method=HttpMethod.GET,
-        timeout=60,
-        delay_before_request=0.1,
-    )
-    if not response:
-        logger.error("Failed to fetch files metadata.")
-        return None
-    return response.json()
+    return datasets_metadata, replicas
 
 
 def scrape_files_for_all_datasets(
     client: httpx.Client,
-    datasets: list[DatasetMetadata],
+    datasets_metadata: list[DatasetMetadata],
+    datasets_replicas: dict,
     node_base_url: str,
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
@@ -732,8 +702,10 @@ def scrape_files_for_all_datasets(
     ----------
     client: httpx.Client
         The HTTPX client to use for making requests.
-    datasets: list[DatasetMetadata]
+    datasets_metadata: list[DatasetMetadata]
         List of datasets to scrape files metadata for.
+    datasets_replicas: dict
+        Dictionnary for replicas by dataset.
     node_base_url: str
         Base url of the specific node of MDposit API.
     logger: "loguru.Logger"
@@ -745,28 +717,46 @@ def scrape_files_for_all_datasets(
         List of files metadata dictionaries.
     """
     all_files_metadata = []
-    for dataset_count, dataset in enumerate(datasets, start=1):
+    for dataset_count, dataset in enumerate(datasets_metadata, start=1):
         dataset_id = dataset.dataset_id_in_project
-        raw_files_metadata = scrape_files_for_one_dataset(
-            client,
-            url=f"{node_base_url}/projects/{dataset_id}/filenotes",
-            dataset_id=dataset_id,
-            logger=logger,
-        )
-        if not raw_files_metadata:
-            continue
-        # Extract relevant files metadata.
-        logger.info(f"Getting files metadata for dataset: {dataset_id}")
-        files_metadata = extract_files_metadata(
-            raw_files_metadata, node_base_url, dataset, logger=logger
-        )
-        all_files_metadata += files_metadata
-        # Normalize files metadata with pydantic model (FileMetadata)
-        logger.info(f"Total files found: {len(all_files_metadata):,}")
+        for replica_id, replica_name in enumerate(
+            datasets_replicas.get(dataset_id, []), start=1
+        ):
+            logger.info(f"Scraping files for dataset: {dataset_id} / {replica_name}")
+            response = make_http_request_with_retries(
+                client,
+                url=f"{node_base_url}/projects/{dataset_id}.{replica_id}/filenotes",
+                method=HttpMethod.GET,
+                timeout=60,
+                delay_before_request=0.1,
+                logger=logger,
+            )
+            if not response:
+                logger.error("Failed to fetch files metadata")
+                continue
+            raw_files_metadata = response.json()
+            # Extract relevant files metadata.
+            logger.info(
+                f"Extracting files metadata for dataset: {dataset_id} / {replica_name}"
+            )
+            # We integrate replica name and id to distinguish files
+            # from different replicas of the same dataset,
+            # as they usually have the same names.
+            files_metadata = extract_files_metadata(
+                raw_files_metadata,
+                node_base_url,
+                dataset,
+                replica_id,
+                replica_name,
+                logger=logger,
+            )
+            all_files_metadata += files_metadata
+            # Normalize files metadata with pydantic model (FileMetadata)
+            logger.info(f"Total files found: {len(all_files_metadata):,}")
         logger.info(
             "Extracted files metadata for "
-            f"{dataset_count:,}/{len(datasets):,} "
-            f"({dataset_count / len(datasets):.0%}) datasets."
+            f"{dataset_count:,}/{len(datasets_metadata):,} "
+            f"({dataset_count / len(datasets_metadata):.0%}) datasets"
         )
     return all_files_metadata
 
@@ -775,6 +765,8 @@ def extract_files_metadata(
     raw_metadata: list[dict],
     node_base_url: str,
     dataset: DatasetMetadata,
+    replica_id: int,
+    replica_name: str,
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict]:
     """
@@ -788,6 +780,10 @@ def extract_files_metadata(
         The unique identifier of the dataset in MDDB.
     dataset: DatasetMetadata
         Normalized dataset to get files metadata for.
+    replica_id: int
+        Identifer of the corresponding replica associated with the files.
+    replica_name: str
+        The name of the corresponding replica associated with the files.
     logger: "loguru.Logger"
         Logger for logging messages.
 
@@ -801,22 +797,20 @@ def extract_files_metadata(
     for mdposit_file in raw_metadata:
         dataset_id = dataset.dataset_id_in_repository
         file_name = Path(mdposit_file.get("filename", ""))
-        node_base_url_for_file = node_base_url.replace("/v1", "")
-        file_path_url = (
-            f"{node_base_url_for_file}/current/projects/{dataset_id}/files/{file_name}"
-        )
-
-        parsed_file = {
+        # Extract base url from dataset url.
+        base_url = urlparse(dataset.dataset_url_in_repository).netloc
+        file_path_url = f"https://{base_url}/api/rest/current/projects/{dataset_id}.{replica_id}/files/{file_name}"
+        file_metadata = {
             "dataset_repository_name": dataset.dataset_repository_name,
             "dataset_id_in_repository": dataset_id,
             "dataset_url_in_repository": dataset.dataset_url_in_repository,
-            "file_name": str(file_name),
+            "file_name": f"{replica_name.replace(' ', '_')}/{file_name}",
             "file_size_in_bytes": mdposit_file.get("length", None),
             "file_md5": mdposit_file.get("md5", None),
             "file_url_in_repository": file_path_url,
         }
-        files_metadata.append(parsed_file)
-    logger.info(f"Extracted metadata for {len(files_metadata)} files.")
+        files_metadata.append(file_metadata)
+    logger.info(f"Extracted metadata for {len(files_metadata)} files")
     return files_metadata
 
 
@@ -880,7 +874,7 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
         sys.exit(1)
 
     # Extract datasets metadata.
-    datasets_selected_metadata = extract_datasets_metadata(
+    datasets_selected_metadata, replicas = extract_datasets_metadata(
         datasets_raw_metadata, client, logger=logger
     )
     # Validate datasets metadata with the DatasetMetadata Pydantic model.
@@ -900,6 +894,7 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
     files_metadata = scrape_files_for_all_datasets(
         client,
         datasets_normalized_metadata,
+        replicas,
         base_url,
         logger=logger,
     )
