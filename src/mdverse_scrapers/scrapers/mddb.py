@@ -233,9 +233,8 @@ def fetch_uniprot_protein_name(
         .get("value")
     )
     if protein_name:
-        logger.success(
-            f"Retrieved protein name for UniProt ID {uniprot_id}: {protein_name}"
-        )
+        logger.success(f"Retrieved protein name for UniProt ID {uniprot_id}:")
+        logger.success(protein_name)
         return protein_name
     else:
         logger.warning(
