@@ -221,7 +221,7 @@ def fetch_uniprot_protein_name(
     """
     logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
     if uniprot_id in ("noref", "notfound"):
-        logger.warning(f"Cannot fetch protein name for UniProt ID '{uniprot_id}'.")
+        logger.warning(f"Cannot fetch protein name for UniProt ID '{uniprot_id}'")
         return "Unknown protein"
     # Defaut value for protein name:
     default_protein_name = f"Protein {uniprot_id}"
@@ -233,7 +233,7 @@ def fetch_uniprot_protein_name(
         delay_before_request=0.1,
     )
     if not response:
-        logger.error(f"Failed to query the UniProt API for ID {uniprot_id}.")
+        logger.error(f"Failed to query the UniProt API for ID {uniprot_id}")
         return default_protein_name
     protein_name = (
         response.json()
@@ -248,12 +248,12 @@ def fetch_uniprot_protein_name(
         return protein_name
     else:
         logger.warning(
-            f"Protein name not found in UniProt API response for ID {uniprot_id}."
+            f"Protein name not found in UniProt API response for ID {uniprot_id}"
         )
         return default_protein_name
 
 
-def extract_proteins(
+def extract_proteins(  # noqa: C901
     pdb_identifiers: list[ExternalIdentifier],
     uniprot_identifiers: list[str],
     protein_sequences: list[str],
@@ -341,13 +341,33 @@ def extract_proteins(
             )
         return molecules
     # Case 4:
-    # We have UniProt identifiers and protein sequences,
+    # We have one UniProt identifier and several protein sequences,
+    # we assume all protein sequences are associated with the same UniProt identifier.
+    if (len(uniprot_identifiers) == 1) and (len(protein_sequences) > 1):
+        external = ExternalIdentifier(
+            database_name=ExternalDatabaseName.UNIPROT,
+            identifier=uniprot_identifiers[0],
+        )
+        protein_name = fetch_uniprot_protein_name(
+            client, uniprot_identifiers[0], logger=logger
+        )
+        for sequence in protein_sequences:
+            molecules.append(
+                Molecule(
+                    name=protein_name,
+                    type=MoleculeType.PROTEIN,
+                    sequence=sequence,
+                    external_identifiers=[external, *pdb_identifiers],
+                )
+            )
+        return molecules
+    # Case 5:
+    # We have more than one UniProt identifiers and several protein sequences,
     # but their numbers do not match.
     if len(uniprot_identifiers) != len(protein_sequences):
         logger.warning(
             f"Number of UniProt identifiers ({len(uniprot_identifiers)}) does not "
-            f"match number of protein sequences ({len(protein_sequences)}) in dataset "
-            f"{dataset_id}."
+            f"match number of protein sequences ({len(protein_sequences)})"
         )
         if pdb_identifiers:
             molecules.append(
@@ -358,7 +378,7 @@ def extract_proteins(
                 )
             )
         return molecules
-    # Case 5:
+    # Case 6:
     # We have UniProt identifiers and protein sequences,
     # and their numbers match.
     for identifier, sequence in zip(
@@ -438,12 +458,12 @@ def extract_small_molecules(
         A list of extracted small molecules or an empty list.
     """
     molecules = []
-    name_type_maping = {
+    name_type_mapping = {
         "SOL": MoleculeType.SOLVENT,
         "NA": MoleculeType.ION,
         "CL": MoleculeType.ION,
     }
-    for name, mol_type in name_type_maping.items():
+    for name, mol_type in name_type_mapping.items():
         count = dataset_metadata.get(name, 0)
         if isinstance(count, int) and count > 0:
             molecules.append(
@@ -454,7 +474,7 @@ def extract_small_molecules(
                 )
             )
     # Get InChIKey for small molecules if available.
-    inchikeys = dataset_metadata.get("INCHIKEYs")
+    inchikeys = dataset_metadata.get("INCHIKEYS")
     if inchikeys and isinstance(inchikeys, list):
         for inchikey in inchikeys:
             molecules.append(
@@ -563,6 +583,7 @@ def extract_datasets_metadata(
     for dataset in datasets:
         # Get the dataset id
         dataset_id = str(dataset.get("accession"))
+        logger.info("-" * 30)
         logger.info(f"Extracting metadata for dataset: {dataset_id}")
         logger.debug(f"https://mdposit.mddbr.eu/api/rest/v1/projects/{dataset_id}")
         # Extract node name.
