@@ -1,11 +1,8 @@
 """Scrape molecular dynamics simulation datasets and files from the MDDB.
 
-This script extracts molecular dynamics datasets produced within the
-MDDB (Molecular Dynamics Data Bank) project, which is distributed across
-two nodes:
-
-- MDPOSIT MMB node (https://mmb-dev.mddbr.eu/#/browse)
-- MDPOSIT INRIA node https://dynarepo.inria.fr/#/
+This script extracts molecular dynamics datasets managed by the
+MDDB (Molecular Dynamics Data Bank) project
+and the MDposit platform.
 """
 
 import sys
@@ -34,16 +31,10 @@ from ..models.utils import (
     normalize_files_metadata,
 )
 
-MDDB_REPOSITORIES = {
-    DatasetSourceName.MDPOSIT_MMB_NODE: "https://mmb-dev.mddbr.eu/api/rest/v1",
-    DatasetSourceName.MDPOSIT_INRIA_NODE: "https://inria.mddbr.eu/api/rest/v1",
-}
-
 
 def scrape_all_datasets(
     client: httpx.Client,
     query_entry_point: str,
-    node_name: DatasetSourceName,
     page_size: int = 50,
     logger: "loguru.Logger" = loguru.logger,
     scraper: ScraperContext | None = None,
@@ -59,8 +50,6 @@ def scrape_all_datasets(
         The HTTPX client to use for making requests.
     query_entry_point: str
         The entry point of the API request.
-    node_name: DatasetSourceName
-        MDDB node name for logging.
     page_size: int
         Number of entries to fetch per page.
     logger: "loguru.Logger"
@@ -75,7 +64,7 @@ def scrape_all_datasets(
     list[dict]:
         A list of MDposit entries.
     """
-    logger.info(f"Scraping molecular dynamics datasets from {node_name}.")
+    logger.info("Scraping molecular dynamics datasets from MDposit.")
     logger.info(f"Using batches of {page_size} datasets.")
     all_datasets = []
 
@@ -94,7 +83,7 @@ def scrape_all_datasets(
         logger.error("Failed to fetch data from MDposit API.")
         return all_datasets
     total_datasets = int(response.json().get("filteredCount", 0))
-    logger.success(f"Found a total of {total_datasets:,} datasets in {node_name}.")
+    logger.success(f"Found a total of {total_datasets:,} datasets in MDposit.")
     # Compute total number of pages to scrape based on total datasets and page size.
     page_total = total_datasets // page_size
     if total_datasets % page_size != 0:
@@ -157,15 +146,12 @@ def extract_software_and_version(
     list[Software] | None
         A list of Software instances with `name` and `version` fields, None otherwise.
     """
-    try:
-        name = dataset_metadata.get("PROGRAM")
-        version = dataset_metadata.get("VERSION")
-        if not name:
-            return None
-        return [Software(name=name, version=str(version))]
-    except (ValueError, KeyError, TypeError) as e:
-        logger.warning(f"Error parsing software info for dataset {dataset_id}: {e}")
+    name = dataset_metadata.get("PROGRAM", "").strip()
+    version = dataset_metadata.get("VERSION")
+    if not name:
+        logger.warning(f"No software found for dataset {dataset_id}.")
         return None
+    return [Software(name=name, version=version)]
 
 
 def extract_forcefield_or_model_and_version(
@@ -189,21 +175,16 @@ def extract_forcefield_or_model_and_version(
         A list of forcefield or model instances with `name` and `version` fields,
         None otherwise.
     """
-    ffm_names = []
-    try:
-        # Adding
-        ffm_names.extend(dataset_metadata.get("FF") or [])
-        # Adding the water model.
-        # Example: TIP3P.
-        water_model = dataset_metadata.get("WAT")
-        if water_model:
-            ffm_names.append(water_model)
-        return [ForceFieldModel(name=ffm_name) for ffm_name in ffm_names if ffm_name]
-    except (ValueError, KeyError) as e:
-        logger.warning(
-            f"Error parsing forcefield or model info for dataset {dataset_id}: {e}"
-        )
-        return None
+    forcefields_and_models = []
+    # Add forcefield names.
+    for forcefield in dataset_metadata.get("FF", []):
+        if isinstance(forcefield, str):
+            forcefields_and_models.append(ForceFieldModel(name=forcefield.strip()))
+    # Add water model.
+    water_model = dataset_metadata.get("WAT", "")
+    if water_model:
+        forcefields_and_models.append(ForceFieldModel(name=water_model.strip()))
+    return forcefields_and_models
 
 
 def fetch_uniprot_protein_name(
@@ -229,9 +210,9 @@ def fetch_uniprot_protein_name(
         Protein full name if available, None otherwise.
     """
     logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
-    if uniprot_id == "noref":
-        logger.warning("UniProt ID is 'noref', cannot fetch protein name.")
-        return "Unknow protein"
+    if uniprot_id in ("noref", "notfound"):
+        logger.warning(f"Cannot fetch protein name for UniProt ID '{uniprot_id}'.")
+        return "Unknown protein"
     # Defaut value for protein name:
     default_protein_name = f"Protein {uniprot_id}"
     response = make_http_request_with_retries(
@@ -242,7 +223,7 @@ def fetch_uniprot_protein_name(
         delay_before_request=0.1,
     )
     if not response:
-        logger.error(f"Failed to fetch data from UniProt API for ID {uniprot_id}.")
+        logger.error(f"Failed to query the UniProt API for ID {uniprot_id}.")
         return default_protein_name
     protein_name = (
         response.json()
@@ -256,31 +237,32 @@ def fetch_uniprot_protein_name(
             f"Retrieved protein name for UniProt ID {uniprot_id}: {protein_name}"
         )
         return protein_name
-    return default_protein_name
+    else:
+        logger.warning(
+            f"Protein name not found in UniProt API response for ID {uniprot_id}."
+        )
+        return default_protein_name
 
 
 def extract_proteins(
-    pdb_ids: list[ExternalIdentifier],
-    references: list[str],
-    prot_seqs: list[str],
-    prot_atoms: int | None,
+    pdb_identifiers: list[ExternalIdentifier],
+    uniprot_identifiers: list[str],
+    protein_sequences: list[str],
     client: httpx.Client,
     dataset_id: str,
     logger: "loguru.Logger" = loguru.logger,
-) -> list[Molecule]:
+) -> list:
     """Extract proteins from dataset metadata.
 
     Parameters
     ----------
-    pdb_ids: list[ExternalIdentifier]
+    pdb_identifiers: list[ExternalIdentifier]
         List of PDB identifiers to associate with the proteins.
-    references: list[str]
-        List of reference identifiers (e.g., UniProt accessions)
+    uniprot_identifiers: list[str]
+        List of UniProt accessions.
         to associate with the proteins.
-    prot_seqs: list[str]
+    protein_sequences: list[str]
         List of protein sequences.
-    prot_atoms: int | None
-        Total number of atoms in the protein.
     client: httpx.Client
         The HTTP client used for making requests.
     dataset_id: str
@@ -290,59 +272,100 @@ def extract_proteins(
 
     Returns
     -------
-    list[Molecule]
-        A list of extracted proteins.
+    list
+        A list of extracted proteins or empty list.
     """
     molecules = []
-    for counter, seq in enumerate(prot_seqs):
-        external_ids = list(pdb_ids)
-        prot_name = f"Protein {counter + 1}"
-        try:
-            uniprot_id = references[counter] if counter < len(references) else None
-            if uniprot_id:
-                external_ids.append(
-                    ExternalIdentifier(
-                        database_name=ExternalDatabaseName.UNIPROT,
-                        identifier=uniprot_id,
-                    )
+    # Case 1:
+    # We have protein sequences but no UniProt identifiers.
+    if protein_sequences and not uniprot_identifiers:
+        logger.warning(
+            "Protein sequences found but no UniProt identifier "
+            f"in dataset {dataset_id}."
+        )
+        for sequence in protein_sequences:
+            molecules.append(
+                Molecule(
+                    name="Protein",
+                    type=MoleculeType.PROTEIN,
+                    sequence=sequence,
+                    external_identifiers=pdb_identifiers,
                 )
-                prot_name = fetch_uniprot_protein_name(
-                    client, uniprot_id, logger=logger
-                )
-        except (TypeError, ValueError) as exc:
-            logger.warning(
-                f"Skipping protein {counter + 1} in dataset {dataset_id} due to "
-                f"{type(exc).__name__}: {exc}"
             )
+        return molecules
+    # Case 2:
+    # We have UniProt identifiers but no protein sequences.
+    if uniprot_identifiers and not protein_sequences:
+        logger.warning(
+            "UniProt identifiers found but no protein sequence "
+            f"in dataset {dataset_id}."
+        )
+        for identifier in uniprot_identifiers:
+            external = ExternalIdentifier(
+                database_name=ExternalDatabaseName.UNIPROT, identifier=identifier
+            )
+            protein_name = fetch_uniprot_protein_name(client, identifier, logger=logger)
+            molecules.append(
+                Molecule(
+                    name=protein_name,
+                    type=MoleculeType.PROTEIN,
+                    sequence=None,
+                    external_identifiers=[external, *pdb_identifiers],
+                )
+            )
+        return molecules
+    # Case 3:
+    # We have UniProt identifiers and protein sequences,
+    # but their numbers do not match.
+    if len(uniprot_identifiers) != len(protein_sequences):
+        logger.warning(
+            f"Number of UniProt identifiers ({len(uniprot_identifiers)}) does not "
+            f"match number of protein sequences ({len(protein_sequences)}) in dataset "
+            f"{dataset_id}."
+        )
         molecules.append(
             Molecule(
-                name=prot_name,
+                name="Unknown protein",
                 type=MoleculeType.PROTEIN,
-                sequence=seq,
-                number_of_atoms=prot_atoms if len(prot_seqs) == 1 else None,
-                external_identifiers=external_ids,
+                external_identifiers=pdb_identifiers,
+            )
+        )
+        return molecules
+    # Case 4:
+    # We have UniProt identifiers and protein sequences,
+    # and their numbers match.
+    for identifier, sequence in zip(
+        uniprot_identifiers, protein_sequences, strict=True
+    ):
+        external = ExternalIdentifier(
+            database_name=ExternalDatabaseName.UNIPROT, identifier=identifier
+        )
+        protein_name = fetch_uniprot_protein_name(client, identifier, logger=logger)
+        molecules.append(
+            Molecule(
+                name=protein_name,
+                type=MoleculeType.PROTEIN,
+                sequence=sequence,
+                external_identifiers=[external, *pdb_identifiers],
             )
         )
     return molecules
 
 
 def extract_nucleic_acids(
-    pdb_ids: list[ExternalIdentifier],
-    nucl_seqs: list[str],
-    nucl_atoms: int | None,
+    pdb_identifiers: list[ExternalIdentifier],
+    nucleic_acid_sequences: list[str],
     dataset_id: str,
-    logger: "loguru.Logger",
-) -> list[Molecule]:
+    logger: "loguru.Logger" = loguru.logger,
+) -> list:
     """Extract nucleic acids from dataset metadata.
 
     Parameters
     ----------
-    pdb_ids: list[ExternalIdentifier]
-        List of PDB identifiers to associate with the nucleic acids.
-    nucl_seqs: list[str]
+    pdb_identifiers: list[ExternalIdentifier]
+        List of PDB identifiers to associate with the proteins.
+    nucleic_acid_sequences: list[str]
         List of nucleic acid sequences.
-    nucl_atoms: int
-        Total number of atoms in the nucleic acids.
     dataset_id: str
         The ID of the dataset being processed, used for logging.
     logger: loguru.Logger
@@ -350,34 +373,27 @@ def extract_nucleic_acids(
 
     Returns
     -------
-    list[Molecule]
+    list
         A list of extracted nucleic acids.
     """
     molecules = []
-    for i, seq in enumerate(nucl_seqs):
-        try:
-            molecules.append(
-                Molecule(
-                    name=f"Nucleic Acid {i + 1}",
-                    type=MoleculeType.NUCLEIC_ACID,
-                    sequence=seq,
-                    number_of_atoms=nucl_atoms if len(nucl_seqs) == 1 else None,
-                    external_identifiers=pdb_ids,
-                )
+    for sequence in nucleic_acid_sequences:
+        molecules.append(
+            Molecule(
+                name="Nucleic acid",
+                type=MoleculeType.NUCLEIC_ACID,
+                sequence=sequence,
+                external_identifiers=pdb_identifiers,
             )
-        except (TypeError, ValueError) as exc:
-            logger.warning(
-                f"Skipping nucleic acid {i + 1} in dataset {dataset_id} "
-                f"due to {type(exc).__name__}: {exc}"
-            )
+        )
     return molecules
 
 
 def extract_small_molecules(
     dataset_metadata: dict,
     dataset_id: str,
-    logger: "loguru.Logger",
-) -> list[Molecule]:
+    logger: "loguru.Logger" = loguru.logger,
+) -> list:
     """Extract small molecules (lipids, solvents, ions) from dataset metadata.
 
     Parameters
@@ -391,31 +407,24 @@ def extract_small_molecules(
 
     Returns
     -------
-    list[Molecule]
-        A list of extracted small molecules.
+    list
+        A list of extracted small molecules or an empty list.
     """
     molecules = []
-    species_type_map = {
-        "DPPC": MoleculeType.LIPID,
+    name_type_maping = {
         "SOL": MoleculeType.SOLVENT,
         "NA": MoleculeType.ION,
         "CL": MoleculeType.ION,
     }
-    for species, mol_type in species_type_map.items():
-        try:
-            count = dataset_metadata.get(species, 0)
-            if isinstance(count, int) and count > 0:
-                molecules.append(
-                    Molecule(
-                        name=species,
-                        type=mol_type,
-                        number_of_molecules=count,
-                    )
+    for name, mol_type in name_type_maping.items():
+        count = dataset_metadata.get(name, 0)
+        if isinstance(count, int) and count > 0:
+            molecules.append(
+                Molecule(
+                    name=name,
+                    type=mol_type,
+                    number_of_molecules=count,
                 )
-        except (TypeError, ValueError) as exc:
-            logger.warning(
-                f"Skipping small molecule {species} in dataset {dataset_id} "
-                f"due to {type(exc).__name__}: {exc}"
             )
     return molecules
 
@@ -444,52 +453,44 @@ def extract_molecules(
     list[Molecule] | None
         A list of extracted molecules or None if no molecules were found.
     """
-    molecules: list[Molecule] = []
-
-    # Normalize common fields
-    pdbs = dataset_metadata.get("PDBIDS") or []
-    references = dataset_metadata.get("REFERENCES") or []
-    prot_seqs = dataset_metadata.get("PROTSEQ") or []
-    prot_atoms = dataset_metadata.get("PROTATS")
-    nucl_seqs = dataset_metadata.get("NUCLSEQ") or []
-    nucl_atoms = dataset_metadata.get("DNAATS", 0) + (dataset_metadata.get("RNAATS", 0))
-
-    # Pre-create PDB identifiers
-    pdb_ids = [
-        ExternalIdentifier(database_name=ExternalDatabaseName.PDB, identifier=pdb_id)
-        for pdb_id in pdbs
-    ]
-
-    # Extract proteins first
-    molecules.extend(
-        extract_proteins(
-            pdb_ids,
-            references,
-            prot_seqs,
-            prot_atoms,
-            client,
-            dataset_id,
-            logger=logger,
+    molecules = []
+    # Add PDB identifiers as external identifiers.
+    pdb_identifiers = []
+    for pdb in dataset_metadata.get("PDBIDS", []):
+        external = ExternalIdentifier(
+            database_name=ExternalDatabaseName.PDB, identifier=pdb
         )
+        pdb_identifiers.append(external)
+    # Add UniProt identifiers and protein sequence.
+    proteins = extract_proteins(
+        pdb_identifiers,
+        dataset_metadata.get("REFERENCES", []),
+        dataset_metadata.get("PROTSEQ", []),
+        client,
+        dataset_id,
+        logger=logger,
     )
-    # Then extract nucleic acids
-    molecules.extend(
-        extract_nucleic_acids(pdb_ids, nucl_seqs, nucl_atoms, dataset_id, logger)
+    if proteins:
+        molecules.extend(proteins)
+    # Add nucleic acids
+    nucleic_acids = extract_nucleic_acids(
+        pdb_identifiers, dataset_metadata.get("NUCLSEQ", []), dataset_id, logger=logger
     )
+    if nucleic_acids:
+        molecules.extend(nucleic_acids)
     # Finally extract small molecules like lipids, solvents and ions.
-    molecules.extend(extract_small_molecules(dataset_metadata, dataset_id, logger))
-
+    small_molecules = extract_small_molecules(dataset_metadata, dataset_id, logger)
+    if small_molecules:
+        molecules.extend(small_molecules)
     if not molecules:
         logger.warning(f"No molecules found in dataset {dataset_id}.")
         return None
-
     return molecules
 
 
 def extract_datasets_metadata(
     datasets: list[dict[str, Any]],
-    node_name: DatasetSourceName,
-    client: "httpx.Client",
+    client: httpx.Client,
     logger: "loguru.Logger" = loguru.logger,
 ) -> list[dict[str, Any]]:
     """
@@ -499,8 +500,6 @@ def extract_datasets_metadata(
     ----------
     datasets: List[Dict[str, Any]]
         List of raw MDposit datasets metadata.
-    node_name: DatasetSourceName
-        MDDB node name for the dataset url.
     logger: "loguru.Logger"
         Logger for logging messages.
 
@@ -514,28 +513,47 @@ def extract_datasets_metadata(
         # Get the dataset id
         dataset_id = str(dataset.get("accession"))
         logger.info(f"Extracting metadata for dataset: {dataset_id}")
+        # Extract node name.
+        node_name = dataset.get("node", "")
+        node_name_full = f"mdposit_{dataset.get('node', '')}_node"
         # Create the dataset url depending on the node
-        if node_name is DatasetSourceName.MDPOSIT_MMB_NODE:
-            dataset_url = f"https://mmb-dev.mddbr.eu/#/id/{dataset_id}/overview"
-        elif node_name is DatasetSourceName.MDPOSIT_INRIA_NODE:
-            dataset_url = f"https://dynarepo.inria.fr/#/id/{dataset_id}/overview"
-        else:
-            logger.warning(
-                f"Unknown MDDB node '{node_name}'."
-                f"Cannot build entry URL for dataset {dataset_id}."
+        dataset_repository_name = DatasetSourceName.UNKNOWN
+        dataset_id_in_repository = ""
+        dataset_url_in_repository = ""
+        if node_name_full == DatasetSourceName.MDPOSIT_MMB_NODE:
+            dataset_repository_name = DatasetSourceName.MDPOSIT_MMB_NODE
+            dataset_id_in_repository = str(dataset.get("local"))
+            dataset_url_in_repository = (
+                f"https://mmb.mddbr.eu/#/id/{dataset_id}/overview"
             )
+        elif node_name_full == DatasetSourceName.MDPOSIT_INRIA_NODE:
+            dataset_repository_name = DatasetSourceName.MDPOSIT_INRIA_NODE
+            dataset_id_in_repository = str(dataset.get("local"))
+            dataset_url_in_repository = (
+                f"https://dynarepo.inria.fr/#/id/{dataset_id}/overview"
+            )
+        else:
+            logger.error(f"Unknown MDDB node '{node_name}' for dataset {dataset_id}.")
+            logger.error("Skipping dataset.")
+            continue
 
         dataset_metadata = dataset.get("metadata", {})
-        links = dataset_metadata.get("CITATION")
-        links_list = [links] if links else None
-        a = dataset_metadata.get("AUTHORS")
-        author_names = a if isinstance(a, list) else [a] if a else None
+        citations = dataset_metadata.get("CITATION")
+        external_links = [citations] if citations else None
+        authors = dataset_metadata.get("AUTHORS")
+        author_names = None
+        if isinstance(authors, list):
+            author_names = authors
+        elif isinstance(authors, str):
+            author_names = [authors.strip()]
         metadata = {
-            "dataset_repository_name": node_name.value,
-            "dataset_id_in_repository": dataset_id,
-            "dataset_url_in_repository": dataset_url,
+            "dataset_repository_name": dataset_repository_name,
+            "dataset_id_in_repository": dataset_id_in_repository,
+            "dataset_url_in_repository": dataset_url_in_repository,
             "dataset_project_name": DatasetSourceName.MDDB,
-            "external_links": links_list,
+            "dataset_id_in_project": dataset_id,
+            "dataset_url_in_project": f"https://mdposit.mddbr.eu/#/id/{dataset_id}/overview",
+            "external_links": external_links,
             "title": dataset_metadata.get("NAME"),
             "date_created": dataset.get("creationDate"),
             "date_last_updated": dataset.get("updateDate"),
@@ -548,15 +566,15 @@ def extract_datasets_metadata(
         # Extract simulation metadata if available.
         # Software names with their versions.
         metadata["software"] = extract_software_and_version(
-            dataset_metadata, dataset_id, logger
+            dataset_metadata, dataset_id, logger=logger
         )
         # Forcefield and model names with their versions.
         metadata["forcefields_models"] = extract_forcefield_or_model_and_version(
-            dataset_metadata, dataset_id, logger
+            dataset_metadata, dataset_id, logger=logger
         )
         # Molecules with their nb of atoms and number total of atoms.
         metadata["molecules"] = extract_molecules(
-            dataset_metadata, dataset_id, client, logger
+            dataset_metadata, dataset_id, client, logger=logger
         )
         # Time step in fs.
         time_step = dataset_metadata.get("TIMESTEP")
@@ -568,7 +586,7 @@ def extract_datasets_metadata(
         )
         datasets_metadata.append(metadata)
         logger.info(
-            f"Scraped metadata for {len(datasets_metadata)} datasets "
+            f"Extracted metadata for {len(datasets_metadata)} datasets "
             f"({len(datasets_metadata):,}/{len(datasets):,}"
             f":{len(datasets_metadata) / len(datasets):.0%})"
         )
@@ -580,9 +598,9 @@ def scrape_files_for_one_dataset(
     url: str,
     dataset_id: str,
     logger: "loguru.Logger" = loguru.logger,
-) -> dict | None:
+) -> list[dict] | None:
     """
-    Scrape files metadata for a given MDposit dataset.
+    Scrape files metadata for MDposit.
 
     Parameters
     ----------
@@ -597,7 +615,7 @@ def scrape_files_for_one_dataset(
 
     Returns
     -------
-    dict | None
+    list[dict] | None
         File metadata dictionary for the dataset.
     """
     logger.info(f"Scraping files for dataset ID: {dataset_id}")
@@ -641,18 +659,18 @@ def scrape_files_for_all_datasets(
     all_files_metadata = []
     for dataset_count, dataset in enumerate(datasets, start=1):
         dataset_id = dataset.dataset_id_in_repository
-        files_metadata = scrape_files_for_one_dataset(
+        raw_files_metadata = scrape_files_for_one_dataset(
             client,
             url=f"{node_base_url}/projects/{dataset_id}/filenotes",
             dataset_id=dataset_id,
             logger=logger,
         )
-        if not files_metadata:
+        if not raw_files_metadata:
             continue
         # Extract relevant files metadata.
         logger.info(f"Getting files metadata for dataset: {dataset_id}")
         files_metadata = extract_files_metadata(
-            files_metadata, node_base_url, dataset, logger=logger
+            raw_files_metadata, node_base_url, dataset, logger=logger
         )
         all_files_metadata += files_metadata
         # Normalize files metadata with pydantic model (FileMetadata)
@@ -666,22 +684,22 @@ def scrape_files_for_all_datasets(
 
 
 def extract_files_metadata(
-    raw_metadata: list[dict[str, Any]],
+    raw_metadata: list[dict],
     node_base_url: str,
     dataset: DatasetMetadata,
     logger: "loguru.Logger" = loguru.logger,
-) -> list[dict[str, Any]]:
+) -> list[dict]:
     """
     Extract relevant metadata from raw MDposit files metadata.
 
     Parameters
     ----------
-    raw_metadata: dict
+    raw_metadata: list[dict]
         Raw files metadata.
     node_base_url: str
-        The unique identifier of the dataset in MDposit.
+        The unique identifier of the dataset in MDDB.
     dataset: DatasetMetadata
-        Normalized dataset to scrape files metadata for.
+        Normalized dataset to get files metadata for.
     logger: "loguru.Logger"
         Logger for logging messages.
 
@@ -694,7 +712,7 @@ def extract_files_metadata(
     files_metadata = []
     for mdposit_file in raw_metadata:
         dataset_id = dataset.dataset_id_in_repository
-        file_name = Path(mdposit_file.get("filename"))
+        file_name = Path(mdposit_file.get("filename", ""))
         node_base_url_for_file = node_base_url.replace("/v1", "")
         file_path_url = (
             f"{node_base_url_for_file}/current/projects/{dataset_id}/files/{file_name}"
@@ -737,82 +755,79 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
     # Create HTTPX client
     client = create_httpx_client()
 
-    # Iterate over the nodes
-    for data_source_name, base_url in MDDB_REPOSITORIES.items():
-        # Create scraper context.
-        scraper = ScraperContext(
-            data_source_name=data_source_name,
-            output_dir_path=output_dir_path,
-            is_in_debug_mode=is_in_debug_mode,
-        )
-        # Create logger.
-        level = "DEBUG" if scraper.is_in_debug_mode else "INFO"
-        logger = create_logger(logpath=scraper.log_file_path, level=level)
-        # Print scraper configuration.
-        logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
-        logger.info(f"Starting {data_source_name.name} data scraping...")
-        # Check connection to the API
-        if is_connection_to_server_working(
-            client, f"{base_url}/projects/summary", logger=logger
-        ):
-            logger.success(f"Connection to {data_source_name} API successful!")
-        else:
-            logger.critical(f"Connection to {data_source_name} API failed.")
-            logger.critical("Aborting.")
-            sys.exit(1)
+    data_source_name = DatasetSourceName.MDDB
+    base_url = "https://mdposit.mddbr.eu/api/rest/v1"
+    # Create scraper context.
+    scraper = ScraperContext(
+        data_source_name=data_source_name,
+        output_dir_path=output_dir_path,
+        is_in_debug_mode=is_in_debug_mode,
+    )
+    # Create logger.
+    level = "DEBUG" if scraper.is_in_debug_mode else "INFO"
+    logger = create_logger(logpath=scraper.log_file_path, level=level)
+    # Print scraper configuration.
+    logger.debug(scraper.model_dump_json(indent=4, exclude={"token"}))
+    logger.info(f"Starting {data_source_name.name} data scraping...")
+    # Check connection to the API
+    if is_connection_to_server_working(
+        client, f"{base_url}/projects/summary", logger=logger
+    ):
+        logger.success(f"Connection to {data_source_name} API successful!")
+    else:
+        logger.critical(f"Connection to {data_source_name} API failed.")
+        logger.critical("Aborting.")
+        sys.exit(1)
 
-        # Scrape the datasets metadata.
-        datasets_raw_metadata = scrape_all_datasets(
-            client,
-            query_entry_point=f"{base_url}/projects",
-            node_name=data_source_name,
-            logger=logger,
-            scraper=scraper,
-        )
-        if not datasets_raw_metadata:
-            logger.critical(f"No datasets found in {data_source_name}.")
-            logger.critical("Aborting.")
-            sys.exit(1)
+    # Scrape the datasets metadata.
+    datasets_raw_metadata = scrape_all_datasets(
+        client,
+        query_entry_point=f"{base_url}/projects",
+        logger=logger,
+        scraper=scraper,
+    )
+    if not datasets_raw_metadata:
+        logger.critical(f"No datasets found in {data_source_name}.")
+        logger.critical("Aborting.")
+        sys.exit(1)
 
-        # Select datasets metadata
-        datasets_selected_metadata = extract_datasets_metadata(
-            datasets_raw_metadata, data_source_name, client, logger=logger
-        )
-        # Validate datasets metadata with the DatasetMetadata Pydantic model.
-        datasets_normalized_metadata = normalize_datasets_metadata(
-            datasets_selected_metadata, logger=logger
-        )
-        # Save datasets metadata to parquet file.
-        scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
-            scraper.datasets_parquet_file_path,
-            datasets_normalized_metadata,
-            logger=logger,
-        )
-        # Output first dataset metadata for debugging purposes.
-        logger.debug("First dataset metadata:")
-        logger.debug(datasets_normalized_metadata[0])
-        # Scrape MDDB files metadata.
-        files_metadata = scrape_files_for_all_datasets(
-            client,
-            datasets_normalized_metadata,
-            base_url,
-            logger=logger,
-        )
-        # Validate MDDB files metadata with the FileMetadata Pydantic model.
-        files_normalized_metadata = normalize_files_metadata(
-            files_metadata, logger=logger
-        )
-        # Save files metadata to parquet file.
-        scraper.number_of_files_scraped = export_list_of_models_to_parquet(
-            scraper.files_parquet_file_path,
-            files_normalized_metadata,
-            logger=logger,
-        )
-        # Output first file metadata for debugging purposes.
-        logger.debug("First file metadata:")
-        logger.debug(files_normalized_metadata[0])
-        # Print scraping statistics.
-        print_statistics(scraper, logger=logger)
+    # Extract datasets metadata.
+    datasets_selected_metadata = extract_datasets_metadata(
+        datasets_raw_metadata, client, logger=logger
+    )
+    # Validate datasets metadata with the DatasetMetadata Pydantic model.
+    datasets_normalized_metadata = normalize_datasets_metadata(
+        datasets_selected_metadata, logger=logger
+    )
+    # Save datasets metadata to parquet file.
+    scraper.number_of_datasets_scraped = export_list_of_models_to_parquet(
+        scraper.datasets_parquet_file_path,
+        datasets_normalized_metadata,
+        logger=logger,
+    )
+    # Output first dataset metadata for debugging purposes.
+    logger.debug("First dataset metadata:")
+    logger.debug(datasets_normalized_metadata[0])
+    # Scrape MDDB files metadata.
+    files_metadata = scrape_files_for_all_datasets(
+        client,
+        datasets_normalized_metadata,
+        base_url,
+        logger=logger,
+    )
+    # Validate MDDB files metadata with the FileMetadata Pydantic model.
+    files_normalized_metadata = normalize_files_metadata(files_metadata, logger=logger)
+    # Save files metadata to parquet file.
+    scraper.number_of_files_scraped = export_list_of_models_to_parquet(
+        scraper.files_parquet_file_path,
+        files_normalized_metadata,
+        logger=logger,
+    )
+    # Output first file metadata for debugging purposes.
+    logger.debug("First file metadata:")
+    logger.debug(files_normalized_metadata[0])
+    # Print scraping statistics.
+    print_statistics(scraper, logger=logger)
 
 
 if __name__ == "__main__":
