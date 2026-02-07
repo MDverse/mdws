@@ -24,8 +24,9 @@ When writing code:
 
 When writing functions, always:
 
-- Add descriptive docstrings.
+- Add descriptive docstrings
 - Use early returns for error conditions
+- Limit size of try / except blocks to the strict minimum
 
 Never import libraries by yourself. Always ask before adding dependencies.
 
