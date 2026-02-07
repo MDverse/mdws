@@ -171,6 +171,26 @@ This command will:
 5. Save the extracted metadata to Parquet files
 
 
+## Scrape MDDB
+
+Have a look at the notes regarding [MDDB](docs/mddb.md) and its API.
+
+Scrape MDDB (MDposit MMB node and MDposit Inria node) to collect molecular dynamics (MD) datasets and files:
+
+```bash
+uv run scrape-mddb --output-dir data
+```
+
+This command will:
+
+1. Search for molecular dynamics datasets and files through the MDposit API nodes.
+2. Parse metadata and validate them using the Pydantic models
+   `DatasetMetadata` and `FileMetadata`.
+3. Save validated files and datasets metadata.
+
+The scraping takes about 13 minutes.
+
+
 ## Analyze Gromacs mdp and gro files
 
 ### Download files
