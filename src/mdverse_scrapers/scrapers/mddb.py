@@ -62,12 +62,11 @@ def scrape_all_datasets(
     Returns
     -------
     list[dict]:
-        A list of MDposit entries.
+        List of MDposit entries metadata.
     """
     logger.info("Scraping molecular dynamics datasets from MDposit.")
     logger.info(f"Using batches of {page_size} datasets.")
     all_datasets = []
-
     # Start by requesting the first page to get total number of datasets.
     logger.info("Requesting first page to get total number of datasets...")
     params = {"limit": 10, "page": 1}
@@ -152,7 +151,7 @@ def extract_software_and_version(
     name = dataset_metadata.get("PROGRAM")
     version = dataset_metadata.get("VERSION")
     if not name:
-        logger.warning(f"No software found for dataset {dataset_id}.")
+        logger.warning("No software found for dataset")
         return None
     return [Software(name=name.strip(), version=version)]
 
@@ -191,12 +190,9 @@ def extract_forcefield_or_model_and_version(
         forcefields_and_models.append(ForceFieldModel(name=water_model.strip()))
     # Print summary of extracted forcefields and models.
     if forcefields_and_models:
-        logger.info(
-            f"Found {len(forcefields_and_models)} forcefield(s) or model(s) "
-            f"in dataset {dataset_id}."
-        )
+        logger.info(f"Found {len(forcefields_and_models)} forcefield(s) or model(s)")
     else:
-        logger.warning(f"No forcefield or model found for dataset {dataset_id}")
+        logger.warning("No forcefield or model found")
         return None
     return forcefields_and_models
 
@@ -568,6 +564,7 @@ def extract_datasets_metadata(
         # Get the dataset id
         dataset_id = str(dataset.get("accession"))
         logger.info(f"Extracting metadata for dataset: {dataset_id}")
+        logger.debug(f"https://mdposit.mddbr.eu/api/rest/v1/projects/{dataset_id}")
         # Extract node name.
         node_name = dataset.get("node", "")
         node_name_full = f"mdposit_{dataset.get('node', '')}_node"
