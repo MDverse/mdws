@@ -278,6 +278,23 @@ def extract_proteins(
     """
     molecules = []
     # Case 1:
+    # We have no protein sequences but no UniProt identifiers.
+    if not protein_sequences and not uniprot_identifiers:
+        logger.info(
+            "No protein sequences or UniProt identifiers found "
+            f"in dataset {dataset_id}."
+        )
+        if pdb_identifiers:
+            molecules.append(
+                Molecule(
+                    name="Protein",
+                    type=MoleculeType.PROTEIN,
+                    sequence=None,
+                    external_identifiers=pdb_identifiers,
+                )
+            )
+        return molecules
+    # Case 2:
     # We have protein sequences but no UniProt identifiers.
     if protein_sequences and not uniprot_identifiers:
         logger.warning(
@@ -294,7 +311,7 @@ def extract_proteins(
                 )
             )
         return molecules
-    # Case 2:
+    # Case 3:
     # We have UniProt identifiers but no protein sequences.
     if uniprot_identifiers and not protein_sequences:
         logger.warning(
@@ -315,7 +332,7 @@ def extract_proteins(
                 )
             )
         return molecules
-    # Case 3:
+    # Case 4:
     # We have UniProt identifiers and protein sequences,
     # but their numbers do not match.
     if len(uniprot_identifiers) != len(protein_sequences):
@@ -324,15 +341,16 @@ def extract_proteins(
             f"match number of protein sequences ({len(protein_sequences)}) in dataset "
             f"{dataset_id}."
         )
-        molecules.append(
-            Molecule(
-                name="Unknown protein",
-                type=MoleculeType.PROTEIN,
-                external_identifiers=pdb_identifiers,
+        if pdb_identifiers:
+            molecules.append(
+                Molecule(
+                    name="Unknown protein",
+                    type=MoleculeType.PROTEIN,
+                    external_identifiers=pdb_identifiers,
+                )
             )
-        )
         return molecules
-    # Case 4:
+    # Case 5:
     # We have UniProt identifiers and protein sequences,
     # and their numbers match.
     for identifier, sequence in zip(
