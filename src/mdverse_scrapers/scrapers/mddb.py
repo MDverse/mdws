@@ -105,7 +105,7 @@ def scrape_all_datasets(
         logger.error("Failed to fetch data from MDposit API.")
         return all_datasets
     total_datasets = int(response.json().get("filteredCount", 0))
-    logger.success(f"Found a total of {total_datasets:,} datasets in MDposit.")
+    logger.success(f"Found a total of {total_datasets:,} datasets in MDposit")
     # Compute total number of pages to scrape based on total datasets and page size.
     page_total = total_datasets // page_size
     if total_datasets % page_size != 0:
@@ -174,8 +174,9 @@ def extract_software_and_version(
     name = dataset_metadata.get("PROGRAM")
     version = dataset_metadata.get("VERSION")
     if not name:
-        logger.warning("No software found for dataset")
+        logger.warning("No software found")
         return None
+    logger.debug(f"Found software: {name.strip()} ({version})")
     return [Software(name=name.strip(), version=version)]
 
 
@@ -246,7 +247,7 @@ def fetch_uniprot_protein_name(
     """
     logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
     if uniprot_id in ("noref", "notfound"):
-        logger.warning(f"Cannot fetch protein name for UniProt ID '{uniprot_id}'")
+        logger.warning("Uniprot ID is weird. Abording.")
         return "Unknown protein"
     # Defaut value for protein name:
     default_protein_name = f"Protein {uniprot_id}"
@@ -258,8 +259,9 @@ def fetch_uniprot_protein_name(
         delay_before_request=0.1,
     )
     if not response:
-        logger.error(f"Failed to query the UniProt API for ID {uniprot_id}")
+        logger.error("Failed to query the UniProt API")
         return default_protein_name
+    # First option: try to get the recommended name.
     protein_name = (
         response.json()
         .get("proteinDescription", {})
@@ -267,14 +269,21 @@ def fetch_uniprot_protein_name(
         .get("fullName", {})
         .get("value")
     )
+    # Second option: try to get the submitted name.
+    if not protein_name:
+        protein_name = (
+            response.json()
+            .get("proteinDescription", {})
+            .get("submissionNames", {})
+            .get("fullName", {})
+            .get("value")
+        )
     if protein_name:
-        logger.success(f"Retrieved protein name for UniProt ID {uniprot_id}:")
+        logger.success("Retrieved protein name:")
         logger.success(protein_name)
         return protein_name
     else:
-        logger.warning(
-            f"Protein name not found in UniProt API response for ID {uniprot_id}"
-        )
+        logger.warning("Cannot extract protein name from UniProt API response")
         return default_protein_name
 
 
@@ -314,8 +323,7 @@ def extract_proteins(  # noqa: C901
     # We have no protein sequences but no UniProt identifiers.
     if not protein_sequences and not uniprot_identifiers:
         logger.info(
-            "No protein sequences or UniProt identifiers found "
-            f"in dataset {dataset_id}."
+            f"No protein sequences or UniProt identifiers found in dataset {dataset_id}"
         )
         if pdb_identifiers:
             molecules.append(
