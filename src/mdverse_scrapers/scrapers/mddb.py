@@ -130,7 +130,7 @@ def scrape_all_datasets(
         datasets = response_json.get("projects", [])
         all_datasets.extend(datasets)
 
-        logger.info(f"Scraped page {page}/{page_total} with {len(datasets)} datasets.")
+        logger.info(f"Scraped page {page}/{page_total} with {len(datasets)} datasets")
         if total_datasets:
             logger.info(
                 f"Scraped {len(all_datasets):,} datasets "
@@ -270,20 +270,27 @@ def fetch_uniprot_protein_name(
         .get("value")
     )
     # Second option: try to get the submitted name.
+    # See for instance: https://rest.uniprot.org/uniprotkb/Q51760
     if not protein_name:
-        protein_name = (
-            response.json()
-            .get("proteinDescription", {})
-            .get("submissionNames", {})
-            .get("fullName", {})
-            .get("value")
+        submission_name = (
+            response.json().get("proteinDescription", {}).get("submissionNames")
         )
+        # The "submissionNames" field can be a list.
+        # See for instance; https://rest.uniprot.org/uniprotkb/Q16968
+        if submission_name and isinstance(submission_name, list):
+            protein_name = submission_name[0].get("fullName", {}).get("value")
+        # Or a dictionnary.
+        # See for instance: https://rest.uniprot.org/uniprotkb/Q51760
+        elif submission_name and isinstance(submission_name, dict):
+            protein_name = submission_name.get("fullName", {}).get("value")
     if protein_name:
         logger.success("Retrieved protein name:")
         logger.success(protein_name)
         return protein_name
     else:
-        logger.warning("Cannot extract protein name from UniProt API response")
+        # Uniprot records are sometimes outdated or discontinued.
+        # See for instance: https://rest.uniprot.org/uniprotkb/Q9RHW0
+        logger.error("Cannot extract protein name from UniProt API response")
         return default_protein_name
 
 
@@ -322,9 +329,7 @@ def extract_proteins(  # noqa: C901
     # Case 1:
     # We have no protein sequences but no UniProt identifiers.
     if not protein_sequences and not uniprot_identifiers:
-        logger.info(
-            f"No protein sequences or UniProt identifiers found in dataset {dataset_id}"
-        )
+        logger.info("Found no protein sequence nor UniProt identifier")
         if pdb_identifiers:
             molecules.append(
                 Molecule(
@@ -338,10 +343,7 @@ def extract_proteins(  # noqa: C901
     # Case 2:
     # We have protein sequences but no UniProt identifiers.
     if protein_sequences and not uniprot_identifiers:
-        logger.warning(
-            "Protein sequences found but no UniProt identifier "
-            f"in dataset {dataset_id}."
-        )
+        logger.warning("Found protein sequences but no UniProt identifier")
         for sequence in protein_sequences:
             molecules.append(
                 Molecule(
@@ -355,10 +357,7 @@ def extract_proteins(  # noqa: C901
     # Case 3:
     # We have UniProt identifiers but no protein sequences.
     if uniprot_identifiers and not protein_sequences:
-        logger.warning(
-            "UniProt identifiers found but no protein sequence "
-            f"in dataset {dataset_id}."
-        )
+        logger.warning("Found UniProt identifiers but no protein sequence")
         for identifier in uniprot_identifiers:
             external = ExternalIdentifier(
                 database_name=ExternalDatabaseName.UNIPROT, identifier=identifier
@@ -397,6 +396,8 @@ def extract_proteins(  # noqa: C901
     # Case 5:
     # We have more than one UniProt identifiers and several protein sequences,
     # but their numbers do not match.
+    # See for instance: https://mdposit.mddbr.eu/api/rest/v1/projects/MD-A000AE
+    # with 2 UniProt identifiers and 4 protein sequences.
     if len(uniprot_identifiers) != len(protein_sequences):
         logger.warning(
             f"Number of UniProt identifiers ({len(uniprot_identifiers)}) does not "
