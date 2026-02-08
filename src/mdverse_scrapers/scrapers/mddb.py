@@ -31,6 +31,29 @@ from ..models.utils import (
     normalize_files_metadata,
 )
 
+MDDB_NODES = {
+    # INRIA node.
+    "inria": {
+        "name": DatasetSourceName.MDPOSIT_INRIA_NODE,
+        "base_url": "https://dynarepo.inria.fr",
+    },
+    # INRIA node, with typo.
+    "inr": {
+        "name": DatasetSourceName.MDPOSIT_INRIA_NODE,
+        "base_url": "https://dynarepo.inria.fr",
+    },
+    # MMB node.
+    "mmb": {
+        "name": DatasetSourceName.MDPOSIT_MMB_NODE,
+        "base_url": "https://mmb.mddbr.eu",
+    },
+    # Cineca node.
+    "cin": {
+        "name": DatasetSourceName.MDPOSIT_CINECA_NODE,
+        "base_url": "https://cineca.mddbr.eu",
+    },
+}
+
 
 def scrape_all_datasets(
     client: httpx.Client,
@@ -563,6 +586,7 @@ def extract_molecules(
 
 def extract_datasets_metadata(
     datasets: list[dict],
+    mddb_nodes: dict,
     client: httpx.Client,
     logger: "loguru.Logger" = loguru.logger,
 ) -> tuple[list[dict], dict]:
@@ -573,6 +597,8 @@ def extract_datasets_metadata(
     ----------
     datasets: list[dict]
         List of raw MDposit datasets metadata.
+    mddb_nodes: dict
+        Dictionnary of MDDB nodes.
     logger: "loguru.Logger"
         Logger for logging messages.
 
@@ -593,39 +619,22 @@ def extract_datasets_metadata(
         logger.debug(f"https://mdposit.mddbr.eu/api/rest/v1/projects/{dataset_id}")
         # Extract node name.
         node_name = dataset.get("node", "")
-        node_name_full = f"mdposit_{dataset.get('node', '')}_node"
         # Create the dataset url depending on the node.
-        dataset_repository_name = DatasetSourceName.UNKNOWN
-        dataset_id_in_repository = ""
-        dataset_url_in_repository = ""
-        if node_name_full == DatasetSourceName.MDPOSIT_MMB_NODE:
-            dataset_repository_name = DatasetSourceName.MDPOSIT_MMB_NODE
-            dataset_id_in_repository = str(dataset.get("local"))
-            dataset_url_in_repository = (
-                f"https://mmb.mddbr.eu/#/id/{dataset_id_in_repository}/overview"
-            )
-        elif (
-            (node_name_full == DatasetSourceName.MDPOSIT_INRIA_NODE)
-            or (node_name == "inr")  # For compatibility with error in database
-        ):
-            dataset_repository_name = DatasetSourceName.MDPOSIT_INRIA_NODE
-            dataset_id_in_repository = str(dataset.get("local"))
-            dataset_url_in_repository = (
-                f"https://dynarepo.inria.fr/#/id/{dataset_id_in_repository}/overview"
-            )
-            if node_name == "inr":
-                logger.warning(
-                    f"Dataset {dataset_id} is associated with node 'inr', "
-                    "which seems to be an error in the database"
-                )
-                logger.warning(
-                    f"Using node name '{DatasetSourceName.MDPOSIT_INRIA_NODE}'"
-                )
-        else:
+        dataset_id_in_repository = str(dataset.get("local"))
+        if node_name not in mddb_nodes:
             logger.error(f"Unknown MDDB node '{node_name}' for dataset {dataset_id}")
             logger.error("Skipping dataset")
             continue
-
+        if node_name == "inr":
+            logger.warning(
+                f"MDDB node 'inr' should probably be 'inria' for dataset {dataset_id}"
+            )
+        dataset_repository_name = mddb_nodes[node_name]["name"]
+        dataset_url_in_repository = (
+            f"{mddb_nodes[node_name]['base_url']}"
+            f"/#/id/{dataset_id_in_repository}/overview"
+        )
+        # Extract simulation metadata.
         simulation_metadata = dataset.get("metadata", {})
         citations = simulation_metadata.get("CITATION")
         external_links = [citations] if citations else None
@@ -876,7 +885,7 @@ def main(output_dir_path: Path, *, is_in_debug_mode: bool = False) -> None:
 
     # Extract datasets metadata.
     datasets_selected_metadata, replicas = extract_datasets_metadata(
-        datasets_raw_metadata, client, logger=logger
+        datasets_raw_metadata, MDDB_NODES, client, logger=logger
     )
     # Validate datasets metadata with the DatasetMetadata Pydantic model.
     datasets_normalized_metadata = normalize_datasets_metadata(

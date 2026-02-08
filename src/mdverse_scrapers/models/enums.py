@@ -13,7 +13,6 @@ class DataType(StrEnum):
 class DatasetSourceName(StrEnum):
     """Molecular dynamics sources: data repositories and projects."""
 
-    UNKNOWN = "unknown"
     ZENODO = "zenodo"
     FIGSHARE = "figshare"
     OSF = "osf"
@@ -24,6 +23,7 @@ class DatasetSourceName(StrEnum):
     MDDB = "mddb"
     MDPOSIT_INRIA_NODE = "mdposit_inria_node"
     MDPOSIT_MMB_NODE = "mdposit_mmb_node"
+    MDPOSIT_CINECA_NODE = "mdposit_cineca_node"
 
 
 class ExternalDatabaseName(StrEnum):
