@@ -243,13 +243,13 @@ def fetch_uniprot_protein_name(
     Returns
     -------
     str
-        Protein full name if available, None otherwise.
+        Protein full name if available, default name otherwise.
     """
     logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
     if uniprot_id in ("noref", "notfound"):
         logger.warning("UniProt ID is weird. Aborting.")
         return "Unknown protein"
-    # Defaut value for protein name:
+    # Default value for protein name:
     default_protein_name = f"Protein {uniprot_id}"
     response = make_http_request_with_retries(
         client,
@@ -261,10 +261,10 @@ def fetch_uniprot_protein_name(
     if not response:
         logger.error("Failed to query the UniProt API")
         return default_protein_name
+    json_data = response.json()
     # First option: try to get the recommended name.
     protein_name = (
-        response.json()
-        .get("proteinDescription", {})
+        json_data.get("proteinDescription", {})
         .get("recommendedName", {})
         .get("fullName", {})
         .get("value")
@@ -272,9 +272,7 @@ def fetch_uniprot_protein_name(
     # Second option: try to get the submitted name.
     # See for instance: https://rest.uniprot.org/uniprotkb/Q51760
     if not protein_name:
-        submission_name = (
-            response.json().get("proteinDescription", {}).get("submissionNames")
-        )
+        submission_name = json_data.get("proteinDescription", {}).get("submissionNames")
         # The "submissionNames" field can be a list.
         # See for instance; https://rest.uniprot.org/uniprotkb/Q16968
         if submission_name and isinstance(submission_name, list):
@@ -345,7 +343,7 @@ def extract_proteins(  # noqa: C901
     if protein_sequences and not uniprot_identifiers:
         logger.warning("Found protein sequences but no UniProt identifier")
         for sequence in protein_sequences:
-            molecules.append(
+            molecules.append(  # noqa: PERF401
                 Molecule(
                     name="Protein",
                     type=MoleculeType.PROTEIN,
@@ -384,7 +382,7 @@ def extract_proteins(  # noqa: C901
             client, uniprot_identifiers[0], logger=logger
         )
         for sequence in protein_sequences:
-            molecules.append(
+            molecules.append(  # noqa: PERF401
                 Molecule(
                     name=protein_name,
                     type=MoleculeType.PROTEIN,
@@ -459,7 +457,7 @@ def extract_nucleic_acids(
     """
     molecules = []
     for sequence in nucleic_acid_sequences:
-        molecules.append(
+        molecules.append(  # noqa: PERF401
             Molecule(
                 name="Nucleic acid",
                 type=MoleculeType.NUCLEIC_ACID,
@@ -511,7 +509,7 @@ def extract_small_molecules(
     inchikeys = dataset_metadata.get("INCHIKEYS")
     if inchikeys and isinstance(inchikeys, list):
         for inchikey in inchikeys:
-            molecules.append(
+            molecules.append(  # noqa: PERF401
                 Molecule(
                     name="Small molecule",
                     type=MoleculeType.SMALL_MOLECULE,
@@ -763,7 +761,6 @@ def scrape_files_for_all_datasets(
             # as they usually have the same names.
             files_metadata = extract_files_metadata(
                 raw_files_metadata,
-                node_base_url,
                 dataset,
                 replica_id,
                 replica_name,
@@ -782,7 +779,6 @@ def scrape_files_for_all_datasets(
 
 def extract_files_metadata(
     raw_metadata: list[dict],
-    node_base_url: str,
     dataset: DatasetMetadata,
     replica_id: int,
     replica_name: str,
@@ -795,12 +791,10 @@ def extract_files_metadata(
     ----------
     raw_metadata: list[dict]
         Raw files metadata.
-    node_base_url: str
-        The unique identifier of the dataset in MDDB.
     dataset: DatasetMetadata
         Normalized dataset to get files metadata for.
     replica_id: int
-        Identifer of the corresponding replica associated with the files.
+        Identifier of the corresponding replica associated with the files.
     replica_name: str
         The name of the corresponding replica associated with the files.
     logger: "loguru.Logger"
