@@ -170,6 +170,24 @@ This command will:
 4. Validate entries using Pydantic models
 5. Save the extracted metadata to Parquet files
 
+## Scrape MDDB
+
+See [MDDB](docs/mddb.md) to understand how with use scrape metadata from MDDB.
+
+Scrape MDDB to collect molecular dynamics (MD) datasets and files:
+
+```bash
+uv run scrape-mddb --output-dir data
+```
+
+This command will:
+
+1. List all datasets and files through the main MDposit nodes.
+2. Parse metadata and validate them using the Pydantic models
+   `DatasetMetadata` and `FileMetadata`.
+3. Save validated files and datasets metadata.
+
+The scraping process takes about 2 hours, depending on your network connection and hardware.
 
 ## Analyze Gromacs mdp and gro files
 

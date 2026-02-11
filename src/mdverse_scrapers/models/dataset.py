@@ -170,7 +170,7 @@ class DatasetMetadata(SimulationMetadata, DatasetCoreMetadata):
 
         Parameters
         ----------
-        cls : type[BaseDataset]
+        cls : type[DatasetMetadata]
             The Pydantic model class being validated.
         value : datetime | str | None
             The input value of the 'date' field to validate.

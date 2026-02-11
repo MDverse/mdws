@@ -13,9 +13,9 @@ from mdverse_scrapers.models.simulation import (
 )
 
 
-# -------------------------------------------------------------------
+# --------------------------------------------------
 # Test simulation timestep and time positive values
-# -------------------------------------------------------------------
+# --------------------------------------------------
 @pytest.mark.parametrize(
     ("values", "should_raise_exception"),
     [
@@ -35,9 +35,9 @@ def test_positive_simulation_values(values, should_raise_exception):
         assert metadata.simulation_timesteps_in_fs == values
 
 
-# -------------------------------------------------------------------
+# ------------------------------
 # Test temperature normalization
-# -------------------------------------------------------------------
+# ------------------------------
 @pytest.mark.parametrize(
     ("test_temp", "expected_temp_in_kelvin"),
     [
@@ -54,9 +54,9 @@ def test_temperature_normalization(test_temp, expected_temp_in_kelvin):
     assert metadata.simulation_temperatures_in_kelvin == expected_temp_in_kelvin
 
 
-# -------------------------------------------------------------------
+# ----------------------------------------------
 # Test software, molecules, forcefields creation
-# -------------------------------------------------------------------
+# ----------------------------------------------
 def test_structured_fields_creation():
     """Test that software, molecules, and forcefields can be created."""
     metadata = SimulationMetadata(
@@ -89,18 +89,18 @@ def test_structured_fields_creation():
     assert metadata.molecules[0].external_identifiers[0].identifier == "1ABC"
 
 
-# -------------------------------------------------------------------
+# -------------------
 # Test invalid fields
-# -------------------------------------------------------------------
+# -------------------
 def test_invalid_fields():
     """Test with a non-existing fields."""
     with pytest.raises(ValidationError):
         SimulationMetadata(total_number_of_something=1000)
 
 
-# -------------------------
+# --------------------------------------
 # Test invalid simulation parameter type
-# -------------------------
+# --------------------------------------
 def test_invalid_simulation_value_type():
     """Test that non-numeric strings raise ValidationError."""
     with pytest.raises(ValidationError):
