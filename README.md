@@ -174,7 +174,7 @@ This command will:
 
 See [MDDB](docs/mddb.md) to understand how with use scrape metadata from MDDB.
 
-Scrape MDDB (MDposit MMB node and MDposit Inria node) to collect molecular dynamics (MD) datasets and files:
+Scrape MDDB to collect molecular dynamics (MD) datasets and files:
 
 ```bash
 uv run scrape-mddb --output-dir data
@@ -182,7 +182,7 @@ uv run scrape-mddb --output-dir data
 
 This command will:
 
-1. Search for molecular dynamics datasets and files through the MDposit API nodes.
+1. List all datasets and files through the main MDposit nodes.
 2. Parse metadata and validate them using the Pydantic models
    `DatasetMetadata` and `FileMetadata`.
 3. Save validated files and datasets metadata.
