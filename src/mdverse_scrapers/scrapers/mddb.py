@@ -247,7 +247,7 @@ def fetch_uniprot_protein_name(
     """
     logger.info(f"Fetching protein name for UniProt ID: {uniprot_id}")
     if uniprot_id in ("noref", "notfound"):
-        logger.warning("Uniprot ID is weird. Abording.")
+        logger.warning("UniProt ID is weird. Aborting.")
         return "Unknown protein"
     # Defaut value for protein name:
     default_protein_name = f"Protein {uniprot_id}"
@@ -288,7 +288,7 @@ def fetch_uniprot_protein_name(
         logger.success(protein_name)
         return protein_name
     else:
-        # Uniprot records are sometimes outdated or discontinued.
+        # UniProt records are sometimes outdated or discontinued.
         # See for instance: https://rest.uniprot.org/uniprotkb/Q9RHW0
         logger.error("Cannot extract protein name from UniProt API response")
         return default_protein_name
@@ -607,7 +607,7 @@ def extract_datasets_metadata(
     datasets: list[dict]
         List of raw MDposit datasets metadata.
     mddb_nodes: dict
-        Dictionnary of MDDB nodes.
+        Dictionary of MDDB nodes.
     logger: "loguru.Logger"
         Logger for logging messages.
 
@@ -616,7 +616,7 @@ def extract_datasets_metadata(
     list[dict]
         List of dataset metadata dictionaries.
     dict
-        Dictionnary for replicas by dataset.
+        Dictionary for replicas by dataset.
     """
     datasets_metadata = []
     replicas = {}
@@ -723,7 +723,7 @@ def scrape_files_for_all_datasets(
     datasets_metadata: list[DatasetMetadata]
         List of datasets to scrape files metadata for.
     datasets_replicas: dict
-        Dictionnary for replicas by dataset.
+        Dictionary for replicas by dataset.
     node_base_url: str
         Base url of the specific node of MDposit API.
     logger: "loguru.Logger"

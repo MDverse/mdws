@@ -19,10 +19,10 @@ No account / token is needed to access the MDposit API.
 
 In MDposit, a dataset (a simulation and its related files) is called a "[project](https://mdposit.mddbr.eu/api/rest/docs/#/projects/get_projects_summary)".
 
-APY entrypoint to get the total number of projects:
+API entrypoint to get the total number of projects:
 
 - Endpoint: `/projects/summary`
-- HTTP methode: GET
+- HTTP method: GET
 - [documentation](https://mdposit.mddbr.eu/api/rest/docs/#/projects/get_projects_summary)
 
 A project can contain multiple replicas, each identified by `project_id`.`replica_id`.
