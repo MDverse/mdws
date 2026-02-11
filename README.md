@@ -170,10 +170,9 @@ This command will:
 4. Validate entries using Pydantic models
 5. Save the extracted metadata to Parquet files
 
-
 ## Scrape MDDB
 
-Have a look at the notes regarding [MDDB](docs/mddb.md) and its API.
+See [MDDB](docs/mddb.md) to understand how with use scrape metadata from MDDB.
 
 Scrape MDDB (MDposit MMB node and MDposit Inria node) to collect molecular dynamics (MD) datasets and files:
 
@@ -188,8 +187,7 @@ This command will:
    `DatasetMetadata` and `FileMetadata`.
 3. Save validated files and datasets metadata.
 
-The scraping takes about 13 minutes.
-
+The scraping process takes about 2 hours, depending on your network connection and hardware.
 
 ## Analyze Gromacs mdp and gro files
 
