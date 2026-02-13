@@ -1,6 +1,8 @@
 # MDDB
 
-> The [MDDB (Molecular Dynamics Data Bank) project](https://mddbr.eu/about/) is an initiative to collect, preserve, and share molecular dynamics (MD) simulation data. As part of this project, **MDposit** is an open platform that provides web access to atomistic MD simulations. Its goal is to facilitate and promote data sharing within the global scientific community to advance research.
+> The [MDDB (Molecular Dynamics Data Bank) project](https://mddbr.eu/about/) is an initiative to collect, preserve, and share molecular dynamics (MD) simulation data.
+As part of this project, **MDposit** is an open platform that provides web access to atomistic MD simulations.
+Its goal is to facilitate and promote data sharing within the global scientific community to advance research.
 
 The MDposit infrastructure is distributed across several MDposit nodes. All metadata are accessible through the global node:
 
@@ -29,9 +31,9 @@ A project can contain multiple replicas, each identified by `project_id`.`replic
 
 For example, the project [MD-A003ZP](https://mdposit.mddbr.eu/#/id/MD-A003ZP/overview) contains ten replicas:
 
-- `MD-A003ZP.1`: https://mdposit.mddbr.eu/#/id/MD-A003ZP.1/overview
-- `MD-A003ZP.2`: https://mdposit.mddbr.eu/#/id/MD-A003ZP.2/overview
-- `MD-A003ZP.3`: https://mdposit.mddbr.eu/#/id/MD-A003ZP.3/overview
+- `MD-A003ZP.1`: <https://mdposit.mddbr.eu/#/id/MD-A003ZP.1/overview>
+- `MD-A003ZP.2`: <https://mdposit.mddbr.eu/#/id/MD-A003ZP.2/overview>
+- `MD-A003ZP.3`: <https://mdposit.mddbr.eu/#/id/MD-A003ZP.3/overview>
 - ...
 
 API entrypoint to get all datasets at once:
@@ -76,7 +78,9 @@ Title:
 
 Description:
 
-> The trajectories of all-atom MD simulations were obtained based on 4 starting representative conformations from the CG simulation. For each starting structure, there are six trajectories of the E protein: 3 with the protein embedded in the membrane containing POPC, and 3 with the membrane mimicking the natural ERGIC membrane (Mix: 50% POPC, 25% POPE, 10% POPI, 5% POPS, 10% cholesterol).
+> The trajectories of all-atom MD simulations were obtained based on 4 starting representative conformations from the CG simulation.
+For each starting structure, there are six trajectories of the E protein: 3 with the protein embedded in the membrane containing POPC, and 3 with the membrane mimicking the natural ERGIC membrane
+(Mix: 50% POPC, 25% POPE, 10% POPI, 5% POPS, 10% cholesterol).
 
 - [project on MDposit GUI](https://mdposit.mddbr.eu/#/id/MD-A001T1/overview)
 - [project on MDposit API](https://mdposit.mddbr.eu/api/rest/current/projects/MD-A001T1)

@@ -1,0 +1,10 @@
+---
+# Example file:
+# https://github.com/DavidAnson/markdownlint/blob/main/schema/.markdownlint.yaml
+# MD013/line-length : Line length
+# https://github.com/DavidAnson/markdownlint/blob/v0.40.0/doc/md013.md
+MD013:
+  # Number of characters
+  line_length: 200
+  # Exclude citations
+  blockquotes: false

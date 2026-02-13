@@ -55,7 +55,7 @@ The scraping takes some time (about 5 hours). A mechanism has been set up to avo
 
 Eventually, the scraper will produce two files: `zenodo_datasets.parquet` and `zenodo_files.parquet` :sparkles:
 
-Note that "[false positives](docs/false_positives.md)" have been removed in the scraping proccess.
+Note that "[false positives](docs/false_positives.md)" have been removed in the scraping process.
 
 ## Scrape Figshare
 
@@ -155,7 +155,7 @@ git clone https://github.com/NMRLipids/BilayerData.git
 
 > All metadata are stored in `README.yaml` files under the `Simulations` directory.
 
-2. Extract metadata from simulations
+1. Extract metadata from simulations
 
 ```bash
 uv run scripts/scrape_nmrlipids.py \
@@ -212,12 +212,14 @@ uv run scripts/download_files.py --input data/osf_files.tsv \
 
 Option `--withzipfiles` will also get files packaged in zip archives. It means that the script will first download the entire zip archive and then extract the mdp and gro files.
 
-This step will take a couple of hours to complete. Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail for a couple of files. Re-rerun previous commands to resume the download. Files already retrieved will not be downloaded again.
+This step will take a couple of hours to complete.
+Depending on the stability of your internet connection and the availability of the data repository servers, the download might fail for a couple of files.
+Re-rerun previous commands to resume the download.
+Files already retrieved will not be downloaded again.
 
 Expect about 640 GB of data with the `--withzipfiles` option (~ 8800 gro files and 9500 mdp files)
 
 Numbers are indicative only and may vary depend on the time you run this command (databases tend to get bigger and bigger).
-
 
 ### Parse .mdp files
 
@@ -231,7 +233,8 @@ This step will take a couple of seconds to run. Results will be saved in `data/g
 
 ### Parse .gro files
 
-A rough molecular composition is deduced from the file `params/residue_name.yml` that contains a partial list of residues names organized in categories *protein*, *lipid*, *nucleic*, *glucid* and *water & ion*.
+A rough molecular composition is deduced from the file `params/residue_name.yml`
+that contains a partial list of residues names organized in categories *protein*, *lipid*, *nucleic*, *glucid* and *water & ion*.
 
 ```bash
 uv run scripts/parse_gro_files.py \
@@ -259,7 +262,6 @@ data/gromacs_gro_files.parquet
 data/gromacs_mdp_files.parquet
 ```
 
-
 ## Run all script
 
 You can run all commands above with the `run_all.sh` script:
@@ -270,7 +272,6 @@ bash run_all.sh
 
 > [!WARNING]
 > Be sure, you have have **sufficient** time, bandwidth and disk space to run this command.
-
 
 ## Upload data on Zenodo (for MDverse mainteners only)
 
@@ -283,6 +284,7 @@ uv run scripts/upload_datasets_to_zenodo.py --record 7856524 --metadata params/z
 ```
 
 Update files:
+
 ```bash
 uv run scripts/upload_datasets_to_zenodo.py --record 7856524 \
 --file data/datasets.parquet \

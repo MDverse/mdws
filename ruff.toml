@@ -8,39 +8,41 @@ docstring-code-line-length = 72
 [lint]
 preview = true  # Allow preview rules.
 extend-select = [
-    "F",    # pyflakes
-    "E",    # Pycodestyle errors
-    "W",    # Pycodestyle warnings
-    "I",    # isort - import ordering
+    "A",    # Flake8-builtins - misuse of Python built-in names
     "B",    # bugbear
+    "BLE",  # Flake8-blind-except - flags bare excepts
+    "C4",   # Flake8-comprehensions - best practices in comprehensions
     "C90",  # McCabe - code complexity metric for functions
-    "N",    # PEP8 Naming
+    "COM",  # Flake8-commas - trailing/comma issues
     "D",    # Pydocstyle - docstring formatting
+    "DOC",  # Pydoclint - docstring linting and consistency
+    "E",    # Pycodestyle errors
+    "EM",   # Flake8-errmsg - error message style
+    "F",    # pyflakes
+    "FAST", # FastAPI - FastAPI-specific linting rules
+    "FBT",  # Flake8-boolean-trap - potential pitfalls with booleans
+    "FURB", # Refurb - rules for code refurbishment
+    "G",    # Flake8-logging-format - logging format string issues
+    "I",    # isort - import ordering
+    "ICN",  # Flake8-import-conventions - enforces conventional import aliases
+    "LOG",  # Flake8-logging - proper logging usage
+    "N",    # PEP8 Naming
+    "NPY",  # NumPy-specific rules - ensures NumPy coding standards
+    "PD",   # Pandas-vet - checks pandas-specific code practices
+    "PERF", # Perflint - performance-related checks
+    "PL",   # Pylint  rules
+    "PT",   # Flake8-pytest-style - pytest best practices
+    "Q",    # Flake8-quotes - enforces quote style consistency
+    "RUF",  # Ruff-specific rules - additional Ruff checks
+    "S",    # Flake8-bandit - security issues
+    "SIM",  # Flake8-simplify - code simplification hints
     "UP",   # Pyupgrade - upgraded syntax to newer Python versions
-    "S",    # Flake8-bandit – security issues
-    "BLE",  # Flake8-blind-except – flags bare excepts
-    "FBT",  # Flake8-boolean-trap – potential pitfalls with booleans
-    "A",    # Flake8-builtins – misuse of Python built-in names
-    "COM",  # Flake8-commas – trailing/comma issues
-    "C4",   # Flake8-comprehensions – best practices in comprehensions
-    "EM",   # Flake8-errmsg – error message style
-    "ICN",  # Flake8-import-conventions – enforces conventional import aliases
-    "LOG",  # Flake8-logging – proper logging usage
-    "G",    # Flake8-logging-format – logging format string issues
-    "PT",   # Flake8-pytest-style – pytest best practices
-    "Q",    # Flake8-quotes – enforces quote style consistency
-    "SIM",  # Flake8-simplify – code simplification hints
-    "PD",   # Pandas-vet – checks pandas-specific code practices
-    "NPY",  # NumPy-specific rules – ensures NumPy coding standards
-    "FAST", # FastAPI – FastAPI-specific linting rules
-    "PERF", # Perflint – performance-related checks
-    "FURB", # Refurb – rules for code refurbishment
-    "DOC",  # Pydoclint – docstring linting and consistency
-    "RUF",  # Ruff-specific rules – additional Ruff checks
+    "W",    # Pycodestyle warnings
 ]
 ignore = [
     "COM812", # Redundant with ruff formatter. See: https://docs.astral.sh/ruff/rules/missing-trailing-comma/
-    "G004", # f-strings are allowed with the loguru module. See https://docs.astral.sh/ruff/rules/logging-f-string/
+    "G004",   # f-strings are allowed with the loguru module. See https://docs.astral.sh/ruff/rules/logging-f-string/
+    "PLR",    # No Pylint recommendations
 ]
 
 # Force numpy-style for docstrings
@@ -53,6 +55,6 @@ convention = "numpy"
 "tests/**/*.py" = [
     # at least this three should be fine in tests:
     "S101", # asserts allowed in tests...
-    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
-    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT",  # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
 ]
