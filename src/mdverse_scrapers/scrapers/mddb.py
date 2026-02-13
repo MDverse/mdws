@@ -53,6 +53,7 @@ MDDB_NODES = {
         "base_url": "https://cineca.mddbr.eu",
     },
 }
+MAX_NUMBER_OF_DATASETS_IN_DEBUG = 100
 
 
 def scrape_all_datasets(
@@ -140,8 +141,15 @@ def scrape_all_datasets(
         logger.debug("First dataset metadata on this page:")
         logger.debug(datasets[0] if datasets else "No datasets on this page")
 
-        if scraper and scraper.is_in_debug_mode and len(all_datasets) >= 100:
-            logger.warning("Debug mode is ON: stopping after 100 datasets.")
+        if (
+            scraper
+            and scraper.is_in_debug_mode
+            and len(all_datasets) >= MAX_NUMBER_OF_DATASETS_IN_DEBUG
+        ):
+            logger.warning(
+                "Debug mode is ON: "
+                f"stopping after {MAX_NUMBER_OF_DATASETS_IN_DEBUG} datasets."
+            )
             return all_datasets
 
     logger.success(f"Scraped {len(all_datasets):,} datasets in MDposit.")

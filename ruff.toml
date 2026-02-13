@@ -41,7 +41,8 @@ extend-select = [
 ]
 ignore = [
     "COM812", # Redundant with ruff formatter. See: https://docs.astral.sh/ruff/rules/missing-trailing-comma/
-    "G004", # f-strings are allowed with the loguru module. See https://docs.astral.sh/ruff/rules/logging-f-string/
+    "G004",   # f-strings are allowed with the loguru module. See https://docs.astral.sh/ruff/rules/logging-f-string/
+    "PLR",    # No Pylint recommendations
 ]
 
 # Force numpy-style for docstrings
@@ -54,6 +55,6 @@ convention = "numpy"
 "tests/**/*.py" = [
     # at least this three should be fine in tests:
     "S101", # asserts allowed in tests...
-    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
-    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "ARG",  # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT",  # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
 ]
