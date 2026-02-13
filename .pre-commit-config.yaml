@@ -16,6 +16,7 @@ repos:
       - id: mixed-line-ending
       # Trims trailing whitespace.
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
       # Attempts to load all json files to verify syntax.
       - id: check-json
       # Attempts to load all yaml files to verify syntax.
