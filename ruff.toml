@@ -30,7 +30,7 @@ extend-select = [
     "NPY",  # NumPy-specific rules - ensures NumPy coding standards
     "PD",   # Pandas-vet - checks pandas-specific code practices
     "PERF", # Perflint - performance-related checks
-    "PL",   # Pylint rules
+    "PL",   # Pylint  rules
     "PT",   # Flake8-pytest-style - pytest best practices
     "Q",    # Flake8-quotes - enforces quote style consistency
     "RUF",  # Ruff-specific rules - additional Ruff checks
