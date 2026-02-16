@@ -175,7 +175,7 @@ def read_query_file(query_file_path: Path, logger: "loguru.Logger" = loguru.logg
     exclusion_path_patterns : list[str]
         Patterns for path exclusion.
     """
-    with open(query_file_path) as param_file:
+    with open(query_file_path, encoding="utf-8") as param_file:
         logger.info(f"Reading parameters from: {query_file_path}")
         data_loaded = yaml.safe_load(param_file)
     keywords = data_loaded["keywords"]
@@ -209,28 +209,57 @@ def remove_duplicates_in_list_of_dicts(input_list: list[dict]) -> list[dict]:
     return output_list
 
 
-def clean_text(string):
-    """Decode html and remove breaks.
+def strip_html(input_text: str) -> str:
+    """Remove html tags.
 
     Arguments
     ---------
-    string: str
-        input string
+    input_text: str
+        input text
 
     Returns
     -------
     str
-        decoded string.
+        clean text
     """
-    # Remove HTML tags
-    # text_decode = BeautifulSoup(string, features="lxml")
-    # text_decode = u''.join(text_decode.findAll(text=True))
-    text_decode = BeautifulSoup(string, features="lxml").text
-    # Remove tabulation and carriage return
-    text_decode = re.sub(r"[\n\r\t]", " ", text_decode)
-    # Remove multi spaces
-    text_decode = re.sub(r" {2,}", " ", text_decode)
-    return text_decode
+    return BeautifulSoup(input_text, features="lxml").text
+
+
+def strip_whitespace(input_text: str) -> str:
+    """Remove whitespace characters.
+
+    Arguments
+    ---------
+    input_text: str
+        input text
+
+    Returns
+    -------
+    str
+        clean text
+    """
+    # Remove tabulation and carriage return.
+    text_clean = re.sub(r"[\n\r\t]", " ", input_text)
+    # Remove multi spaces.
+    text_clean = re.sub(r" {2,}", " ", text_clean)
+    return text_clean
+
+
+def clean_text(input_text: str) -> str:
+    """Remove html tags and whitespace characters.
+
+    Arguments
+    ---------
+    input_text: str
+        input text
+
+    Returns
+    -------
+    str
+        clean text
+    """
+    clean_text = strip_html(input_text)
+    return strip_whitespace(clean_text)
 
 
 def remove_excluded_files(
@@ -303,7 +332,7 @@ def find_false_positive_datasets(
 ) -> list[str]:
     """Find false positive datasets.
 
-    False positive datasets are datasets that propably do not
+    False positive datasets are datasets that probably do not
     contain any molecular dynamics data.
 
     Parameters
