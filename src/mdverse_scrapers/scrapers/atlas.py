@@ -43,8 +43,8 @@ ATLAS_METADATA = {
     "external_link": ["https://www.dsimb.inserm.fr/ATLAS/"],
     "software_name": "GROMACS",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
     "software_version": "v2019.6",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
-    "forcefied_name": "CHARMM36m",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
-    "forcefied_version": "July 2020",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "forcefield_name": "CHARMM36m",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "forcefield_version": "July 2020",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
     "water_model": "TIP3P",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
     "simulation_temperature": 300,  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
     "simulation_time": "100 ns",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
