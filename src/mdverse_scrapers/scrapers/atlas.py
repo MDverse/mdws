@@ -19,8 +19,9 @@ from ..core.network import (
 )
 from ..core.toolbox import print_statistics
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetSourceName
+from ..models.enums import DatasetSourceName, ExternalDatabaseName
 from ..models.scraper import ScraperContext
+from ..models.simulation import ExternalIdentifier, ForceFieldModel, Molecule, Software
 from ..models.utils import (
     export_list_of_models_to_parquet,
     normalize_datasets_metadata,
@@ -40,6 +41,14 @@ ATLAS_METADATA = {
     ],
     "doi": "10.1093/nar/gkad1084",  # https://academic.oup.com/nar/article/52/D1/D384/7438909
     "external_link": ["https://www.dsimb.inserm.fr/ATLAS/"],
+    "software_name": "GROMACS",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "software_version": "v2019.6",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "forcefied_name": "CHARMM36m",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "forcefied_version": "July 2020",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "water_model": "TIP3P",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "simulation_temperature": 300,  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "simulation_time": "100 ns",  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
+    "simulation_timestep": 2,  # https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters
 }
 
 
@@ -115,7 +124,7 @@ def extract_file_sizes_from_html(
     return files_metadata
 
 
-def scrape_metadata_for_a_dataset(
+def scrape_metadata_for_one_dataset(
     client: httpx.Client,
     chain_id: str,
     logger: "loguru.Logger" = loguru.logger,
@@ -165,6 +174,52 @@ def scrape_metadata_for_a_dataset(
         "doi": ATLAS_METADATA["doi"],
         "external_links": ATLAS_METADATA["external_link"],
     }
+    # Add molecules.
+    external_identifiers = []
+    if meta_json.get("PDB"):
+        external_identifiers.append(
+            ExternalIdentifier(
+                database_name=ExternalDatabaseName.PDB,
+                identifier=meta_json["PDB"].split("_", maxsplit=1)[0],
+            )
+        )
+    if meta_json.get("UniProt"):
+        external_identifiers.append(
+            ExternalIdentifier(
+                database_name=ExternalDatabaseName.UNIPROT,
+                identifier=meta_json["UniProt"],
+            )
+        )
+    metadata["molecules"] = [
+        Molecule(
+            name=meta_json.get("protein_name"),
+            sequence=meta_json.get("sequence"),
+            external_identifiers=external_identifiers,
+        )
+    ]
+    # Add software.
+    metadata["software"] = [
+        Software(
+            name=ATLAS_METADATA["software_name"],
+            version=ATLAS_METADATA["software_version"],
+        )
+    ]
+    # Add forcefields and models.
+    metadata["forcefields_models"] = [
+        ForceFieldModel(
+            name=ATLAS_METADATA["forcefield_name"],
+            version=ATLAS_METADATA["forcefield_version"],
+        ),
+        ForceFieldModel(name=ATLAS_METADATA["water_model"]),
+    ]
+    # Add simulation temperature.
+    metadata["simulation_temperatures_in_kelvin"] = [
+        ATLAS_METADATA["simulation_temperature"]
+    ]
+    # Add simulation time.
+    metadata["simulation_times"] = [ATLAS_METADATA["simulation_time"]]
+    # Add simulation time step.
+    metadata["simulation_timesteps_in_fs"] = [ATLAS_METADATA["simulation_timestep"]]
     logger.info("Done.")
     return metadata
 
@@ -223,7 +278,7 @@ def scrape_all_datasets(
     datasets_meta = []
     logger.info("Starting scraping of all datasets...")
     for pdb_counter, pdb_chain in enumerate(pdb_chains, start=1):
-        metadata = scrape_metadata_for_a_dataset(client, pdb_chain, logger=logger)
+        metadata = scrape_metadata_for_one_dataset(client, pdb_chain, logger=logger)
         if metadata:
             datasets_meta.append(metadata)
         logger.info(
