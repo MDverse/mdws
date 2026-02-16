@@ -20,6 +20,7 @@ from ..core.toolbox import (
     read_query_file,
     remove_duplicates_in_list_of_dicts,
     remove_excluded_files,
+    strip_html,
 )
 from ..models.enums import DatasetSourceName
 from ..models.file import FileMetadata
@@ -162,7 +163,7 @@ def extract_data_from_zip_file(url, logger: "loguru.Logger" = loguru.logger):
     Returns
     -------
     list
-        List of dictionnaries with data extracted from zip preview.
+        List of dictionaries with data extracted from zip preview.
     """
     file_lst = []
     response = make_http_get_request_with_retries(
@@ -330,7 +331,7 @@ def extract_metadata_from_json(
                 for author in hit.get("metadata", {}).get("creators", [])
                 if author.get("name", None)
             ],
-            "description": clean_text(hit.get("metadata", {}).get("description", "")),
+            "description": strip_html(hit.get("metadata", {}).get("description", "")),
             "keywords": [
                 str(keyword) for keyword in hit.get("metadata", {}).get("keywords", [])
             ],

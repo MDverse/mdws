@@ -21,6 +21,7 @@ from ..core.toolbox import (
     print_statistics,
     read_query_file,
     remove_excluded_files,
+    strip_html,
 )
 from ..models.enums import DatasetSourceName
 from ..models.scraper import ScraperContext
@@ -242,12 +243,12 @@ def extract_metadata_from_single_dataset_record(
         "dataset_url_in_repository": record_json.get("url_public_html"),
         "date_created": record_json.get("created_date"),
         "date_last_updated": record_json.get("modified_date"),
-        "title": clean_text(record_json.get("title")),
+        "title": clean_text(record_json.get("title", "")),
         "author_names": [
             clean_text(author.get("full_name"))
             for author in record_json.get("authors", [])
         ],
-        "description": clean_text(record_json.get("description")),
+        "description": strip_html(record_json.get("description", "")),
         "license": record_json.get("license", {}).get("name"),
         "doi": record_json.get("doi"),
         "download_number": dataset_stats["download_number"],
@@ -330,7 +331,7 @@ def search_all_datasets(
             found_datasets_per_keyword = []
             # Search endpoint: /articles/search
             # https://docs.figshare.com/#articles_search
-            # Iterate seach on pages.
+            # Iterate search on pages.
             while True:
                 data_query = {
                     "order": "published_date",
