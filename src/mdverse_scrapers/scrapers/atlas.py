@@ -19,7 +19,7 @@ from ..core.network import (
 )
 from ..core.toolbox import print_statistics
 from ..models.dataset import DatasetMetadata
-from ..models.enums import DatasetSourceName, ExternalDatabaseName
+from ..models.enums import DatasetSourceName, ExternalDatabaseName, MoleculeType
 from ..models.scraper import ScraperContext
 from ..models.simulation import ExternalIdentifier, ForceFieldModel, Molecule, Software
 from ..models.utils import (
@@ -195,6 +195,7 @@ def scrape_metadata_for_one_dataset(
             name=meta_json.get("protein_name"),
             sequence=meta_json.get("sequence"),
             external_identifiers=external_identifiers,
+            type=MoleculeType.PROTEIN,
         )
     ]
     # Add software.
