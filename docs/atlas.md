@@ -1,6 +1,8 @@
 # ATLAS
 
-ATLAS (Atlas of proTein moLecular dynAmicS) is an open-access data repository that gathers standardized molecular dynamics simulations of protein structures, accompanied by their analysis in the form of interactive diagrams and trajectory visualisation. All raw trajectories as well as the results of analysis are available for download.
+ATLAS (Atlas of proTein moLecular dynAmicS) is an open-access data repository that gathers standardized molecular dynamics simulations of protein structures,
+accompanied by their analysis in the form of interactive diagrams and trajectory visualisation.
+All raw trajectories as well as the results of analysis are available for download.
 
 - web site: <https://www.dsimb.inserm.fr/ATLAS/>
 - publication: [ATLAS: protein flexibility description from atomistic molecular dynamics simulations](https://academic.oup.com/nar/article/52/D1/D384/7438909), Nucleic Acids Research, 2024.
@@ -38,7 +40,8 @@ Example with dataset id `1k5n_A`:
 Remarks:
 
 - The title of the dataset is the protein name.
-- No comment or description is provided. We used the organism as description.
+- No comment or description is provided. We used the organism name as description.
+- Parameters of molecular dynamics simulations are provided through the API endpoint <https://www.dsimb.inserm.fr/ATLAS/api/MD_parameters>.
 
 ### Metadata for files
 
